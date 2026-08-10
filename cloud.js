@@ -1,62 +1,45 @@
 "use strict";
 
 window.CloudCompetition=(()=>{
+  const TOKEN_KEY="competition.committeeToken";
   let client=null,context=null,saveTimer=null,sessionSaveTimer=null;
   const config=()=>window.SUPABASE_CONFIG||{};
   const enabled=()=>Boolean(config().url&&config().anonKey&&window.supabase?.createClient);
+  const rpcError=error=>new Error(error?.message||"تعذر الاتصال بقاعدة البيانات");
 
   async function init(){
     if(!enabled())return {enabled:false};
     client=window.supabase.createClient(config().url,config().anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
     const {data:{session}}=await client.auth.getSession();
-    if(session)context=await loadContext(session.user);
+    if(session)context=await loadAdminContext(session.user);
+    else if(localStorage.getItem(TOKEN_KEY)){
+      try{context=await resumeCommittee(localStorage.getItem(TOKEN_KEY))}catch{localStorage.removeItem(TOKEN_KEY)}
+    }
     return {enabled:true,context};
   }
 
-  async function loadContext(user){
+  async function loadAdminContext(user){
     const {data:profile,error}=await client.from("profiles").select("id,role,display_name").eq("id",user.id).single();
-    if(error)throw new Error("الحساب موجود لكن ملف الصلاحيات غير مُعدّ");
-    let committee=null;
-    if(profile.role==="committee"){
-      const result=await client.from("committees").select("id,name,levels,active").eq("auth_user_id",user.id).single();
-      if(result.error||!result.data?.active)throw new Error("حساب اللجنة غير فعال");
-      committee=result.data;
-    }
-    return context={user,profile,committee};
+    if(error||profile?.role!=="admin")throw new Error("الحساب موجود لكن ملف صلاحية الإدارة غير مُعدّ");
+    return context={kind:"admin",user,profile,committee:null};
   }
+  async function signInAdmin(email,password){const {data,error}=await client.auth.signInWithPassword({email,password});if(error)throw new Error("بيانات دخول الإدارة غير صحيحة");return loadAdminContext(data.user)}
+  async function signInCommittee(code,pin){const {data,error}=await client.rpc("committee_login",{p_login_code:code,p_pin:pin});if(error)throw rpcError(error);localStorage.setItem(TOKEN_KEY,data.token);return context={kind:"committee",token:data.token,committee:data.committee,profile:{role:"committee",display_name:data.committee.name}}}
+  async function resumeCommittee(token){const {data,error}=await client.rpc("committee_resume",{p_token:token});if(error)throw rpcError(error);return context={kind:"committee",token,committee:data,profile:{role:"committee",display_name:data.name}}}
+  async function signOut(){if(context?.kind==="committee"){await client.rpc("committee_logout",{p_token:context.token});localStorage.removeItem(TOKEN_KEY)}else await client.auth.signOut();context=null}
 
-  async function signIn(email,password){
-    const {data,error}=await client.auth.signInWithPassword({email,password});
-    if(error)throw new Error("بيانات الدخول غير صحيحة");
-    return loadContext(data.user);
-  }
+  async function loadCompetitionState(){if(context?.kind==="committee"){const {data,error}=await client.rpc("committee_load_state",{p_token:context.token});if(error)throw rpcError(error);return {payload:data}}const {data,error}=await client.from("competition_state").select("payload,updated_at").eq("id",1).single();if(error)throw error;return data}
+  async function saveCompetitionState(payload){const {error}=await client.from("competition_state").upsert({id:1,payload,updated_at:new Date().toISOString(),updated_by:context.user.id});if(error)throw error}
+  function queueStateSave(payload,onError){if(context?.kind!=="admin")return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));saveTimer=setTimeout(()=>saveCompetitionState(snapshot).catch(onError||console.error),450)}
 
-  async function signOut(){await client.auth.signOut();context=null}
-
-  async function loadCompetitionState(){
-    const {data,error}=await client.from("competition_state").select("payload,updated_at").eq("id",1).single();
-    if(error)throw error;return data;
-  }
-
-  async function saveCompetitionState(payload){
-    const {error}=await client.from("competition_state").upsert({id:1,payload,updated_at:new Date().toISOString(),updated_by:context.user.id});
-    if(error)throw error;
-  }
-
-  function queueStateSave(payload,onError){
-    if(context?.profile.role!=="admin")return;
-    clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));
-    saveTimer=setTimeout(()=>saveCompetitionState(snapshot).catch(onError||console.error),450);
-  }
-
-  async function listCommittees(){const {data,error}=await client.from("committees").select("id,name,levels,active,auth_user_id,created_at").order("created_at");if(error)throw error;return data}
-  async function linkCommitteeAccount(userId,name,levels){const {data,error}=await client.rpc("link_committee_account",{p_user_id:userId,p_name:name,p_levels:levels});if(error)throw new Error(error.message);return data}
+  async function listCommittees(){const {data,error}=await client.from("committees").select("id,name,levels,active,login_code,created_at").order("created_at");if(error)throw error;return data}
+  async function saveCommittee(values){const {data,error}=await client.rpc("admin_save_committee",{p_id:values.id||null,p_name:values.name,p_login_code:values.code,p_pin:values.pin||"",p_levels:values.levels,p_active:values.active!==false});if(error)throw rpcError(error);return data}
   async function setCommitteeActive(id,active){const {data,error}=await client.from("committees").update({active}).eq("id",id).select().single();if(error)throw error;return data}
-  async function listSessions(){const {data,error}=await client.from("exam_sessions").select("*").order("updated_at",{ascending:false});if(error)throw error;return data}
-  async function claimStudent(participantId,drawId,level){const {data,error}=await client.rpc("claim_student",{p_participant_id:participantId,p_draw_id:drawId,p_level:Number(level)});if(error)throw new Error(error.message);return data}
-  async function saveSession(sessionId,assessment,status="in_progress",score=null){const values={assessment,status,score,updated_at:new Date().toISOString()};if(status==="final")values.finalized_at=new Date().toISOString();const {data,error}=await client.from("exam_sessions").update(values).eq("id",sessionId).select().single();if(error)throw error;return data}
+  async function listSessions(){if(context?.kind==="committee"){const {data,error}=await client.rpc("committee_list_sessions",{p_token:context.token});if(error)throw rpcError(error);return data}const {data,error}=await client.from("exam_sessions").select("*").order("updated_at",{ascending:false});if(error)throw error;return data}
+  async function claimStudent(participantId,drawId,level){const {data,error}=await client.rpc("committee_claim_student",{p_token:context.token,p_participant_id:participantId,p_draw_id:drawId,p_level:Number(level)});if(error)throw rpcError(error);return data}
+  async function saveSession(sessionId,assessment,status="in_progress",score=null){const {data,error}=await client.rpc("committee_save_session",{p_token:context.token,p_session_id:sessionId,p_assessment:assessment,p_status:status,p_score:score});if(error)throw rpcError(error);return data}
   function queueSessionSave(sessionId,assessment,onError){clearTimeout(sessionSaveTimer);const snapshot=JSON.parse(JSON.stringify(assessment));sessionSaveTimer=setTimeout(()=>saveSession(sessionId,snapshot).catch(onError||console.error),300)}
-  async function log(action,entityType,entityId,details={}){if(!context)return;await client.from("audit_log").insert({actor_id:context.user.id,action,entity_type:entityType,entity_id:String(entityId),details})}
+  async function log(){return}
 
-  return {enabled,init,signIn,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,listCommittees,linkCommitteeAccount,setCommitteeActive,listSessions,claimStudent,saveSession,queueSessionSave,log,get context(){return context},get client(){return client}};
+  return {enabled,init,signInAdmin,signInCommittee,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,listCommittees,saveCommittee,setCommitteeActive,listSessions,claimStudent,saveSession,queueSessionSave,log,get context(){return context},get client(){return client}};
 })();

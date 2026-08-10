@@ -62,12 +62,19 @@
     <div class="login-card">
       <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
       <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
-      <h1>دخول اللجان والإدارة</h1>
-      <form id="cloudLoginForm">
-        <label>البريد الإلكتروني<input id="cloudLoginEmail" required type="email" autocomplete="username" placeholder="committee@example.com"></label>
-        <label>كلمة المرور<input id="cloudLoginPassword" required type="password" autocomplete="current-password"></label>
+      <h1>دخول لجنة الاختبار</h1>
+      <form id="committeeLoginForm">
+        <label>رمز اللجنة<input id="committeeLoginCode" required autocomplete="username" inputmode="latin" placeholder="مثال: L01"></label>
+        <label>الرقم السري PIN<input id="committeeLoginPin" required type="password" inputmode="numeric" minlength="4" autocomplete="current-password"></label>
+        <p id="committeeLoginError" class="form-error hidden"></p>
+        <button class="primary-btn wide" type="submit">دخول اللجنة</button>
+      </form>
+      <button id="showAdminLoginBtn" class="text-login-btn" type="button">دخول إدارة المسابقة</button>
+      <form id="cloudLoginForm" class="admin-login-form hidden">
+        <label>البريد الإلكتروني للإدارة<input id="cloudLoginEmail" required type="email" autocomplete="username"></label>
+        <label>كلمة مرور الإدارة<input id="cloudLoginPassword" required type="password" autocomplete="current-password"></label>
         <p id="cloudLoginError" class="form-error hidden"></p>
-        <button class="primary-btn wide" type="submit">تسجيل الدخول</button>
+        <button class="primary-btn wide" type="submit">دخول الإدارة</button>
       </form>
       <small>يُحفظ كل امتحان مباشرة في قاعدة بيانات الفرع</small>
     </div>
@@ -171,7 +178,7 @@
         <section id="settingsView" class="view">
           <div class="page-head"><div><span class="eyebrow">إعداد دورة المسابقة</span><h1>الإعدادات والنسخ الاحتياطي</h1><p>اضبط بيانات الدورة واحفظ نسخة احتياطية قبل يوم المسابقة.</p></div></div>
           <div class="settings-grid"><form id="settingsForm" class="panel"><h3>بيانات الدورة</h3><label>اسم المسابقة<input id="settingsCompetitionName" required></label><label>اسم المشرف<input id="settingsAdminName" required></label><label>رمز دخول جديد<input id="settingsPin" type="password" minlength="4" placeholder="اتركه فارغاً للإبقاء على الحالي"></label><button class="primary-btn" type="submit">حفظ التغييرات</button></form><section class="panel"><h3>البيانات والنسخ الاحتياطي</h3><div class="backup-actions"><button id="backupBtn" class="secondary-btn"><i data-lucide="archive"></i> تنزيل نسخة احتياطية</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استعادة نسخة<input id="restoreInput" type="file" accept="application/json,.json"></label><a class="secondary-btn" href="participants-template.csv" download><i data-lucide="file-spreadsheet"></i> قالب المتسابقين</a><button id="newCycleBtn" class="danger-btn"><i data-lucide="rotate-ccw"></i> بدء دورة جديدة</button></div><div class="data-source"><i data-lucide="badge-check"></i><div><b>مصدر القرآن</b><span>Quran Foundation Content API v4</span><small>النص العثماني، ترقيم مصحف المدينة 604 صفحات</small></div></div></section></div>
-          <section id="cloudCommitteesPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">العمل من أجهزة متعددة</span><h3>حسابات اللجان</h3></div><span class="status-pill">حساب واحد لكل لجنة</span></div><form id="committeeAccountForm" class="committee-account-form"><label>اسم اللجنة<input id="newCommitteeName" required placeholder="مثال: لجنة 5 أجزاء"></label><label>معرّف مستخدم الحساب<input id="newCommitteeUserId" required placeholder="UUID من صفحة Authentication"></label><fieldset><legend>المستويات المسؤولة عنها</legend><div class="committee-level-options"><label><input type="checkbox" name="committeeLevel" value="5"> 5</label><label><input type="checkbox" name="committeeLevel" value="10"> 10</label><label><input type="checkbox" name="committeeLevel" value="15"> 15</label><label><input type="checkbox" name="committeeLevel" value="20"> 20</label><label><input type="checkbox" name="committeeLevel" value="25"> 25</label><label><input type="checkbox" name="committeeLevel" value="30"> 30</label></div></fieldset><button class="primary-btn" type="submit"><i data-lucide="user-plus"></i> ربط حساب اللجنة</button></form><p class="field-help">أنشئ مستخدم اللجنة أولاً من Authentication في قاعدة البيانات، ثم انسخ User UID هنا. يمكن تعديل المستويات لاحقاً بإعادة ربط نفس المستخدم.</p><div id="committeesList" class="committees-list"></div></section>
+          <section id="cloudCommitteesPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">جاهزة لأي عدد من اللجان</span><h3>إدارة لجان الاختبار</h3></div><span class="status-pill">رمز وPIN لكل لجنة</span></div><form id="committeeAccountForm" class="committee-account-form"><input id="editingCommitteeId" type="hidden"><label>اسم اللجنة<input id="newCommitteeName" required placeholder="مثال: لجنة المستوى الأول"></label><label>رمز اللجنة<input id="newCommitteeCode" required maxlength="20" placeholder="مثال: L01"></label><label>PIN<input id="newCommitteePin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label><fieldset><legend>المستويات المسؤولة عنها</legend><div class="committee-level-options"><label><input type="checkbox" name="committeeLevel" value="5"> 5</label><label><input type="checkbox" name="committeeLevel" value="10"> 10</label><label><input type="checkbox" name="committeeLevel" value="15"> 15</label><label><input type="checkbox" name="committeeLevel" value="20"> 20</label><label><input type="checkbox" name="committeeLevel" value="25"> 25</label><label><input type="checkbox" name="committeeLevel" value="30"> 30</label></div></fieldset><div class="committee-form-actions"><button class="primary-btn" type="submit"><i data-lucide="user-plus"></i> <span id="committeeSubmitLabel">إضافة اللجنة</span></button><button id="cancelCommitteeEdit" class="secondary-btn hidden" type="button">إلغاء التعديل</button></div></form><p class="field-help">يمكن إضافة اللجان وتوزيع المستويات لاحقاً دون تعديل الكود أو قاعدة البيانات. عند تعديل لجنة، اترك PIN فارغاً للاحتفاظ بالرقم الحالي.</p><div id="committeesList" class="committees-list"></div></section>
         </section>
       </main>
       <footer><span>تصميم وتطوير م. مأمون محمود الفقيه</span><span>تحسين م. محمد عادل الفقيه</span></footer>
@@ -186,8 +193,8 @@
   <script src="vendor/jspdf.umd.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js"></script>
+  <script src="cloud.js?v=20260811-pin1"></script>
   <script src="data/quran-data.js"></script>
-  <script src="app.js?v=20260811-cloud2"></script>
+  <script src="app.js?v=20260811-pin1"></script>
 </body>
 </html>
