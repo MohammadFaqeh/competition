@@ -69,6 +69,14 @@ alter table public.competition_state enable row level security;
 alter table public.exam_sessions enable row level security;
 alter table public.audit_log enable row level security;
 
+grant usage on schema public to anon,authenticated;
+grant select,insert,update,delete on public.profiles to authenticated;
+grant select,insert,update,delete on public.committees to authenticated;
+grant select,insert,update,delete on public.competition_state to authenticated;
+grant select,insert,update,delete on public.exam_sessions to authenticated;
+grant select,insert,update,delete on public.audit_log to authenticated;
+grant usage,select on all sequences in schema public to authenticated;
+
 drop policy if exists profiles_read on public.profiles;
 create policy profiles_read on public.profiles for select to authenticated
 using (id=auth.uid() or public.current_user_role()='admin');
