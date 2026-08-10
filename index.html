@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#164c3b">
+  <title>منصة المسابقة السنوية القرآنية</title>
+  <!-- خط Tajawal: يُحمَّل عند توفر اتصال بالإنترنت فقط. عند عدم توفره، يعمل CSS fallback
+       المحدد في --font-arabic تلقائياً (Segoe UI / Tahoma) دون كسر الصفحة أو تأخيرها. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen">
+    <img class="auth-logo loading-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+    <strong>منصة المسابقة السنوية</strong>
+    <p>جاري تجهيز المنصة...</p>
+  </div>
+
+  <section id="setupScreen" class="auth-screen hidden">
+    <div class="auth-panel">
+      <div class="auth-brand">
+        <img class="auth-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+        <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
+        <h1>منصة المسابقة السنوية</h1>
+        <div class="auth-facts">
+          <span><b id="setupPositions">--</b> موضعاً محققاً</span>
+          <span><b>30</b> جزءاً</span>
+          <span><b>604</b> صفحات</span>
+        </div>
+      </div>
+      <form id="setupForm" class="auth-form">
+        <span class="eyebrow">الإعداد الأول</span>
+        <h2>إنشاء دورة المسابقة</h2>
+        <p>تُحفظ البيانات على هذا الجهاز وتعمل المنصة دون اتصال.</p>
+        <label>اسم دورة المسابقة<input id="setupCompetitionName" required value="المسابقة السنوية لتحفيظ القرآن الكريم 2026"></label>
+        <label>اسم المشرف<input id="setupAdminName" required value="م. مأمون محمود الفقيه"></label>
+        <label>رمز الدخول<input id="setupPin" required minlength="4" maxlength="20" type="password" inputmode="numeric" placeholder="4 أرقام أو أكثر"></label>
+        <button class="primary-btn wide" type="submit">إنشاء الدورة والدخول</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="loginScreen" class="auth-screen hidden">
+    <div class="login-card">
+      <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+      <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
+      <h1 id="loginCompetitionName">المسابقة السنوية</h1>
+      <form id="loginForm">
+        <label>رمز الدخول<input id="loginPin" required type="password" inputmode="numeric" autofocus></label>
+        <p id="loginError" class="form-error hidden">رمز الدخول غير صحيح</p>
+        <button class="primary-btn wide" type="submit">دخول المنصة</button>
+      </form>
+      <small>تعمل محلياً دون اتصال بالإنترنت</small>
+    </div>
+  </section>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+        <div><b>جمعية المحافظة على القرآن الكريم</b><small>فرع الكورة | المسابقة السنوية</small></div>
+      </div>
+      <nav id="mainNav">
+        <button class="nav-item active" data-view="dashboard"><i data-lucide="layout-dashboard"></i><span>نظرة عامة</span></button>
+        <button class="nav-item" data-view="participants"><i data-lucide="users"></i><span>المتسابقون</span></button>
+        <button class="nav-item" data-view="draw"><i data-lucide="sparkles"></i><span>إجراء السحب</span></button>
+        <button class="nav-item" data-view="history"><i data-lucide="history"></i><span>سجل السحوبات</span></button>
+        <button class="nav-item" data-view="analytics"><i data-lucide="chart-no-axes-combined"></i><span>الإحصاءات</span></button>
+        <button class="nav-item" data-view="settings"><i data-lucide="settings"></i><span>الإعدادات</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="logoutBtn" class="nav-item"><i data-lucide="log-out"></i><span>تسجيل الخروج</span></button>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <button id="menuBtn" class="icon-btn menu-btn" title="القائمة"><i data-lucide="menu"></i></button>
+        <div><span class="eyebrow">الدورة الحالية</span><h2 id="topCompetitionName"></h2></div>
+        <div class="topbar-actions">
+          <div class="date-chip"><i data-lucide="calendar-days"></i><span id="todayText"></span></div>
+        </div>
+      </header>
+
+      <main>
+        <section id="dashboardView" class="view active-view">
+          <div class="welcome-band">
+            <div><span class="eyebrow light">جمعية المحافظة على القرآن الكريم | فرع الكورة</span><h1>إدارة اختبارات المسابقة السنوية</h1><p>المتسابقون، السحب، والنتائج في مكان واحد.</p></div>
+            <img class="welcome-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+          </div>
+          <div class="stats-grid">
+            <article class="stat"><div class="stat-icon green"><i data-lucide="users"></i></div><div><span>إجمالي المتسابقين</span><b id="statParticipants">0</b><small id="statPending">0 لم يكتمل امتحانهم</small></div></article>
+            <article class="stat"><div class="stat-icon gold"><i data-lucide="clipboard-check"></i></div><div><span>تم امتحانهم</span><b id="statDraws">0</b><small>أُدخلت علاماتهم النهائية</small></div></article>
+            <article class="stat"><div class="stat-icon blue"><i data-lucide="badge-check"></i></div><div><span>الناجحون</span><b id="statPositions">0</b><small id="statUsed">0 راسب</small></div></article>
+            <article class="stat"><div class="stat-icon red"><i data-lucide="percent"></i></div><div><span>نسبة النجاح</span><b id="statIntegrity">0%</b><small>من المتسابقين المكتملة علاماتهم</small></div></article>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel"><div class="panel-head"><div><span class="eyebrow">سير العمل</span><h3>آخر المتسابقين</h3></div><button class="text-btn" data-go="participants">عرض الكل <i data-lucide="arrow-left"></i></button></div><div id="recentParticipants" class="participant-list empty-state"></div></section>
+            <section class="panel"><div class="panel-head"><div><span class="eyebrow">تغطية عادلة</span><h3>استخدام أجزاء القرآن</h3></div><span class="status-pill">متابعة مباشرة</span></div><div id="miniDistribution" class="mini-bars"></div></section>
+          </div>
+        </section>
+
+        <section id="participantsView" class="view">
+          <div class="page-head"><div><span class="eyebrow">إدارة الدورة</span><h1>المتسابقون</h1><p>أضف الأسماء أو استورد ملف Excel الجاهز.</p></div><div class="page-actions"><label class="secondary-btn file-btn"><i data-lucide="file-up"></i> استيراد Excel<input id="csvInput" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label><button id="exportResultsBtn" class="secondary-btn"><i data-lucide="sheet"></i> النتائج والترتيب</button><button id="bulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><button id="deleteAllParticipantsBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button><button id="addParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
+          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="participantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="participantFilter"><option value="all">جميع الحالات</option><option value="pending">بانتظار السحب</option><option value="drawn">تم السحب / بانتظار العلامة</option><option value="completed">تم الاختبار</option></select></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>العلامة / 100</th><th>الإجراءات</th></tr></thead><tbody id="participantsTable"></tbody></table></div></section>
+        </section>
+
+        <section id="drawView" class="view">
+          <div class="page-head"><div><span class="eyebrow">لجنة الاختبار</span><h1>إجراء السحب</h1><p>اختر المتسابق وحدد مستوى الحفظ ثم نفذ السحب.</p></div></div>
+          <div class="draw-layout">
+            <form id="drawForm" class="panel draw-form">
+              <div class="step-title"><span>1</span><div><b>بيانات المتسابق</b><small>اختر اسماً مسجلاً أو أدخل بيانات مباشرة</small></div></div>
+              <label>المتسابق<select id="drawParticipant"><option value="">اختبار مباشر (غير مسجل)</option></select></label>
+              <div class="form-grid"><label>الاسم<input id="drawName" required placeholder="اسم المتسابق الثلاثي"></label><label>رقم الجلوس<input id="drawSeat" placeholder="اختياري"></label><label>المركز<input id="drawCenter" required placeholder="اسم المركز"></label><label>العمر<input id="drawAge" type="number" min="4" max="100" placeholder="اختياري"></label></div>
+              <div class="step-title"><span>2</span><div><b>مستوى الحفظ</b><small>حدد الأجزاء التي يتقدم بها المتسابق</small></div></div>
+              <div class="form-grid"><label>عدد الأجزاء<select id="drawLevel" required><option value="">اختر المستوى</option><option>5</option><option>10</option><option>15</option><option>20</option><option>25</option><option>30</option></select></label><label>عدد أسئلة الاختبار<input id="drawQuestionCount" type="number" min="1" max="15" value="3"></label></div>
+              <div class="parts-head"><span>الأجزاء المشمولة</span><div class="parts-shortcuts"><button type="button" class="range-btn" data-part-range="1-10">الأولى 1-10</button><button type="button" class="range-btn" data-part-range="11-20">الثانية 11-20</button><button type="button" class="range-btn" data-part-range="21-30">الأخيرة 21-30</button><button id="selectFirstParts" type="button" class="range-btn">بحسب المستوى</button><button id="clearParts" type="button" class="text-btn muted">مسح</button></div></div>
+              <div id="partsGrid" class="parts-grid"></div>
+              <p id="drawError" class="form-error hidden"></p>
+              <button class="draw-trigger" type="submit"><i data-lucide="sparkles"></i><span>تنفيذ السحب العادل</span><small>تثبيت النتيجة وحفظها في سجل الدورة</small></button>
+            </form>
+            <aside class="draw-side">
+              <section class="panel rules-panel"><div class="panel-head"><h3>ملخص الاختبار</h3><i data-lucide="badge-check"></i></div><ul><li><i data-lucide="check"></i> لا تتكرر مواضع الدورة</li><li><i data-lucide="check"></i> تُحفظ النتيجة تلقائياً</li><li><i data-lucide="check"></i> يمكن طباعة ورقة المتسابق</li></ul></section>
+              <section class="panel availability"><span>المتاح للمستوى الحالي</span><b id="availableCount">اختر الأجزاء</b><small>يُحدّث فورياً حسب سجل الدورة</small></section>
+            </aside>
+          </div>
+        </section>
+
+        <section id="historyView" class="view">
+          <div class="page-head"><div><span class="eyebrow">سجل نتائج المسابقة</span><h1>سجل السحوبات</h1><p>جميع النتائج المثبتة وإعادات السحب محفوظة مع التاريخ والوقت.</p></div><div class="page-actions"><button id="exportHistoryBtn" class="secondary-btn"><i data-lucide="file-spreadsheet"></i> تصدير Excel للجميع</button><button id="deleteAllDrawsBtn" class="danger-btn"><i data-lucide="trash-2"></i> حذف جميع السحوبات</button></div></div>
+          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="historySearch" placeholder="بحث باسم المتسابق أو رقم السحب"></div></div><div class="table-wrap"><table><thead><tr><th>رقم السحب</th><th>المتسابق</th><th>المستوى</th><th>المواضع</th><th>التاريخ</th><th></th></tr></thead><tbody id="historyTable"></tbody></table></div></section>
+        </section>
+
+        <section id="analyticsView" class="view">
+          <div class="page-head"><div><span class="eyebrow">شفافية الخوارزمية</span><h1>العدالة والإحصاءات</h1><p>مراقبة توزيع المواضع المستخدمة على أجزاء القرآن أثناء الدورة.</p></div><button id="runAuditBtn" class="secondary-btn"><i data-lucide="activity"></i> تشغيل فحص العشوائية</button></div>
+          <div class="analytics-grid"><section class="panel"><div class="panel-head"><h3>الاستخدام حسب الجزء</h3><span id="fairnessLabel" class="status-pill">لا توجد بيانات كافية</span></div><div id="distributionChart" class="distribution-chart"></div></section><section class="panel audit-panel"><div class="audit-score"><span>نتيجة الفحص</span><b id="auditScore">--</b><small id="auditDetail">شغّل الفحص لمحاكاة 100,000 سحب</small></div><div class="audit-notes"><p><i data-lucide="shield-check"></i> يستخدم النظام Web Crypto بدلاً من Math.random.</p><p><i data-lucide="database"></i> سلامة قاعدة الآيات تُفحص عند كل تشغيل.</p><p><i data-lucide="scale"></i> لا توجد أفضلية رقمية لأي جزء داخل المجموعة المختارة.</p></div></section></div>
+        </section>
+
+        <section id="settingsView" class="view">
+          <div class="page-head"><div><span class="eyebrow">إعداد دورة المسابقة</span><h1>الإعدادات والنسخ الاحتياطي</h1><p>اضبط بيانات الدورة واحفظ نسخة احتياطية قبل يوم المسابقة.</p></div></div>
+          <div class="settings-grid"><form id="settingsForm" class="panel"><h3>بيانات الدورة</h3><label>اسم المسابقة<input id="settingsCompetitionName" required></label><label>اسم المشرف<input id="settingsAdminName" required></label><label>رمز دخول جديد<input id="settingsPin" type="password" minlength="4" placeholder="اتركه فارغاً للإبقاء على الحالي"></label><button class="primary-btn" type="submit">حفظ التغييرات</button></form><section class="panel"><h3>البيانات والنسخ الاحتياطي</h3><div class="backup-actions"><button id="backupBtn" class="secondary-btn"><i data-lucide="archive"></i> تنزيل نسخة احتياطية</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استعادة نسخة<input id="restoreInput" type="file" accept="application/json,.json"></label><a class="secondary-btn" href="participants-template.csv" download><i data-lucide="file-spreadsheet"></i> قالب المتسابقين</a><button id="newCycleBtn" class="danger-btn"><i data-lucide="rotate-ccw"></i> بدء دورة جديدة</button></div><div class="data-source"><i data-lucide="badge-check"></i><div><b>مصدر القرآن</b><span>Quran Foundation Content API v4</span><small>النص العثماني، ترقيم مصحف المدينة 604 صفحات</small></div></div></section></div>
+        </section>
+      </main>
+      <footer><span>تصميم وتطوير م. مأمون محمود الفقيه</span><span>تحسين م. محمد عادل الفقيه</span></footer>
+    </div>
+  </div>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true"><div id="modalContent" class="modal-card"></div></div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="vendor/lucide.min.js"></script>
+  <script src="vendor/xlsx.full.min.js"></script>
+  <script src="vendor/html2canvas.min.js"></script>
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script src="data/quran-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
