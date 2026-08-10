@@ -23,13 +23,14 @@ async function init(){
     bindEvents();
     buildPartsGrid();
     lucide.createIcons();
-    $("#loadingScreen").classList.add("hidden");
     $("#setupPositions").textContent = formatNumber(candidates.length);
     const cloudStatus=await window.CloudCompetition.init();cloudEnabled=cloudStatus.enabled;
+    $("#loadingScreen").classList.add("hidden");
     if(cloudEnabled){if(cloudStatus.context)await enterCloudContext(cloudStatus.context);else showScreen("cloudLoginScreen");return}
     if(!state.config) showScreen("setupScreen"); else showScreen("loginScreen");
     if(state.config) $("#loginCompetitionName").textContent = state.config.competitionName;
   }catch(error){
+    $("#loadingScreen").classList.remove("hidden");
     $("#loadingScreen").innerHTML = `<div class="brand-mark"><span>تنبيه</span></div><strong>تعذر تشغيل المنصة</strong><p>${escapeHtml(error.message)}</p>`;
   }
 }
