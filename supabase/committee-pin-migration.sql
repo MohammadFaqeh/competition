@@ -160,6 +160,15 @@ begin
   return v_session;
 end $$;
 
+create or replace function public.admin_delete_participant_session(p_participant_id text)
+returns void
+language plpgsql security definer set search_path=public
+as $$
+begin
+  if public.current_user_role() <> 'admin' then raise exception 'هذه العملية للمدير فقط'; end if;
+  delete from public.exam_sessions where participant_id=p_participant_id;
+end $$;
+
 grant execute on function public.committee_login(text,text) to anon,authenticated;
 grant execute on function public.committee_resume(text) to anon,authenticated;
 grant execute on function public.committee_logout(text) to anon,authenticated;
@@ -168,4 +177,4 @@ grant execute on function public.committee_list_sessions(text) to anon,authentic
 grant execute on function public.committee_claim_student(text,text,text,smallint) to anon,authenticated;
 grant execute on function public.committee_save_session(text,uuid,jsonb,text,numeric) to anon,authenticated;
 grant execute on function public.admin_save_committee(uuid,text,text,text,smallint[],boolean) to authenticated;
-
+grant execute on function public.admin_delete_participant_session(text) to authenticated;

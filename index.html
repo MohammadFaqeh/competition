@@ -142,7 +142,7 @@
 
         <section id="participantsView" class="view">
           <div class="page-head"><div><span class="eyebrow">إدارة الدورة</span><h1>المتسابقون</h1><p>أضف الأسماء أو استورد ملف Excel الجاهز.</p></div><div class="page-actions"><label class="secondary-btn file-btn"><i data-lucide="file-up"></i> استيراد Excel<input id="csvInput" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label><button id="exportResultsBtn" class="secondary-btn"><i data-lucide="sheet"></i> النتائج والترتيب</button><button id="bulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><button id="deleteAllParticipantsBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button><button id="addParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
-          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="participantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="participantFilter"><option value="all">جميع الحالات</option><option value="pending">بانتظار السحب</option><option value="drawn">تم السحب / بانتظار العلامة</option><option value="completed">تم الاختبار</option></select></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>العلامة / 100</th><th>الإجراءات</th></tr></thead><tbody id="participantsTable"></tbody></table></div></section>
+          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="participantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="participantFilter"><option value="all">جميع الحالات</option><option value="pending">بانتظار السحب</option><option value="drawn">تم السحب / بانتظار العلامة</option><option value="completed">تم الاختبار</option></select><span id="participantFilterCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>العلامة / 100</th><th>الإجراءات</th></tr></thead><tbody id="participantsTable"></tbody></table></div></section>
         </section>
 
         <section id="drawView" class="view">
@@ -194,8 +194,8 @@
   <script src="vendor/jspdf.umd.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260811-pin1"></script>
+  <script src="cloud.js?v=20260811-reset-draw1"></script>
   <script src="data/quran-data.js"></script>
-  <script src="app.js?v=20260811-committee-filter1"></script>
+  <script src="app.js?v=20260811-reset-draw1"></script>
 </body>
 </html>
