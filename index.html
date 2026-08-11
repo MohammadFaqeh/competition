@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260811-cloud1">
+  <link rel="stylesheet" href="styles.css?v=20260811-responsive1">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -88,7 +88,7 @@
     </header>
     <main class="committee-main">
       <section class="committee-statusbar"><div><span>بانتظار الاختبار</span><b id="committeePendingCount">0</b></div><div><span>قيد الاختبار</span><b id="committeeActiveCount">0</b></div><div><span>مكتمل</span><b id="committeeCompletedCount">0</b></div></section>
-      <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="committeeSearch" placeholder="بحث باسم الطالب أو رقم الجلوس"></div><button id="refreshCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
+      <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="committeeSearch" placeholder="بحث باسم الطالب أو رقم الجلوس"></div><select id="committeeStatusFilter" aria-label="فرز الطلاب حسب الحالة"><option value="all">جميع الحالات</option><option value="no_draw">لم يتم السحب بعد</option><option value="pending">جاهز للاختبار</option><option value="in_progress">قيد الاختبار</option><option value="final">مكتمل الاختبار</option></select><button id="refreshCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
       <section id="committeeStudents" class="committee-students"></section>
     </main>
   </section>
@@ -196,6 +196,6 @@
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20260811-pin1"></script>
   <script src="data/quran-data.js"></script>
-  <script src="app.js?v=20260811-login-pages1"></script>
+  <script src="app.js?v=20260811-committee-filter1"></script>
 </body>
 </html>
