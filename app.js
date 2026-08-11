@@ -204,15 +204,15 @@ function openParticipantModal(participant=null){
     event.preventDefault();
     const button=event.submitter,level=Number($("#pLevel").value),partText=$("#pParts").value.trim(),parsedParts=parsePartSpec(partText);
     if(partText&&parsedParts.length!==level)return toast(`سجّل ${level} أجزاء بالضبط، أو اترك الحقل فارغاً لتسجيلها لاحقاً`);
-    const parts=parsedParts.length===level?parsedParts:[],oldParts=[...(participant?.parts||[])].sort((a,b)=>a-b),partsChanged=Boolean(participant)&&(Number(participant.level)!==level||JSON.stringify(oldParts)!==JSON.stringify(parts)),oldDraw=participant&&state.draws.find(draw=>draw.participantId===participant.id);
+    const parts=parsedParts.length===level?parsedParts:[],oldParts=[...(participant?.parts||[])].sort((a,b)=>a-b),partsChanged=Boolean(participant)&&(Number(participant.level)!==level||JSON.stringify(oldParts)!==JSON.stringify(parts)),oldDraw=participant&&state.draws.find(draw=>draw.participantId===participant.id),drawParts=[...(oldDraw?.eligibleParts||[])].sort((a,b)=>a-b),drawPartsMismatch=Boolean(oldDraw)&&(Number(oldDraw.level)!==level||JSON.stringify(drawParts)!==JSON.stringify(parts)),resetRequired=partsChanged||drawPartsMismatch;
     button.disabled=true;
     try{
-      if(partsChanged&&oldDraw&&cloudEnabled)await window.CloudCompetition.deleteParticipantSession(participant.id);
+      if(resetRequired&&oldDraw&&cloudEnabled)await window.CloudCompetition.deleteParticipantSession(participant.id);
       const item={id:participant?.id||uid("P"),name:$("#pName").value.trim(),seat:$("#pSeat").value.trim(),gender:$("#pGender").value,center:$("#pCenter").value.trim(),age:Number($("#pAge").value)||null,level,parts,createdAt:participant?.createdAt||new Date().toISOString()};
-      if(!partsChanged){item.score=participant?.score;item.gradedAt=participant?.gradedAt;item.scoreSource=participant?.scoreSource;item.assessment=participant?.assessment}
-      if(partsChanged&&oldDraw){state.deletions=state.deletions||[];state.deletions.push({type:"draw-parts-changed",drawId:oldDraw.id,participantId:participant.id,name:participant.name,oldParts,newParts:parts,at:new Date().toISOString()});state.draws=state.draws.filter(draw=>draw.participantId!==participant.id);committeeSessions=committeeSessions.filter(session=>session.participant_id!==participant.id)}
+      if(!resetRequired){item.score=participant?.score;item.gradedAt=participant?.gradedAt;item.scoreSource=participant?.scoreSource;item.assessment=participant?.assessment}
+      if(resetRequired&&oldDraw){state.deletions=state.deletions||[];state.deletions.push({type:"draw-parts-changed",drawId:oldDraw.id,participantId:participant.id,name:participant.name,oldParts:drawParts.length?drawParts:oldParts,newParts:parts,at:new Date().toISOString()});state.draws=state.draws.filter(draw=>draw.participantId!==participant.id);committeeSessions=committeeSessions.filter(session=>session.participant_id!==participant.id)}
       const index=state.participants.findIndex(p=>p.id===item.id);if(index>=0)state.participants[index]=item;else state.participants.push(item);
-      saveState();closeModal();renderAll();toast(partsChanged&&oldDraw?"تم تعديل الأجزاء وإلغاء السحب القديم وإعادة الطالب لانتظار السحب":"تم حفظ بيانات المتسابق");
+      saveState();closeModal();renderAll();toast(resetRequired&&oldDraw?"تم تصحيح الأجزاء وإلغاء السحب القديم وإعادة الطالب لانتظار السحب":"تم حفظ بيانات المتسابق");
     }catch(error){toast(`تعذر تعديل أجزاء الطالب: ${error.message}`);button.disabled=false}
   });
 }
