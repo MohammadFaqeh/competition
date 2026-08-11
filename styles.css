@@ -638,6 +638,7 @@ img,svg{max-width:100%}
 .pdf-export-sheet .positions-list{padding:16px 0!important}.pdf-export-sheet .positions-title{grid-template-columns:42px 1fr 65px;padding:7px 10px;background:var(--green-900)!important;color:#fff!important}.pdf-export-sheet .position-card{grid-template-columns:42px 1fr 65px!important;padding:11px 10px!important;border:1px solid #dce3df;border-top:0}.pdf-export-sheet .position-number{width:32px;height:32px;background:#e8f2ed!important;border-radius:0}.pdf-export-sheet .position-card h3{font-size:14px}.pdf-export-sheet .position-card p{font-size:9px}.pdf-export-sheet .page-number b{font-size:16px}
 .pdf-export-sheet .assessment-print-summary{margin:0 0 12px!important}.pdf-export-sheet .assessment-print-row{padding:5px 8px;font-size:9px;break-inside:avoid}.pdf-export-sheet .assessment-print-title{padding:7px 9px}
 .pdf-export-sheet .print-signatures{justify-content:space-between;gap:24px;margin-top:20px;padding-top:18px;border-top:1px solid var(--faint)}.pdf-export-sheet .print-signatures div{flex:1}.pdf-export-sheet .print-signatures span{display:block;font-size:10px;color:#58665f}.pdf-export-sheet .print-signatures b{display:block;height:31px;border-bottom:1px dotted #777;margin-top:5px;text-align:left}.pdf-export-sheet .print-footer{justify-content:space-between;margin-top:28px;padding-top:8px;border-top:1px solid #d6ddda;color:#68756f;font-size:8px}
+.pdf-export-sheet .print-signatures{display:none!important}
 @page{size:A4 portrait;margin:11mm 13mm}
 @media print{
   html,body{background:#fff!important;width:100%;min-height:0}
@@ -647,6 +648,7 @@ img,svg{max-width:100%}
   .modal-actions,.result-warning,.legacy-warning{display:none!important}
   .assessment-print-summary{margin:0 0 10px!important;break-inside:auto}.assessment-print-row{padding:4px 7px;font-size:8.5px;break-inside:avoid}.assessment-print-title{padding:6px 8px}
   .print-only{display:flex!important}
+  .print-signatures{display:none!important}
   .print-letterhead{align-items:center;justify-content:space-between;border-bottom:2px solid var(--green-900);padding:0 0 10px;margin-bottom:10px;color:var(--green-900);gap:12px}
   .print-letterhead>div{margin-left:auto}
   .print-letterhead div{display:flex;flex-direction:column}
