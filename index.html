@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260811-print-clean1">
+  <link rel="stylesheet" href="styles.css?v=20260811-credit1">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -55,6 +55,7 @@
         <button class="primary-btn wide" type="submit">دخول المنصة</button>
       </form>
       <small>تعمل محلياً دون اتصال بالإنترنت</small>
+      <div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>
     </div>
   </section>
 
@@ -78,6 +79,7 @@
         <button id="backToCommitteeLoginBtn" class="secondary-btn wide" type="button">العودة لدخول اللجان</button>
       </form>
       <small>يُحفظ كل امتحان مباشرة في قاعدة بيانات الفرع</small>
+      <div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>
     </div>
   </section>
 
@@ -182,7 +184,7 @@
           <section id="cloudCommitteesPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">جاهزة لأي عدد من اللجان</span><h3>إدارة لجان الاختبار</h3></div><span class="status-pill">رمز وPIN لكل لجنة</span></div><form id="committeeAccountForm" class="committee-account-form"><input id="editingCommitteeId" type="hidden"><label>اسم اللجنة<input id="newCommitteeName" required placeholder="مثال: لجنة المستوى الأول"></label><label>رمز اللجنة<input id="newCommitteeCode" required maxlength="20" placeholder="مثال: L01"></label><label>PIN<input id="newCommitteePin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label><fieldset><legend>المستويات المسؤولة عنها</legend><div class="committee-level-options"><label><input type="checkbox" name="committeeLevel" value="5"> 5</label><label><input type="checkbox" name="committeeLevel" value="10"> 10</label><label><input type="checkbox" name="committeeLevel" value="15"> 15</label><label><input type="checkbox" name="committeeLevel" value="20"> 20</label><label><input type="checkbox" name="committeeLevel" value="25"> 25</label><label><input type="checkbox" name="committeeLevel" value="30"> 30</label></div></fieldset><div class="committee-form-actions"><button class="primary-btn" type="submit"><i data-lucide="user-plus"></i> <span id="committeeSubmitLabel">إضافة اللجنة</span></button><button id="cancelCommitteeEdit" class="secondary-btn hidden" type="button">إلغاء التعديل</button></div></form><p class="field-help">يمكن إضافة اللجان وتوزيع المستويات لاحقاً دون تعديل الكود أو قاعدة البيانات. عند تعديل لجنة، اترك PIN فارغاً للاحتفاظ بالرقم الحالي.</p><div id="committeesList" class="committees-list"></div></section>
         </section>
       </main>
-      <footer><span>تصميم وتطوير م. مأمون محمود الفقيه</span><span>تحسين م. محمد عادل الفقيه</span></footer>
+      <footer><div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div></footer>
     </div>
   </div>
 
@@ -196,6 +198,6 @@
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20260811-reset-draw1"></script>
   <script src="data/quran-data.js"></script>
-  <script src="app.js?v=20260811-live-committee1"></script>
+  <script src="app.js?v=20260811-credit1"></script>
 </body>
 </html>
