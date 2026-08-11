@@ -121,7 +121,7 @@ p{margin:0}
   pointer-events:none;
 }
 .auth-brand p{color:#bcd8cb;margin:var(--sp-6) 0 var(--sp-1);font-size:13px;position:relative}
-.auth-brand h1{font-size:clamp(26px,3vw,36px);line-height:1.38;margin:0;max-width:390px;position:relative}
+.auth-brand h1{font-size:clamp(26px,3vw,36px);line-height:1.38;margin:0;max-width:390px;position:relative;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.22)}
 .auth-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-3);border-top:1px solid rgba(255,255,255,.14);margin-top:var(--sp-7);padding-top:var(--sp-5);position:relative}
 .auth-facts span{color:#a9c9bb;font-size:11.5px}
 .auth-facts b{display:block;color:#fff;font-size:22px;margin-top:4px}
@@ -684,7 +684,7 @@ img,svg{max-width:100%}
 }
 
 /* Public gateway and isolated local-branch mode */
-.login-card{position:relative}.gateway-back-button{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--green-800);padding:8px 11px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;z-index:2}.gateway-back-button:hover{background:var(--green-50)}.gateway-back-button svg{width:16px;height:16px}
+.login-card,.auth-form{position:relative}.gateway-back-button{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--green-800);padding:8px 11px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;z-index:2}.gateway-back-button:hover{background:var(--green-50)}.gateway-back-button svg{width:16px;height:16px}.setup-back-button{top:14px;right:18px}
 .gateway-screen{padding:28px;background:linear-gradient(135deg,var(--green-950),var(--green-800))}
 .gateway-card{width:min(960px,100%);margin:auto;background:#fff;border-radius:24px;padding:32px;box-shadow:0 24px 70px rgba(0,0,0,.24)}
 .gateway-intro{text-align:center;max-width:680px;margin:0 auto 28px}
