@@ -98,7 +98,7 @@ function wordCount(text){return text.trim().split(/\s+/).filter(Boolean).length}
 function dedupeCandidates(list){const seen=new Set();return list.filter(item=>{const key=`${item.startKey}-${item.endKey}`;if(seen.has(key))return false;seen.add(key);return true})}
 
 function bindEvents(){
-  $("#backToGatewayBtn").addEventListener("click",()=>showScreen("gatewayScreen"));
+  $$('[data-back-gateway]').forEach(button=>button.addEventListener("click",()=>showScreen("gatewayScreen")));
   $("#localBackupShortcut").addEventListener("click",downloadBackup);
   $("#setupForm").addEventListener("submit",setupApp);
   $("#loginForm").addEventListener("submit",login);

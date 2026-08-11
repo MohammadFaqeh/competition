@@ -684,6 +684,7 @@ img,svg{max-width:100%}
 }
 
 /* Public gateway and isolated local-branch mode */
+.login-card{position:relative}.gateway-back-button{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--green-800);padding:8px 11px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;z-index:2}.gateway-back-button:hover{background:var(--green-50)}.gateway-back-button svg{width:16px;height:16px}
 .gateway-screen{padding:28px;background:linear-gradient(135deg,var(--green-950),var(--green-800))}
 .gateway-card{width:min(960px,100%);margin:auto;background:#fff;border-radius:24px;padding:32px;box-shadow:0 24px 70px rgba(0,0,0,.24)}
 .gateway-intro{text-align:center;max-width:680px;margin:0 auto 28px}
@@ -701,4 +702,4 @@ img,svg{max-width:100%}
 .local-mode-notice>svg{width:20px;flex:0 0 auto}.local-mode-notice>div{display:flex;flex-direction:column;flex:1}.local-mode-notice b{font-size:12px}.local-mode-notice span{font-size:10px}
 .local-mode-notice button{border:0;border-radius:8px;padding:8px 11px;background:#765b14;color:#fff;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
 .local-branch-app #cloudCommitteesPanel,.local-branch-app #syncCloudBtn{display:none!important}
-@media(max-width:760px){.gateway-screen{padding:0}.gateway-card{min-height:100dvh;border-radius:0;padding:22px 16px}.gateway-intro .auth-logo{width:84px;height:84px}.gateway-options{grid-template-columns:1fr}.gateway-option{padding:18px}.local-mode-notice{margin:8px 9px 0;align-items:flex-start}.local-mode-notice button{display:none}}
+@media(max-width:760px){.gateway-back-button{top:10px;right:10px;padding:7px}.gateway-back-button span{display:none}.gateway-screen{padding:0}.gateway-card{min-height:100dvh;border-radius:0;padding:22px 16px}.gateway-intro .auth-logo{width:84px;height:84px}.gateway-options{grid-template-columns:1fr}.gateway-option{padding:18px}.local-mode-notice{margin:8px 9px 0;align-items:flex-start}.local-mode-notice button{display:none}}
