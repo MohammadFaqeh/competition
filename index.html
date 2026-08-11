@@ -10,21 +10,46 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260811-final-edit1">
+  <link rel="stylesheet" href="styles.css?v=20260812-local-gateway1">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
-  <div id="loadingScreen" class="loading-screen">
+  <div id="loadingScreen" class="loading-screen hidden">
     <img class="auth-logo loading-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
     <strong>منصة المسابقة السنوية</strong>
     <p>جاري تجهيز المنصة...</p>
   </div>
 
+  <section id="gatewayScreen" class="auth-screen gateway-screen">
+    <div class="gateway-card">
+      <div class="gateway-intro">
+        <img class="auth-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+        <span class="eyebrow">منصة إدارة المسابقات القرآنية</span>
+        <h1>اختر طريقة استخدام المنصة</h1>
+        <p>بيانات فرع الكورة محمية بتسجيل الدخول، ويمكن لبقية الفروع استخدام الأدوات محلياً دون إرسال بياناتهم إلينا.</p>
+      </div>
+      <div class="gateway-options">
+        <article class="gateway-option koura-option">
+          <div class="gateway-icon"><i data-lucide="shield-check"></i></div>
+          <div><span>النظام الرسمي</span><h2>فرع الكورة</h2><p>دخول إدارة المسابقة أو لجان الاختبار والوصول إلى البيانات السحابية المحمية.</p></div>
+          <button id="openKouraLoginBtn" class="primary-btn wide" type="button" onclick="openKouraMode()">دخول فرع الكورة</button>
+        </article>
+        <article class="gateway-option local-option">
+          <div class="gateway-icon"><i data-lucide="laptop"></i></div>
+          <div><span>استخدام مستقل</span><h2>تشغيل محلي لفرع آخر</h2><p>استيراد Excel، السحب والتقييم وتصدير النتائج. تبقى البيانات على هذا الجهاز فقط.</p></div>
+          <button id="openLocalModeBtn" class="secondary-btn wide" type="button" onclick="openLocalMode()">بدء الاستخدام المحلي</button>
+          <small><i data-lucide="hard-drive-download"></i> احفظ نسخة احتياطية دورياً؛ حذف بيانات المتصفح قد يفقد البيانات.</small>
+        </article>
+      </div>
+      <div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>
+    </div>
+  </section>
+
   <section id="setupScreen" class="auth-screen hidden">
     <div class="auth-panel">
       <div class="auth-brand">
         <img class="auth-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
-        <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
+        <p id="setupBrandLine">جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
         <h1>منصة المسابقة السنوية</h1>
         <div class="auth-facts">
           <span><b id="setupPositions">--</b> موضعاً محققاً</span>
@@ -47,7 +72,7 @@
   <section id="loginScreen" class="auth-screen hidden">
     <div class="login-card">
       <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
-      <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
+      <p id="localLoginBrandLine">جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
       <h1 id="loginCompetitionName">المسابقة السنوية</h1>
       <form id="loginForm">
         <label>رمز الدخول<input id="loginPin" required type="password" inputmode="numeric" autofocus></label>
@@ -56,6 +81,7 @@
       </form>
       <small>تعمل محلياً دون اتصال بالإنترنت</small>
       <div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>
+      <button id="backToGatewayBtn" class="text-login-btn" type="button">العودة إلى خيارات الاستخدام</button>
     </div>
   </section>
 
@@ -103,7 +129,7 @@
     <aside class="sidebar">
       <div class="sidebar-brand">
         <img class="sidebar-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
-        <div><b>جمعية المحافظة على القرآن الكريم</b><small>فرع الكورة | المسابقة السنوية</small></div>
+        <div><b id="sidebarBrandTitle">جمعية المحافظة على القرآن الكريم</b><small id="sidebarBrandSubtitle">فرع الكورة | المسابقة السنوية</small></div>
       </div>
       <nav id="mainNav">
         <button class="nav-item active" data-view="dashboard"><i data-lucide="layout-dashboard"></i><span>نظرة عامة</span></button>
@@ -127,6 +153,7 @@
           <div class="date-chip"><i data-lucide="calendar-days"></i><span id="todayText"></span></div>
         </div>
       </header>
+      <div id="localModeNotice" class="local-mode-notice hidden"><i data-lucide="hard-drive"></i><div><b>وضع محلي مستقل</b><span>البيانات محفوظة على هذا الجهاز فقط ولا تُرسل إلى فرع الكورة. نزّل نسخة احتياطية دورياً.</span></div><button id="localBackupShortcut" type="button">تنزيل نسخة الآن</button></div>
 
       <main>
         <section id="dashboardView" class="view active-view">
@@ -197,8 +224,8 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260811-final-edit1"></script>
+  <script src="cloud.js?v=20260812-local-gateway1"></script>
   <script src="data/quran-data.js"></script>
-  <script src="app.js?v=20260811-final-edit1"></script>
+  <script src="app.js?v=20260812-local-gateway1"></script>
 </body>
 </html>
