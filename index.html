@@ -62,7 +62,7 @@
     <div class="login-card">
       <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
       <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
-      <h1>دخول لجنة الاختبار</h1>
+      <h1 id="cloudLoginTitle">دخول لجنة الاختبار</h1>
       <form id="committeeLoginForm">
         <label>رمز اللجنة<input id="committeeLoginCode" required autocomplete="username" inputmode="latin" placeholder="مثال: L01"></label>
         <label>الرقم السري PIN<input id="committeeLoginPin" required type="password" inputmode="numeric" minlength="4" autocomplete="current-password"></label>
@@ -75,6 +75,7 @@
         <label>كلمة مرور الإدارة<input id="cloudLoginPassword" required type="password" autocomplete="current-password"></label>
         <p id="cloudLoginError" class="form-error hidden"></p>
         <button class="primary-btn wide" type="submit">دخول الإدارة</button>
+        <button id="backToCommitteeLoginBtn" class="secondary-btn wide" type="button">العودة لدخول اللجان</button>
       </form>
       <small>يُحفظ كل امتحان مباشرة في قاعدة بيانات الفرع</small>
     </div>
@@ -195,6 +196,6 @@
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20260811-pin1"></script>
   <script src="data/quran-data.js"></script>
-  <script src="app.js?v=20260811-en-numbers1"></script>
+  <script src="app.js?v=20260811-login-pages1"></script>
 </body>
 </html>

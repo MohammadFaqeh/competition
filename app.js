@@ -117,7 +117,8 @@ function bindEvents(){
   $("#modal").addEventListener("click",event=>{if(event.target.id==="modal")closeModal()});
   $("#cloudLoginForm").addEventListener("submit",cloudLogin);
   $("#committeeLoginForm").addEventListener("submit",committeeLogin);
-  $("#showAdminLoginBtn").addEventListener("click",()=>{$("#cloudLoginForm").classList.toggle("hidden")});
+  $("#showAdminLoginBtn").addEventListener("click",()=>showCloudLoginMode("admin"));
+  $("#backToCommitteeLoginBtn").addEventListener("click",()=>showCloudLoginMode("committee"));
   $("#committeeLogoutBtn").addEventListener("click",cloudLogout);
   $("#refreshCommitteeBtn").addEventListener("click",renderCommitteeWorkspace);
   $("#committeeSearch").addEventListener("input",renderCommitteeStudents);
@@ -137,6 +138,7 @@ function showScreen(id){["setupScreen","loginScreen","cloudLoginScreen"].forEach
 function showApp(){showScreen("");$("#app").classList.remove("hidden");$("#topCompetitionName").textContent=state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date());hydrateSettings();renderAll();navigate("dashboard");if(cloudEnabled&&window.CloudCompetition.context?.profile.role==="admin")setupCloudAdminPanel()}
 async function cloudLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#cloudLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInAdmin($("#cloudLoginEmail").value.trim(),$("#cloudLoginPassword").value);$("#cloudLoginPassword").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
 async function committeeLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#committeeLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInCommittee($("#committeeLoginCode").value.trim(),$("#committeeLoginPin").value);$("#committeeLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
+function showCloudLoginMode(mode){const admin=mode==="admin";$("#committeeLoginForm").classList.toggle("hidden",admin);$("#showAdminLoginBtn").classList.toggle("hidden",admin);$("#cloudLoginForm").classList.toggle("hidden",!admin);$("#cloudLoginTitle").textContent=admin?"دخول إدارة المسابقة":"دخول لجنة الاختبار";$(admin?"#cloudLoginEmail":"#committeeLoginCode").focus()}
 async function cloudLogout(){await window.CloudCompetition.signOut();activeCloudSession=null;committeeSessions=[];$("#app").classList.add("hidden");showScreen("cloudLoginScreen")}
 async function setupCloudAdminPanel(){$("#cloudCommitteesPanel").classList.remove("hidden");$("#syncCloudBtn").classList.remove("hidden");await renderCloudCommittees()}
 async function refreshAdminCloudResults(){const button=$("#syncCloudBtn");button.disabled=true;try{await syncFinalSessionsIntoState();renderAll();toast("تم تحديث نتائج جميع اللجان")}catch(error){toast(`تعذر تحديث النتائج: ${error.message}`)}finally{button.disabled=false}}
