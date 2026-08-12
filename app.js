@@ -23,24 +23,37 @@ const COMMITTEE_ALERTS_KEY="competition-committee-alerts";
 const ASSESSMENT_DRAFT_PREFIX="competition-assessment-draft-";
 const IDLE_LOGOUT_MS=30*60*1000;
 const optionalScripts=new Map();
+let quranReadyPromise=null;
 
 function loadOptionalScript(src,ready){if(ready())return Promise.resolve();if(optionalScripts.has(src))return optionalScripts.get(src);const promise=new Promise((resolve,reject)=>{const script=document.createElement("script");script.src=src;script.onload=()=>ready()?resolve():reject(new Error(`تعذر تشغيل ${src}`));script.onerror=()=>reject(new Error(`تعذر تحميل ${src}`));document.head.appendChild(script)});optionalScripts.set(src,promise);return promise}
 const ensureXlsx=()=>loadOptionalScript("vendor/xlsx.full.min.js",()=>Boolean(window.XLSX));
 const ensurePdfLibraries=()=>Promise.all([loadOptionalScript("vendor/html2canvas.min.js",()=>Boolean(window.html2canvas)),loadOptionalScript("vendor/jspdf.umd.min.js",()=>Boolean(window.jspdf?.jsPDF))]);
+function ensureQuranReady(){
+  if(integrity.valid&&candidates.length)return Promise.resolve(candidates);
+  if(quranReadyPromise)return quranReadyPromise;
+  quranReadyPromise=(async()=>{
+    await loadOptionalScript("data/quran-data.js",()=>Boolean(window.QURAN_DATA));
+    const checked=validateQuranData(window.QURAN_DATA);
+    if(!checked.valid)throw new Error(checked.errors.join("، "));
+    integrity=checked;
+    candidates=buildCandidates(window.QURAN_DATA);
+    const positionsCount=$("#setupPositions");
+    if(positionsCount)positionsCount.textContent=formatNumber(candidates.length);
+    return candidates;
+  })().catch(error=>{quranReadyPromise=null;throw error});
+  return quranReadyPromise;
+}
 
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});
 else init();
 
 async function init(){
   try{
-    integrity = validateQuranData(window.QURAN_DATA);
-    if(!integrity.valid) throw new Error(integrity.errors.join("، "));
-    candidates = buildCandidates(window.QURAN_DATA);
     bindEvents();
     setupIdleLogout();
     buildPartsGrid();
     lucide.createIcons();
-    $("#setupPositions").textContent = formatNumber(candidates.length);
+    $("#setupPositions").textContent = "عند السحب";
     const rememberedMode=sessionStorage.getItem(ACTIVE_MODE_KEY);
     if(rememberedMode==="cloud"){
       operationMode="cloud";state=loadState(CLOUD_STORAGE_KEY);applyModeBranding();
@@ -238,7 +251,7 @@ function renderCommitteeStudents(){
   lucide.createIcons();
 }
 async function startCommitteeExam(participantId){const participant=state.participants.find(item=>item.id===participantId),draw=state.draws.find(item=>item.participantId===participantId);if(!participant||!draw)return toast("التقييم غير متاح: لم يتم السحب لهذا الطالب بعد");let session=committeeSessions.find(item=>item.participant_id===participantId);try{if(!session){session=await window.CloudCompetition.claimStudent(participant.id,draw.id,participant.level);committeeSessions.unshift(session);await window.CloudCompetition.log("claim","participant",participant.id,{drawId:draw.id,level:participant.level})}activeCloudSession=session;const cloudDraft=session.assessment&&Object.keys(session.assessment).length?session.assessment:null,localDraft=loadLocalAssessmentDraft(participant.id),newestDraft=localDraft?.drawId===draw.id&&new Date(localDraft.updatedAt||0)>new Date(cloudDraft?.updatedAt||0)?localDraft:cloudDraft;if(newestDraft)participant.assessment=newestDraft;if(session.status==="final"){localStorage.removeItem(ASSESSMENT_DRAFT_PREFIX+participant.id);return openCompletedAssessment(draw,participant,session)}openElectronicAssessment(draw,session)}catch(error){toast(error.message);await renderCommitteeWorkspace()}}
-function navigate(view){if(!$(`#${view}View`))view="dashboard";localStorage.setItem(currentViewKey(),view);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view==="draw")refreshDrawParticipants();if(view==="analytics")renderAnalytics();window.scrollTo(0,0);lucide.createIcons()}
+function navigate(view){if(!$("#"+view+"View"))view="dashboard";localStorage.setItem(currentViewKey(),view);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="analytics")renderAnalytics();window.scrollTo(0,0);lucide.createIcons()}
 function renderAll(){renderDashboard();renderParticipants();renderHistory();refreshDrawParticipants();renderAnalytics();lucide.createIcons()}
 
 function renderDashboard(){
@@ -354,8 +367,8 @@ function availableForParts(parts){const pool=candidates.filter(c=>parts.includes
 function leastRepeatedCandidates(pool){if(!pool.length)return [];const counts=new Map();state.draws.forEach(draw=>draw.positions.forEach(position=>counts.set(position.id,(counts.get(position.id)||0)+1)));const minimum=Math.min(...pool.map(candidate=>counts.get(candidate.id)||0));return pool.filter(candidate=>(counts.get(candidate.id)||0)===minimum)}
 function updateAvailability(){const parts=selectedParts(),selected=new Set(parts),available=availableForParts(parts);$("#availableCount").textContent=parts.length?`${formatNumber(available.length)} موضعاً`:"اختر الأجزاء";$$(`[data-part-range]`).forEach(button=>{const [start,end]=button.dataset.partRange.split("-").map(Number);button.classList.toggle("active",Array.from({length:end-start+1},(_,i)=>start+i).every(part=>selected.has(part)))})}
 
-function performDraw(event){
-  event.preventDefault();const error=$("#drawError");error.classList.add("hidden");const level=Number($("#drawLevel").value),parts=selectedParts(),questionCount=Number($("#drawQuestionCount").value);
+async function performDraw(event){
+  event.preventDefault();const error=$("#drawError");error.classList.add("hidden");const submit=event.submitter;if(submit){submit.disabled=true;submit.dataset.originalText=submit.textContent;submit.textContent="جاري تجهيز بيانات القرآن..."}try{await ensureQuranReady()}catch(loadError){if(submit){submit.disabled=false;submit.textContent=submit.dataset.originalText||"إجراء السحب"}return showDrawError(`تعذر تجهيز بيانات القرآن: ${loadError.message}`)}if(submit){submit.disabled=false;submit.textContent=submit.dataset.originalText||"إجراء السحب"}const level=Number($("#drawLevel").value),parts=selectedParts(),questionCount=Number($("#drawQuestionCount").value);
   const registeredParticipant=state.participants.find(item=>item.id===$("#drawParticipant").value);
   if(registeredParticipant&&registeredParticipant.parts?.length!==registeredParticipant.level)return showDrawError("الرجاء إدخال الأجزاء المشاركة فيها للطالب من زر تعديل قبل إجراء السحب");
   if(!level||parts.length!==level)return showDrawError(`يجب اختيار ${level||"عدد المستوى"} أجزاء بالضبط`);
@@ -414,7 +427,7 @@ function openBulkDrawModal(){
   $("#confirmBulkDraw").onclick=()=>runBulkDraw(pending);
 }
 async function runBulkDraw(participants){
-  const button=$("#confirmBulkDraw");button.disabled=true;let completed=0,failed=[];
+  const button=$("#confirmBulkDraw");button.disabled=true;button.textContent="جاري تجهيز بيانات القرآن...";try{await ensureQuranReady()}catch(error){button.disabled=false;button.textContent="تنفيذ السحب للجميع";return toast(`تعذر تجهيز بيانات القرآن: ${error.message}`)}let completed=0,failed=[];
   for(const p of participants){
     button.textContent=`جاري السحب ${completed+1} من ${participants.length}`;
     if(p.parts?.length!==p.level){failed.push(`${p.name} (الأجزاء غير مسجلة)`);continue}const parts=p.parts;const questionCount=Math.min(LEVEL_QUESTIONS[p.level]||3,parts.length);const pools=new Map(parts.map(j=>[j,availableForParts([j])]));const eligibleParts=parts.filter(j=>pools.get(j).length);
