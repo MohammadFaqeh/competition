@@ -17,6 +17,8 @@ let activeCloudSession=null;
 let committeeAutoRefreshTimer=null,committeeRefreshBusy=false;
 let idleLogoutTimer=null;
 const LAST_ADMIN_VIEW_KEY="competition-last-admin-view";
+const ACTIVE_MODE_KEY="competition-active-mode";
+const LOCAL_ACCESS_KEY="competition-local-access";
 const COMMITTEE_ALERTS_KEY="competition-committee-alerts";
 const ASSESSMENT_DRAFT_PREFIX="competition-assessment-draft-";
 const IDLE_LOGOUT_MS=30*60*1000;
@@ -39,8 +41,24 @@ async function init(){
     buildPartsGrid();
     lucide.createIcons();
     $("#setupPositions").textContent = formatNumber(candidates.length);
-    $("#loadingScreen").classList.add("hidden");
-    if(operationMode==="gateway")showScreen("gatewayScreen");
+    const rememberedMode=sessionStorage.getItem(ACTIVE_MODE_KEY);
+    if(rememberedMode==="cloud"){
+      operationMode="cloud";state=loadState(CLOUD_STORAGE_KEY);applyModeBranding();
+      $("#gatewayScreen").classList.add("hidden");$("#loadingScreen").classList.remove("hidden");
+      const startup=await initializeCloud();
+      $("#loadingScreen").classList.add("hidden");
+      if(startup?.enabled&&startup.context){cloudEnabled=true;await enterCloudContext(startup.context)}
+      else{sessionStorage.removeItem(ACTIVE_MODE_KEY);showScreen("cloudLoginScreen")}
+    }else if(rememberedMode==="local"){
+      operationMode="local";state=loadState(LOCAL_STORAGE_KEY);applyModeBranding();
+      $("#loadingScreen").classList.add("hidden");$("#app").classList.add("local-branch-app");
+      if(state.config&&sessionStorage.getItem(LOCAL_ACCESS_KEY)==="granted")showApp();
+      else if(state.config){$("#loginCompetitionName").textContent=state.config.competitionName;showScreen("loginScreen")}
+      else showScreen("setupScreen");
+    }else{
+      $("#loadingScreen").classList.add("hidden");
+      if(operationMode==="gateway")showScreen("gatewayScreen");
+    }
   }catch(error){
     $("#loadingScreen").classList.remove("hidden");
     $("#loadingScreen").innerHTML = `<div class="brand-mark"><span>تنبيه</span></div><strong>تعذر تشغيل المنصة</strong><p>${escapeHtml(error.message)}</p>`;
@@ -98,7 +116,7 @@ function wordCount(text){return text.trim().split(/\s+/).filter(Boolean).length}
 function dedupeCandidates(list){const seen=new Set();return list.filter(item=>{const key=`${item.startKey}-${item.endKey}`;if(seen.has(key))return false;seen.add(key);return true})}
 
 function bindEvents(){
-  $$('[data-back-gateway]').forEach(button=>button.addEventListener("click",()=>showScreen("gatewayScreen")));
+  $$('[data-back-gateway]').forEach(button=>button.addEventListener("click",returnToGateway));
   $("#localBackupShortcut").addEventListener("click",downloadBackup);
   $("#setupForm").addEventListener("submit",setupApp);
   $("#loginForm").addEventListener("submit",login);
@@ -148,20 +166,22 @@ function bindEvents(){
 async function setupApp(event){
   event.preventDefault();
   state.config={competitionName:$("#setupCompetitionName").value.trim(),adminName:$("#setupAdminName").value.trim(),pinHash:await hashText($("#setupPin").value),createdAt:new Date().toISOString()};
-  saveState(); showApp(); toast("تم إنشاء دورة المسابقة بنجاح");
+  saveState();if(operationMode==="local"){sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.setItem(LOCAL_ACCESS_KEY,"granted")}showApp();toast("تم إنشاء دورة المسابقة بنجاح");
 }
-async function login(event){event.preventDefault();const ok=await hashText($("#loginPin").value)===state.config.pinHash;$("#loginError").classList.toggle("hidden",ok);if(ok){$("#loginPin").value="";showApp()}}
+async function login(event){event.preventDefault();const ok=await hashText($("#loginPin").value)===state.config.pinHash;$("#loginError").classList.toggle("hidden",ok);if(ok){$("#loginPin").value="";if(operationMode==="local"){sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.setItem(LOCAL_ACCESS_KEY,"granted")}showApp()}}
 function applyModeBranding(){const local=operationMode==="local";$("#setupBrandLine").textContent=local?"استخدام محلي مستقل · بياناتك تبقى على هذا الجهاز":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#localLoginBrandLine").textContent=local?"استخدام محلي مستقل · لا يتم إرسال البيانات":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#sidebarBrandTitle").textContent=local?"منصة إدارة المسابقات القرآنية":"جمعية المحافظة على القرآن الكريم";$("#sidebarBrandSubtitle").textContent=local?"وضع محلي مستقل":"فرع الكورة | المسابقة السنوية"}
 function initializeCloud(){if(cloudStartup)return Promise.resolve(cloudStartup);if(cloudStartupPromise)return cloudStartupPromise;cloudStartupPromise=window.CloudCompetition.init().then(status=>{cloudEnabled=status.enabled;cloudStartup=status;return status}).catch(error=>{console.warn("Cloud initialization failed",error);cloudStartup={enabled:false,context:null,error};return cloudStartup});return cloudStartupPromise}
-async function openKouraMode(){operationMode="cloud";state=loadState(CLOUD_STORAGE_KEY);applyModeBranding();$("#app").classList.remove("local-branch-app");const startup=await initializeCloud();if(!startup?.enabled)return toast("تعذر الاتصال بنظام فرع الكورة حالياً");cloudEnabled=true;if(startup.context)return enterCloudContext(startup.context);showScreen("cloudLoginScreen")}
-function openLocalMode(){operationMode="local";state=loadState(LOCAL_STORAGE_KEY);applyModeBranding();$("#app").classList.add("local-branch-app");if(!state.config){$("#setupCompetitionName").value="مسابقة تحفيظ القرآن الكريم";$("#setupAdminName").value="";showScreen("setupScreen")}else{$("#loginCompetitionName").textContent=state.config.competitionName;showScreen("loginScreen")}}
-function logout(){if(operationMode==="cloud")return cloudLogout();$("#app").classList.add("hidden");showScreen("gatewayScreen")}
+function returnToGateway(){sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionStorage.removeItem(LOCAL_ACCESS_KEY);operationMode="gateway";$("#app").classList.add("hidden");showScreen("gatewayScreen")}
+async function openKouraMode(){operationMode="cloud";sessionStorage.setItem(ACTIVE_MODE_KEY,"cloud");state=loadState(CLOUD_STORAGE_KEY);applyModeBranding();$("#app").classList.remove("local-branch-app");const startup=await initializeCloud();if(!startup?.enabled){sessionStorage.removeItem(ACTIVE_MODE_KEY);return toast("تعذر الاتصال بنظام فرع الكورة حالياً")}cloudEnabled=true;if(startup.context)return enterCloudContext(startup.context);showScreen("cloudLoginScreen")}
+function openLocalMode(){operationMode="local";sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.removeItem(LOCAL_ACCESS_KEY);state=loadState(LOCAL_STORAGE_KEY);applyModeBranding();$("#app").classList.add("local-branch-app");if(!state.config){$("#setupCompetitionName").value="مسابقة تحفيظ القرآن الكريم";$("#setupAdminName").value="";showScreen("setupScreen")}else{$("#loginCompetitionName").textContent=state.config.competitionName;showScreen("loginScreen")}}
+function logout(){if(operationMode==="cloud")return cloudLogout();sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionStorage.removeItem(LOCAL_ACCESS_KEY);$("#app").classList.add("hidden");showScreen("gatewayScreen")}
 function showScreen(id){["gatewayScreen","setupScreen","loginScreen","cloudLoginScreen"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id));$("#committeeApp").classList.toggle("hidden",id!=="committeeApp")}
-function showApp(){showScreen("");$("#app").classList.remove("hidden");$("#app").classList.toggle("local-branch-app",operationMode==="local");$("#localModeNotice").classList.toggle("hidden",operationMode!=="local");$("#topCompetitionName").textContent=state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date());hydrateSettings();renderAll();navigate(localStorage.getItem(LAST_ADMIN_VIEW_KEY)||"dashboard");if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.profile.role==="admin")setupCloudAdminPanel()}
+function currentViewKey(){return operationMode==="local"?`${LAST_ADMIN_VIEW_KEY}.local`:`${LAST_ADMIN_VIEW_KEY}.cloud`}
+function showApp(){showScreen("");$("#app").classList.remove("hidden");$("#app").classList.toggle("local-branch-app",operationMode==="local");$("#localModeNotice").classList.toggle("hidden",operationMode!=="local");$("#topCompetitionName").textContent=state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date());hydrateSettings();renderAll();navigate(localStorage.getItem(currentViewKey())||"dashboard");if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.profile.role==="admin")setupCloudAdminPanel()}
 async function cloudLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#cloudLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInAdmin($("#cloudLoginEmail").value.trim(),$("#cloudLoginPassword").value);$("#cloudLoginPassword").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
 async function committeeLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#committeeLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInCommittee($("#committeeLoginCode").value.trim(),$("#committeeLoginPin").value);$("#committeeLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
 function showCloudLoginMode(mode){const admin=mode==="admin";$("#committeeLoginForm").classList.toggle("hidden",admin);$("#showAdminLoginBtn").classList.toggle("hidden",admin);$("#cloudLoginForm").classList.toggle("hidden",!admin);$("#cloudLoginTitle").textContent=admin?"دخول إدارة المسابقة":"دخول لجنة الاختبار";$(admin?"#cloudLoginEmail":"#committeeLoginCode").focus()}
-async function cloudLogout(){stopCommitteeAutoRefresh();clearTimeout(idleLogoutTimer);try{await window.CloudCompetition.signOut()}catch(error){console.warn("Sign out failed",error)}activeCloudSession=null;committeeSessions=[];cloudStartup={enabled:cloudEnabled,context:null};$("#app").classList.add("hidden");showScreen("gatewayScreen")}
+async function cloudLogout(){stopCommitteeAutoRefresh();clearTimeout(idleLogoutTimer);sessionStorage.removeItem(ACTIVE_MODE_KEY);try{await window.CloudCompetition.signOut()}catch(error){console.warn("Sign out failed",error)}activeCloudSession=null;committeeSessions=[];cloudStartup={enabled:cloudEnabled,context:null};$("#app").classList.add("hidden");showScreen("gatewayScreen")}
 function setupIdleLogout(){const reset=()=>{clearTimeout(idleLogoutTimer);if(!window.CloudCompetition?.context)return;idleLogoutTimer=setTimeout(async()=>{await cloudLogout();toast("تم تسجيل الخروج بعد 30 دقيقة دون نشاط")},IDLE_LOGOUT_MS)};["pointerdown","keydown","touchstart","scroll"].forEach(type=>document.addEventListener(type,reset,{passive:true}));document.addEventListener("visibilitychange",()=>{if(!document.hidden)reset()});setInterval(()=>{if(window.CloudCompetition?.context&&!idleLogoutTimer)reset()},60000)}
 async function setupCloudAdminPanel(){$("#cloudCommitteesPanel").classList.remove("hidden");$("#syncCloudBtn").classList.remove("hidden");await Promise.all([renderCloudCommittees(),renderFinalEditAudit()])}
 async function refreshAdminCloudResults(){const button=$("#syncCloudBtn");button.disabled=true;try{await syncFinalSessionsIntoState();renderAll();toast("تم تحديث نتائج جميع اللجان")}catch(error){toast(`تعذر تحديث النتائج: ${error.message}`)}finally{button.disabled=false}}
@@ -217,7 +237,7 @@ function renderCommitteeStudents(){
   lucide.createIcons();
 }
 async function startCommitteeExam(participantId){const participant=state.participants.find(item=>item.id===participantId),draw=state.draws.find(item=>item.participantId===participantId);if(!participant||!draw)return toast("التقييم غير متاح: لم يتم السحب لهذا الطالب بعد");let session=committeeSessions.find(item=>item.participant_id===participantId);try{if(!session){session=await window.CloudCompetition.claimStudent(participant.id,draw.id,participant.level);committeeSessions.unshift(session);await window.CloudCompetition.log("claim","participant",participant.id,{drawId:draw.id,level:participant.level})}activeCloudSession=session;const cloudDraft=session.assessment&&Object.keys(session.assessment).length?session.assessment:null,localDraft=loadLocalAssessmentDraft(participant.id),newestDraft=localDraft?.drawId===draw.id&&new Date(localDraft.updatedAt||0)>new Date(cloudDraft?.updatedAt||0)?localDraft:cloudDraft;if(newestDraft)participant.assessment=newestDraft;if(session.status==="final"){localStorage.removeItem(ASSESSMENT_DRAFT_PREFIX+participant.id);return openCompletedAssessment(draw,participant,session)}openElectronicAssessment(draw,session)}catch(error){toast(error.message);await renderCommitteeWorkspace()}}
-function navigate(view){if(!$(`#${view}View`))view="dashboard";localStorage.setItem(LAST_ADMIN_VIEW_KEY,view);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view==="draw")refreshDrawParticipants();if(view==="analytics")renderAnalytics();window.scrollTo(0,0);lucide.createIcons()}
+function navigate(view){if(!$(`#${view}View`))view="dashboard";localStorage.setItem(currentViewKey(),view);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view==="draw")refreshDrawParticipants();if(view==="analytics")renderAnalytics();window.scrollTo(0,0);lucide.createIcons()}
 function renderAll(){renderDashboard();renderParticipants();renderHistory();refreshDrawParticipants();renderAnalytics();lucide.createIcons()}
 
 function renderDashboard(){
