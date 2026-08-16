@@ -176,7 +176,7 @@
         </section>
 
         <section id="participantsView" class="view">
-          <div class="page-head"><div><span class="eyebrow">إدارة الدورة</span><h1>المتسابقون</h1><p>أضف الأسماء أو استورد ملف Excel الجاهز.</p></div><div class="page-actions"><label class="secondary-btn file-btn"><i data-lucide="file-up"></i> استيراد Excel<input id="csvInput" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label><button id="exportResultsBtn" class="secondary-btn"><i data-lucide="sheet"></i> النتائج والترتيب</button><button id="bulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><button id="deleteAllParticipantsBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button><button id="addParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
+          <div class="page-head"><div><span class="eyebrow">إدارة الدورة</span><h1>المتسابقون</h1><p>أضف الأسماء أو استورد ملف Excel الجاهز.</p></div><div class="page-actions"><label class="secondary-btn file-btn"><i data-lucide="file-up"></i> استيراد Excel<input id="csvInput" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label><button id="exportResultsBtn" class="secondary-btn"><i data-lucide="sheet"></i> النتائج والترتيب</button><button id="exportUnifiedResultsBtn" class="secondary-btn"><i data-lucide="table-2"></i> النتائج كاملة بشيت واحد</button><button id="bulkPdfBtn" class="secondary-btn"><i data-lucide="files"></i> PDF للطلاب</button><button id="bulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><button id="deleteAllParticipantsBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button><button id="addParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
           <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="participantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="participantFilter"><option value="all">جميع الحالات</option><option value="pending">بانتظار السحب</option><option value="drawn">تم السحب / بانتظار العلامة</option><option value="completed">تم الاختبار</option></select><span id="participantFilterCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>العلامة / 100</th><th>الإجراءات</th></tr></thead><tbody id="participantsTable"></tbody></table></div></section>
         </section>
 
@@ -189,8 +189,7 @@
               <div class="form-grid"><label>الاسم<input id="drawName" required placeholder="اسم المتسابق الثلاثي"></label><label>رقم الجلوس<input id="drawSeat" placeholder="اختياري"></label><label>المركز<input id="drawCenter" required placeholder="اسم المركز"></label><label>العمر<input id="drawAge" type="number" min="4" max="100" placeholder="اختياري"></label></div>
               <div class="step-title"><span>2</span><div><b>مستوى الحفظ</b><small>حدد الأجزاء التي يتقدم بها المتسابق</small></div></div>
               <div class="form-grid"><label>عدد الأجزاء<select id="drawLevel" required><option value="">اختر المستوى</option><option>5</option><option>10</option><option>15</option><option>20</option><option>25</option><option>30</option></select></label><label>عدد أسئلة الاختبار<input id="drawQuestionCount" type="number" min="1" max="15" value="3"></label></div>
-              <div class="parts-head"><span>الأجزاء المشمولة</span><div class="parts-shortcuts"><button type="button" class="range-btn" data-part-range="1-10">الأولى 1-10</button><button type="button" class="range-btn" data-part-range="11-20">الثانية 11-20</button><button type="button" class="range-btn" data-part-range="21-30">الأخيرة 21-30</button><button id="selectFirstParts" type="button" class="range-btn">بحسب المستوى</button><button id="clearParts" type="button" class="text-btn muted">مسح</button></div></div>
-              <div id="partsGrid" class="parts-grid"></div>
+              <div class="draw-parts-readonly"><span>الأجزاء المعتمدة للمتسابق</span><b id="drawPartsSummary">اختر متسابقًا مسجلًا</b><small>تُعدّل الأجزاء من بيانات المتسابق فقط، وتظهر هنا تلقائيًا.</small></div>
               <p id="drawError" class="form-error hidden"></p>
               <button class="draw-trigger" type="submit"><i data-lucide="sparkles"></i><span>تنفيذ السحب العادل</span><small>تثبيت النتيجة وحفظها في سجل الدورة</small></button>
             </form>
@@ -227,6 +226,6 @@
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20260812-speed-safe1"></script>
-  <script src="app.js?v=20260812-navigation1"></script>
+  <script src="app.js?v=20260816-halfpage2"></script>
 </body>
 </html>
