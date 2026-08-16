@@ -28,21 +28,50 @@ let quranReadyPromise=null;
 let quranLines=null;
 let applyingBrowserHistory=false;
 const HISTORY_MARKER="quran-competition-route-v1";
+const QURAN_CACHE_NAME="competition-quran-assets-v2";
 
-function loadOptionalScript(src,ready){if(ready())return Promise.resolve();if(optionalScripts.has(src))return optionalScripts.get(src);const promise=new Promise((resolve,reject)=>{const script=document.createElement("script");script.src=src;script.onload=()=>ready()?resolve():reject(new Error(`تعذر تشغيل ${src}`));script.onerror=()=>reject(new Error(`تعذر تحميل ${src}`));document.head.appendChild(script)});optionalScripts.set(src,promise);return promise}
+function loadOptionalScript(src,ready){if(ready())return Promise.resolve();if(optionalScripts.has(src))return optionalScripts.get(src);const promise=new Promise((resolve,reject)=>{const script=document.createElement("script");script.src=src;script.onload=()=>ready()?resolve():reject(new Error(`تعذر تشغيل ${src}`));script.onerror=()=>reject(new Error(`تعذر تحميل ${src}`));document.head.appendChild(script)});optionalScripts.set(src,promise);promise.catch(()=>optionalScripts.delete(src));return promise}
 const ensureXlsx=()=>loadOptionalScript("vendor/xlsx.full.min.js",()=>Boolean(window.XLSX));
 const ensurePdfLibraries=()=>Promise.all([loadOptionalScript("vendor/html2canvas.min.js",()=>Boolean(window.html2canvas)),loadOptionalScript("vendor/jspdf.umd.min.js",()=>Boolean(window.jspdf?.jsPDF))]);
+async function fetchJsonWithDeviceCache(url,validator,label){
+  let cachedResponse=null;
+  if("caches" in window){try{const cache=await caches.open(QURAN_CACHE_NAME);cachedResponse=await cache.match(url);if(cachedResponse){const data=await cachedResponse.clone().json();if(validator(data))return data}}catch{cachedResponse=null}}
+  let lastError=null;
+  for(let attempt=1;attempt<=2;attempt++){
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
+    try{
+      const response=await fetch(url,{cache:"no-cache",signal:controller.signal});
+      if(!response.ok)throw new Error(`HTTP ${response.status}`);
+      const copy=response.clone(),data=await response.json();
+      if(!validator(data))throw new Error("البيانات غير مكتملة");
+      if("caches" in window)try{const cache=await caches.open(QURAN_CACHE_NAME);await cache.put(url,copy)}catch{}
+      return data;
+    }catch(error){lastError=error}finally{clearTimeout(timeout)}
+  }
+  throw new Error(`${label}: ${lastError?.name==="AbortError"?"انتهت مهلة الاتصال":lastError?.message||"تعذر التحميل"}`);
+}
+async function loadQuranDataResilient(){
+  if(validateQuranData(window.QURAN_DATA).valid)return window.QURAN_DATA;
+  try{
+    const data=await fetchJsonWithDeviceCache("data/quran.json",value=>validateQuranData(value).valid,"تعذر تحميل بيانات القرآن");
+    window.QURAN_DATA=data;
+    return data;
+  }catch(primaryError){
+    try{await loadOptionalScript("data/quran-data.js",()=>validateQuranData(window.QURAN_DATA).valid);return window.QURAN_DATA}
+    catch{throw primaryError}
+  }
+}
 function ensureQuranReady(){
   if(integrity.valid&&candidates.length)return Promise.resolve(candidates);
   if(quranReadyPromise)return quranReadyPromise;
   quranReadyPromise=(async()=>{
-    await loadOptionalScript("data/quran-data.js",()=>Boolean(window.QURAN_DATA));
-    const checked=validateQuranData(window.QURAN_DATA);
+    const [quranData,loadedLines]=await Promise.all([
+      loadQuranDataResilient(),
+      fetchJsonWithDeviceCache("data/quran-lines.json",value=>Boolean(value?.verses)&&Object.keys(value.verses).length===6236,"تعذر تحميل بيانات أسطر المصحف")
+    ]);
+    const checked=validateQuranData(quranData);
     if(!checked.valid)throw new Error(checked.errors.join("، "));
-    const lineResponse=await fetch("data/quran-lines.json",{cache:"force-cache"});
-    if(!lineResponse.ok)throw new Error("تعذر تحميل بيانات أسطر المصحف");
-    quranLines=await lineResponse.json();
-    if(!quranLines?.verses||Object.keys(quranLines.verses).length!==6236)throw new Error("بيانات أسطر المصحف غير مكتملة");
+    quranLines=loadedLines;
     integrity=checked;
     candidates=buildCandidates(window.QURAN_DATA,quranLines);
     const positionsCount=$("#setupPositions");
@@ -51,6 +80,7 @@ function ensureQuranReady(){
   })().catch(error=>{quranReadyPromise=null;throw error});
   return quranReadyPromise;
 }
+function prewarmQuranData(){if(integrity.valid&&candidates.length)return;setTimeout(()=>ensureQuranReady().catch(error=>console.warn("Quran data preloading will be retried when needed",error)),0)}
 
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});
 else init();
@@ -131,9 +161,9 @@ function buildCandidates(data,lineData){
         const finish=verses[end],[endChapter,endAyah]=finish.verse_key.split(":").map(Number);
         addVerseLines(occupiedLines,finish);
         words+=wordCount(finish.text_uthmani);
-        if(shortSurah&&endAyah!==chapterCounts.get(endChapter))continue;
         const lineCount=countOccupiedLines(occupiedLines);
         if(lineCount>8)break;
+        if(shortSurah&&endAyah!==chapterCounts.get(endChapter))continue;
         if(lineCount<8)continue;
         const segments=occupiedLineSegments(occupiedLines);
         bestCandidate={id:`${juz}-${start.verse_key}-${finish.verse_key}`,juz,chapter,chapterName:chapterMap.get(chapter),endChapter,endChapterName:chapterMap.get(endChapter),startAyah,endAyah,startId:start.id,endId:finish.id,page:start.layoutPage,endPage:finish.layoutPage,words,lineCount,lineModel:"occupied-v2",lineSegments:segments,startKey:start.verse_key,endKey:finish.verse_key};
@@ -214,7 +244,7 @@ function restoreListControls(ui={}){for(const [id,value] of Object.entries(ui)){
 function recordBrowserRoute(route,{replace=false}={}){if(applyingBrowserHistory)return;const current=history.state,same=current?.marker===HISTORY_MARKER&&current.surface===route.surface&&current.view===(route.view||current.view)&&current.screen===(route.screen||current.screen);const entry={marker:HISTORY_MARKER,mode:operationMode,...route,ui:currentListUi()};const url=new URL(location.href);url.hash=route.surface==="admin"?`admin/${route.view||"dashboard"}`:route.surface==="committee"?"committee":route.surface==="gateway"?"gateway":route.screen||"gateway";((replace||same)?history.replaceState:history.pushState).call(history,entry,"",url)}
 function hasUnfinishedAssessment(){if(!activeCloudSession)return false;const participant=state.participants.find(item=>item.id===activeCloudSession.participant_id);return Boolean(participant?.assessment&&participant.assessment.status!=="final")}
 function initializeBrowserNavigation(){if(history.state?.marker!==HISTORY_MARKER)recordBrowserRoute({surface:"gateway"},{replace:true});window.addEventListener("popstate",event=>{const target=event.state;if(!target||target.marker!==HISTORY_MARKER){history.forward();return}if(hasUnfinishedAssessment()&&!confirm("التقييم الحالي غير معتمد بعد، لكنه محفوظ كمسودة. هل تريد مغادرة شاشة التقييم؟")){history.forward();return}applyingBrowserHistory=true;try{closeModal();restoreListControls(target.ui);operationMode=target.mode||operationMode;if(target.surface==="admin"){showScreen("");$("#app").classList.remove("hidden");navigate(target.view||"dashboard",{historyMode:"none",ui:target.ui})}else if(target.surface==="committee"){$("#app").classList.add("hidden");showScreen("committeeApp");renderCommitteeStudents();requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}else{$("#app").classList.add("hidden");showScreen(target.surface==="gateway"?"gatewayScreen":target.screen||"gatewayScreen");requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}}finally{applyingBrowserHistory=false}});let routeTimer;document.addEventListener("input",event=>{if(!["participantSearch","historySearch","committeeSearch"].includes(event.target.id))return;clearTimeout(routeTimer);routeTimer=setTimeout(()=>{if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})},150)});document.addEventListener("change",event=>{if(!["participantFilter","committeeStatusFilter"].includes(event.target.id))return;if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})})}
-function showApp(){showScreen("");$("#app").classList.remove("hidden");$("#app").classList.toggle("local-branch-app",operationMode==="local");$("#localModeNotice").classList.toggle("hidden",operationMode!=="local");$("#topCompetitionName").textContent=state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date());hydrateSettings();restoreListControls();renderAll();const savedRoute=history.state?.marker===HISTORY_MARKER&&history.state.surface==="admin"?history.state:null;navigate(savedRoute?.view||localStorage.getItem(currentViewKey())||"dashboard",{historyMode:savedRoute?"replace":"push",ui:savedRoute?.ui});if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.profile.role==="admin"){setupCloudAdminPanel();startAdminAutoRefresh()}else stopAdminAutoRefresh()}
+function showApp(){showScreen("");$("#app").classList.remove("hidden");$("#app").classList.toggle("local-branch-app",operationMode==="local");$("#localModeNotice").classList.toggle("hidden",operationMode!=="local");$("#topCompetitionName").textContent=state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date());hydrateSettings();restoreListControls();renderAll();const savedRoute=history.state?.marker===HISTORY_MARKER&&history.state.surface==="admin"?history.state:null;navigate(savedRoute?.view||localStorage.getItem(currentViewKey())||"dashboard",{historyMode:savedRoute?"replace":"push",ui:savedRoute?.ui});if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.profile.role==="admin"){setupCloudAdminPanel();startAdminAutoRefresh()}else stopAdminAutoRefresh();prewarmQuranData()}
 async function cloudLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#cloudLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInAdmin($("#cloudLoginEmail").value.trim(),$("#cloudLoginPassword").value);$("#cloudLoginPassword").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
 async function committeeLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#committeeLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInCommittee($("#committeeLoginCode").value.trim(),$("#committeeLoginPin").value);$("#committeeLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
 function showCloudLoginMode(mode){const admin=mode==="admin";$("#committeeLoginForm").classList.toggle("hidden",admin);$("#showAdminLoginBtn").classList.toggle("hidden",admin);$("#cloudLoginForm").classList.toggle("hidden",!admin);$("#cloudLoginTitle").textContent=admin?"دخول إدارة المسابقة":"دخول لجنة الاختبار";$(admin?"#cloudLoginEmail":"#committeeLoginCode").focus()}
@@ -231,7 +261,7 @@ async function linkCommitteeAccount(event){event.preventDefault();const levels=$
 async function enterCloudContext(context){try{operationMode="cloud";stopCommitteeAutoRefresh();if(context.profile.role!=="admin"){$("#app").classList.add("hidden");showScreen("committeeApp");await renderCommitteeWorkspace();startCommitteeAutoRefresh();return}const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listSessions(),window.CloudCompetition.listCommittees()]);if(remote.payload?.config){state={...defaultState(),...remote.payload};localStorage.setItem(CLOUD_STORAGE_KEY,JSON.stringify(state))}else if(state.config){await window.CloudCompetition.saveCompetitionState(state)}if(!state.config){showScreen("setupScreen");return}mergeFinalSessionsIntoState(sessions,committees);showApp()}catch(error){toast(`تعذر فتح البيانات المشتركة: ${error.message}`);showScreen("cloudLoginScreen")}}
 function mergeFinalSessionsIntoState(sessions,committees){committeeSessions=sessions;const committeeById=new Map(committees.map(item=>[item.id,item.name]));let changed=false;committeeSessions.filter(session=>session.status==="final").forEach(session=>{const participant=state.participants.find(item=>item.id===session.participant_id);if(!participant)return;const assessment={...(session.assessment||{})};if(!assessment.committeeName&&committeeById.has(session.committee_id))assessment.committeeName=committeeById.get(session.committee_id);if(participant.score!==Number(session.score)||participant.assessment?.updatedAt!==assessment.updatedAt||participant.assessment?.committeeName!==assessment.committeeName){participant.score=Number(session.score);participant.gradedAt=session.finalized_at;participant.scoreSource="electronic";participant.assessment=assessment;changed=true}});if(changed)saveState();return changed}
 async function syncFinalSessionsIntoState(){const [sessions,committees]=await Promise.all([window.CloudCompetition.listSessions(),window.CloudCompetition.listCommittees()]);return mergeFinalSessionsIntoState(sessions,committees)}
-async function renderCommitteeWorkspace(){let context=window.CloudCompetition.context;if(!context?.committee)return;try{await window.CloudCompetition.refreshCommitteeAccess(true);context=window.CloudCompetition.context;$("#committeeName").textContent=context.committee.name;$("#committeeLevels").textContent=`المستويات: ${context.committee.levels.sort((a,b)=>a-b).join("، ")} أجزاء`;const [remote,sessions]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listSessions()]);if(remote.payload?.config){const previous=loadCommitteeSnapshot(),next=committeeScopedState(remote.payload,context.committee),previousById=new Map(previous.participants.map(item=>[item.id,item])),nextById=new Map(next.participants.map(item=>[item.id,item])),previousDraws=new Map(previous.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw])),nextDraws=new Map(next.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw]));if(previous.config){const updates=[];for(const participant of next.participants){const old=previousById.get(participant.id);if(!old||participantCloudSignature(old,previousDraws.get(participant.id))!==participantCloudSignature(participant,nextDraws.get(participant.id)))updates.push({text:describeCommitteeChange(participant,old),participantId:participant.id})}for(const old of previous.participants)if(!nextById.has(old.id))updates.push({text:describeCommitteeChange(null,old),participantId:old.id});if(updates.length)addCommitteeAlerts(updates)}state=next;saveCommitteeSnapshot(state)}committeeSessions=sessions;renderCommitteeAlerts();renderCommitteeStudents();lucide.createIcons()}catch(error){toast(`تعذر تحديث قائمة اللجنة: ${error.message}`)}}
+async function renderCommitteeWorkspace(){let context=window.CloudCompetition.context;if(!context?.committee)return;try{await window.CloudCompetition.refreshCommitteeAccess(true);context=window.CloudCompetition.context;$("#committeeName").textContent=context.committee.name;$("#committeeLevels").textContent=`المستويات: ${context.committee.levels.sort((a,b)=>a-b).join("، ")} أجزاء`;const [remote,sessions]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listSessions()]);if(remote.payload?.config){const previous=loadCommitteeSnapshot(),next=committeeScopedState(remote.payload,context.committee),previousById=new Map(previous.participants.map(item=>[item.id,item])),nextById=new Map(next.participants.map(item=>[item.id,item])),previousDraws=new Map(previous.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw])),nextDraws=new Map(next.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw]));if(previous.config){const updates=[];for(const participant of next.participants){const old=previousById.get(participant.id);if(!old||participantCloudSignature(old,previousDraws.get(participant.id))!==participantCloudSignature(participant,nextDraws.get(participant.id)))updates.push({text:describeCommitteeChange(participant,old),participantId:participant.id})}for(const old of previous.participants)if(!nextById.has(old.id))updates.push({text:describeCommitteeChange(null,old),participantId:old.id});if(updates.length)addCommitteeAlerts(updates)}state=next;saveCommitteeSnapshot(state)}committeeSessions=sessions;renderCommitteeAlerts();renderCommitteeStudents();lucide.createIcons();prewarmQuranData()}catch(error){toast(`تعذر تحديث قائمة اللجنة: ${error.message}`)}}
 function stopCommitteeAutoRefresh(){if(committeeAutoRefreshTimer)clearInterval(committeeAutoRefreshTimer);committeeAutoRefreshTimer=null;committeeRefreshBusy=false}
 function startCommitteeAutoRefresh(){stopAdminAutoRefresh();stopCommitteeAutoRefresh();committeeAutoRefreshTimer=setInterval(refreshCommitteeChanges,5000)}
 function stopAdminAutoRefresh(){if(adminAutoRefreshTimer)clearInterval(adminAutoRefreshTimer);adminAutoRefreshTimer=null;adminRefreshBusy=false}
