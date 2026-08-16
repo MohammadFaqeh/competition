@@ -122,20 +122,20 @@ function buildCandidates(data,lineData){
       const start=verses[i];
       const [chapter,startAyah]=start.verse_key.split(":").map(Number);
       const shortSurah=juz===30&&chapter>=93&&chapterCounts.get(chapter)<=20;
+      if(startAyah>1&&startAyah<=5)continue;
       if(shortSurah&&startAyah!==1)continue;
+      let bestCandidate=null;
       for(let end=i;end<verses.length;end++){
         const finish=verses[end],[endChapter,endAyah]=finish.verse_key.split(":").map(Number);
-        if(!shortSurah&&juz===30&&chapter<93&&endChapter>=93)break;
-        if(!shortSurah&&juz===30&&endChapter!==chapter)break;
         if(shortSurah&&endAyah!==chapterCounts.get(endChapter))continue;
         const segments=positionLineSegments(start,finish);
         const lineCount=segments.reduce((sum,item)=>sum+item.to-item.from+1,0);
         if(lineCount>8)break;
-        if(lineCount<7)continue;
-        if(!shortSurah&&finish.layoutPage!==start.layoutPage)break;
+        if(lineCount<8)continue;
         const selected=verses.slice(i,end+1),words=selected.reduce((sum,item)=>sum+wordCount(item.text_uthmani),0);
-        result.push({id:`${juz}-${start.verse_key}-${finish.verse_key}`,juz,chapter,chapterName:chapterMap.get(chapter),endChapter,endChapterName:chapterMap.get(endChapter),startAyah,endAyah,startId:start.id,endId:finish.id,page:start.layoutPage,endPage:finish.layoutPage,words,lineCount,lineSegments:segments,startKey:start.verse_key,endKey:finish.verse_key});
+        bestCandidate={id:`${juz}-${start.verse_key}-${finish.verse_key}`,juz,chapter,chapterName:chapterMap.get(chapter),endChapter,endChapterName:chapterMap.get(endChapter),startAyah,endAyah,startId:start.id,endId:finish.id,page:start.layoutPage,endPage:finish.layoutPage,words,lineCount,lineSegments:segments,startKey:start.verse_key,endKey:finish.verse_key};
       }
+      if(bestCandidate)result.push(bestCandidate);
     }
   }
   return dedupeCandidates(result);
@@ -420,7 +420,7 @@ function resultCommitteeName(participant){return participant?.assessment?.commit
 function compactAssessmentSummary(participant,draw){const assessment=participant?.assessment;if(!assessment?.positions?.length)return "";const labels={memorization:"حفظ",language:"لغة",tajweed:"تجويد",hesitation:"تردد",positionChange:"تغيير"},failedAt=failurePositionIndex(assessment),drawById=new Map(draw.positions.map(position=>[position.id,position]));const rows=assessment.positions.map((item,index)=>{const result=calculateAssessment({positions:[item]}),errors=Object.keys(labels).filter(type=>(Number(item[type])||0)>0).map(type=>`${labels[type]} ${Number(item[type])} (−${formatAssessmentNumber(result.deductions[type])})`).join(" · ")||"دون أخطاء",position=drawById.get(item.positionId)||draw.positions[index],note=String(item.note||"").trim(),changed=item.changes?.length?` · تغيّر من ${positionTitle(item.changes[item.changes.length-1].oldPosition)}`:"";return `<div class="assessment-print-row ${failedAt===index?"failed-threshold":""}"><b>${index+1}</b><span>${escapeHtml(position?positionTitle(position):`الموضع ${index+1}`)}${escapeHtml(changed)}</span><strong>${escapeHtml(errors)} · مجموع الخصم ${formatAssessmentNumber(result.totalDeduction)}</strong>${failedAt===index?`<small>هنا وصلت العلامة إلى حد الرسوب</small>`:note?`<small>${escapeHtml(note)}</small>`:""}</div>`}).join("");return `<section class="assessment-print-summary"><div class="assessment-print-title"><b>ملخص التقييم الإلكتروني</b>${resultCommitteeName(participant)?`<span>اللجنة: ${escapeHtml(resultCommitteeName(participant))}</span>`:""}</div>${rows}</section>`}
 function showResult(draw){
   const participant=state.participants.find(p=>p.id===draw.participantId);
-  const legacyPositions=draw.positions.some(position=>!Number.isFinite(position.startId)||!Number.isFinite(position.lineCount));
+  const legacyPositions=draw.positions.some(position=>!Number.isFinite(position.startId)||Number(position.lineCount)!==8);
   const eligiblePartNumbers=(draw.eligibleParts?.length?draw.eligibleParts:participant?.parts?.length?participant.parts:Array.from({length:draw.level},(_,index)=>index+1)).join("، ");
   const examDate=participant?.assessment?.startedAt||participant?.gradedAt||null;
   openModal(`<div class="result-modal"><div class="print-only print-letterhead"><div><b>جمعية المحافظة على القرآن الكريم</b><span>فرع الكورة</span></div><strong>بسم الله الرحمن الرحيم</strong></div><div class="result-hero"><div><small>جمعية المحافظة على القرآن الكريم | فرع الكورة</small><h2>ورقة مواضع الاختبار</h2><small>${escapeHtml(state.config.competitionName)}</small></div><div class="draw-code"><small>رقم السحب</small><b>${draw.sequence.toString().padStart(4,"0")}</b><small>${escapeHtml(draw.verification)}</small></div></div><div class="result-person"><div><span>اسم المتسابق</span><b>${escapeHtml(draw.name)}</b></div><div><span>رقم الجلوس</span><b>${escapeHtml(draw.seat||"-")}</b></div><div><span>المركز</span><b>${escapeHtml(draw.center)}</b></div><div><span>مستوى الحفظ</span><b>${draw.level} أجزاء</b></div><div><span>موعد الاختبار</span><b>${examDate?formatExamDate(examDate):"لم يبدأ الاختبار بعد"}</b></div><div><span>العمر</span><b>${draw.age||"-"}</b></div></div><div class="positions-list"><div class="positions-title"><span>الرقم</span><span>الموضع المختار</span><span>الصفحة</span></div>${draw.positions.map((p,i)=>positionHtml(p,i)).join("")}</div><div class="print-only print-signatures"><div><span>اسم الممتحن</span><b></b></div><div><span>التوقيع</span><b></b></div><div><span>العلامة النهائية</span><b> / 100</b></div></div><div class="print-only print-footer"><span>تصميم وتطوير م. مأمون محمود الفقيه</span><span>تحسين م. محمد عادل الفقيه</span></div><p class="result-warning">تم تثبيت هذه المواضع وإضافتها إلى قائمة المنع لهذه الدورة.</p>${participant?`<div class="result-score-editor"><div><span>العلامة النهائية</span><small>عند حفظها تتغير الحالة إلى تم الاختبار</small></div><input id="resultScore" type="number" min="0" max="100" step="0.01" value="${Number.isFinite(participant.score)?participant.score:""}" placeholder="من 100"><button id="saveResultScore" class="primary-btn">حفظ العلامة</button></div>`:""}<div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button><button class="secondary-btn" data-reroll="${draw.id}"><i data-lucide="refresh-cw"></i> إعادة موضع بسبب</button><button class="primary-btn" onclick="window.print()"><i data-lucide="printer"></i> طباعة النتيجة</button></div></div>`,"result-modal");
@@ -432,7 +432,7 @@ function showResult(draw){
   $(".print-letterhead>strong")?.remove();
   $(".result-person").insertAdjacentHTML("beforeend",`<div><span>الجنس</span><b>${escapeHtml(participant?.gender||"غير محدد")}</b></div>${participant&&Number.isFinite(participant.score)?`<div class="print-outcome"><span>النتيجة النهائية</span><b class="${participant.score>=PASS_SCORE?"pass-text":"fail-text"}">${participant.score} / 100 · ${participant.score>=PASS_SCORE?"ناجح":"راسب"}</b></div>`:""}<div class="participant-parts"><span>أرقام الأجزاء المشاركة</span><b>${eligiblePartNumbers}</b></div>`);
   if(resultCommitteeName(participant))$(".result-person").insertAdjacentHTML("beforeend",`<div class="result-committee"><span>لجنة الاختبار</span><b>${escapeHtml(resultCommitteeName(participant))}</b></div>`);
-  if(legacyPositions)$(".result-hero").insertAdjacentHTML("afterend",`<p class="legacy-warning"><b>هذه نتيجة قديمة</b><span>أُنشئت قبل اعتماد معيار نصف صفحة (7–8 أسطر). أعد السحب لتطبيق المعيار الجديد.</span></p>`);
+  if(legacyPositions)$(".result-hero").insertAdjacentHTML("afterend",`<p class="legacy-warning"><b>هذه نتيجة قديمة</b><span>أُنشئت قبل اعتماد معيار 8 أسطر بالضبط والبدايات المنطقية. أعد السحب لتطبيق المعيار الجديد.</span></p>`);
   $(".print-signatures")?.remove();
   if(participant)$("#saveResultScore").onclick=()=>{const input=$("#resultScore"),score=Number(input.value);if(input.value===""||!Number.isFinite(score)||score<0||score>100)return toast("أدخل علامة صحيحة بين 0 و100");participant.score=Math.round(score*100)/100;participant.gradedAt=new Date().toISOString();participant.scoreSource="manual";saveState();renderAll();closeModal();toast("تم حفظ العلامة اليدوية")};
 }
