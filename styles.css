@@ -649,6 +649,17 @@ img,svg{max-width:100%}
 .pdf-export-sheet .print-signatures{justify-content:space-between;gap:24px;margin-top:20px;padding-top:18px;border-top:1px solid var(--faint)}.pdf-export-sheet .print-signatures div{flex:1}.pdf-export-sheet .print-signatures span{display:block;font-size:10px;color:#58665f}.pdf-export-sheet .print-signatures b{display:block;height:31px;border-bottom:1px dotted #777;margin-top:5px;text-align:left}.pdf-export-sheet .print-footer{justify-content:space-between;margin-top:28px;padding-top:8px;border-top:1px solid #d6ddda;color:#68756f;font-size:8px}
 .pdf-export-sheet .print-signatures{display:none!important}
 .pdf-export-sheet .print-footer{justify-content:center}.pdf-export-sheet .print-footer .developer-credit b,.pdf-export-sheet .print-footer .developer-credit span{font-size:8px;color:#68756f}
+.pdf-export-sheet.pdf-dense{padding:18px!important}
+.pdf-export-sheet.pdf-dense .print-letterhead{padding-bottom:6px;margin-bottom:6px}.pdf-export-sheet.pdf-dense .print-logo{width:58px;height:50px}
+.pdf-export-sheet.pdf-dense .result-hero{padding:9px 12px!important}.pdf-export-sheet.pdf-dense .result-hero h2{font-size:16px;margin:2px 0}
+.pdf-export-sheet.pdf-dense .result-person{padding:7px 12px!important}.pdf-export-sheet.pdf-dense .result-person div{padding:1px 0}.pdf-export-sheet.pdf-dense .result-person b{font-size:9px}
+.pdf-export-sheet.pdf-dense .positions-list{padding:7px 0!important}.pdf-export-sheet.pdf-dense .positions-title{padding:4px 8px}
+.pdf-export-sheet.pdf-dense .position-card{padding:5px 8px!important}.pdf-export-sheet.pdf-dense .position-number{width:25px;height:25px}.pdf-export-sheet.pdf-dense .position-card h3{font-size:11px;margin-bottom:1px}.pdf-export-sheet.pdf-dense .position-card p{font-size:7px}.pdf-export-sheet.pdf-dense .page-number b{font-size:13px}
+.pdf-export-sheet.pdf-dense .assessment-print-summary{margin-bottom:5px!important}.pdf-export-sheet.pdf-dense .assessment-print-title{padding:4px 7px;font-size:8px}.pdf-export-sheet.pdf-dense .assessment-print-row{padding:2px 6px;font-size:7px;min-height:0}
+.pdf-export-sheet.pdf-dense .print-footer{margin-top:7px;padding-top:4px}
+.pdf-export-sheet.pdf-ultra-dense{padding:12px!important}.pdf-export-sheet.pdf-ultra-dense .result-person{padding-block:4px!important}
+.pdf-export-sheet.pdf-ultra-dense .position-card{padding-block:3px!important}.pdf-export-sheet.pdf-ultra-dense .position-card h3{font-size:10px}.pdf-export-sheet.pdf-ultra-dense .position-card p{font-size:6.5px}
+.pdf-export-sheet.pdf-ultra-dense .assessment-print-row{padding-block:1px;font-size:6.5px}.pdf-export-sheet.pdf-ultra-dense .print-footer{margin-top:3px}
 @page{size:A4 portrait;margin:11mm 13mm}
 @media print{
   html,body{background:#fff!important;width:100%;min-height:0}
