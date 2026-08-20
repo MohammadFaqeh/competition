@@ -7,7 +7,7 @@ window.CloudCompetition=(()=>{
   let subAdminSaveTimer=null,subAdminKnownIds=new Set();
   const config=()=>window.SUPABASE_CONFIG||{};
   const enabled=()=>Boolean(config().url&&config().anonKey&&window.supabase?.createClient);
-  const rpcError=error=>new Error(error?.message||"تعذر الاتصال بقاعدة البيانات");
+  const rpcError=error=>new Error(error?.code?error.message:"تعذر الاتصال بالخادم. تحقق من اتصال الإنترنت وحاول مجددًا");
 
   async function init(){
     if(!enabled())return {enabled:false};
