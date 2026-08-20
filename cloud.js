@@ -36,7 +36,19 @@ window.CloudCompetition=(()=>{
   async function signOut(){if(context?.kind==="committee"){await client.rpc("committee_logout",{p_token:context.token});localStorage.removeItem(TOKEN_KEY)}else if(context?.kind==="subAdmin"){await client.rpc("sub_admin_logout",{p_token:context.token});localStorage.removeItem(SUB_ADMIN_TOKEN_KEY)}else await client.auth.signOut();context=null}
 
   async function loadCompetitionState(){if(context?.kind==="committee"){const {data,error}=await client.rpc("committee_load_state",{p_token:context.token});if(error)throw rpcError(error);return {payload:data}}if(context?.kind==="subAdmin"){const {data,error}=await client.rpc("sub_admin_load_state",{p_token:context.token});if(error)throw rpcError(error);return {payload:data}}const {data,error}=await client.from("competition_state").select("payload,updated_at").eq("id",1).single();if(error)throw error;return data}
-  async function saveCompetitionState(payload){const {error}=await client.from("competition_state").upsert({id:1,payload,updated_at:new Date().toISOString(),updated_by:context.user.id});if(error)throw error}
+  let adminKnownParticipantIds=new Set(),adminKnownDrawIds=new Set();
+  function markAdminKnownIds(participants,draws){adminKnownParticipantIds=new Set((participants||[]).map(p=>p.id));adminKnownDrawIds=new Set((draws||[]).map(d=>d.id))}
+  // يدمج بدل الاستبدال الأعمى: أي متسابق أو سحب أضافه طرف آخر (مسؤول فرعي مثلاً) بعد آخر
+  // مزامنة محلية للإدارة يبقى محفوظاً بدل أن يُمحى بصمت لو حفظت الإدارة في نفس اللحظة تقريباً.
+  async function saveCompetitionState(payload){
+    const currentParticipantIds=new Set((payload.participants||[]).map(p=>p.id));
+    const currentDrawIds=new Set((payload.draws||[]).map(d=>d.id));
+    const deletedParticipantIds=[...adminKnownParticipantIds].filter(id=>!currentParticipantIds.has(id));
+    const deletedDrawIds=[...adminKnownDrawIds].filter(id=>!currentDrawIds.has(id));
+    const {error}=await client.rpc("admin_save_state",{p_config:payload.config,p_participants:payload.participants,p_draws:payload.draws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds});
+    if(error)throw rpcError(error);
+    adminKnownParticipantIds=currentParticipantIds;adminKnownDrawIds=currentDrawIds;
+  }
   function queueStateSave(payload,onError){if(context?.kind!=="admin")return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));saveTimer=setTimeout(()=>saveCompetitionState(snapshot).catch(onError||console.error),450)}
 
   async function listCommittees(){if(committeeRequest)return committeeRequest;committeeRequest=(async()=>{const {data,error}=await client.from("committees").select("id,name,chairman_name,member_name,responsible_gender,level_names,levels,extra_participant_ids,active,login_code,member_login_code,can_edit_final,created_at").order("created_at");if(error)throw error;return data})();try{return await committeeRequest}finally{committeeRequest=null}}
@@ -67,5 +79,5 @@ window.CloudCompetition=(()=>{
   async function createSubAdminDraw(draw){const {data,error}=await client.rpc("sub_admin_create_draw",{p_token:context.token,p_draw:draw});if(error)throw rpcError(error);return data}
   async function listActivityLog(limit=200){const {data,error}=await client.from("audit_log").select("id,actor_id,action,entity_type,entity_id,details,created_at").order("created_at",{ascending:false}).limit(limit);if(error)throw error;return data}
 
-  return {enabled,init,signInAdmin,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,listCommittees,saveCommittee,assignParticipantToCommittee,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,listFinalEditAudit,deleteParticipantSession,listSessions,claimStudent,createCommitteeDraw,createAdminDraw,replaceCommitteePosition,saveSession,queueSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,get context(){return context},get client(){return client}};
+  return {enabled,init,signInAdmin,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,listFinalEditAudit,deleteParticipantSession,listSessions,claimStudent,createCommitteeDraw,createAdminDraw,replaceCommitteePosition,saveSession,queueSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,get context(){return context},get client(){return client}};
 })();
