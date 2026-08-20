@@ -44,3 +44,13 @@ begin
 end $$;
 
 grant execute on function public.admin_save_state(jsonb,jsonb,jsonb,text[],text[]) to authenticated;
+
+-- ثغرة صلاحيات: سياسة state_read الأصلية في schema.sql كانت using(true) لأي مستخدم
+-- authenticated، أي أن أي شخص يُنشئ حساب Supabase Auth عاديًا (لو التسجيل الذاتي مفعّل
+-- على المشروع) يقدر يقرأ صف competition_state كاملاً مباشرة عبر الجدول (كل المتسابقين
+-- وعلاماتهم وهواتفهم) متجاوزًا طبقة الـ RPC كليًا. المسار الوحيد الذي يقرأ الجدول مباشرة
+-- فعليًا هو تحميل الإدارة نفسها (loadCompetitionState في cloud.js عند context=admin)،
+-- فتقييد القراءة على current_user_role()='admin' آمن ولا يكسر أي مسار حالي.
+drop policy if exists state_read on public.competition_state;
+create policy state_read on public.competition_state for select to authenticated
+using (public.current_user_role()='admin');
