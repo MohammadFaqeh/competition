@@ -709,7 +709,7 @@ img,svg{max-width:100%}
 }
 
 /* 18. Print ----------------------------------------------------------------------- */
-.pdf-export-sheet{position:absolute!important;z-index:99999!important;right:0!important;top:0!important;width:760px!important;max-width:none!important;max-height:none!important;overflow:visible!important;background:#fff!important;color:#111!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:28px!important;direction:rtl;animation:none!important;opacity:1!important;filter:none!important;transform:none!important}
+.pdf-export-sheet{position:fixed!important;z-index:-1!important;right:-99999px!important;top:0!important;width:760px!important;max-width:none!important;max-height:none!important;overflow:visible!important;background:#fff!important;color:#111!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:28px!important;direction:rtl;animation:none!important;opacity:1!important;filter:none!important;transform:none!important;pointer-events:none!important}
 .pdf-export-sheet *{animation:none!important;transition:none!important}
 .pdf-export-sheet .modal-actions,.pdf-export-sheet .result-warning,.pdf-export-sheet .legacy-warning,.pdf-export-sheet .result-score-editor{display:none!important}
 .pdf-export-sheet .print-only{display:flex!important}

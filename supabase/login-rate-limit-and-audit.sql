@@ -1,7 +1,9 @@
--- حماية دخول اللجان والأدمن الفرعي من تخمين الرقم السري (Brute-force)
--- + تسجيل كل محاولة دخول (ناجحة/فاشلة/مقفلة) في سجل النشاط.
+-- حماية دخول اللجان والمسؤول الفرعي من تخمين الرقم السري (Brute-force)
+-- + تسجيل كل محاولة دخول (ناجحة/فاشلة/مقفلة) في سجل النشاط
+-- + إعادة إرسال responsible_gender ضمن بيانات اللجنة (لتلوين واجهة اللجان المسؤولة عن الإناث).
 -- نفّذ هذا الملف مرة واحدة من Supabase SQL Editor بعد كل ملفات supabase/*.sql السابقة.
 -- لا يغيّر أي توقيع دالة (نفس الاسم والمعاملات ونوع الإرجاع) فلا حاجة لتعديل أي كود بالواجهة.
+-- ملف قابل لإعادة التشغيل بأمان في أي وقت (idempotent) — أعد تشغيله كاملاً كلما تغيّر.
 
 alter table public.committees add column if not exists failed_login_count int not null default 0;
 alter table public.committees add column if not exists locked_until timestamptz;
@@ -67,8 +69,26 @@ begin
     values(null,'login_success','committee',v_committee.id::text,jsonb_build_object('login_code',upper(trim(p_login_code)),'role',v_role));
   return jsonb_build_object('token',v_token,'committee',jsonb_build_object(
     'id',v_committee.id,'name',v_committee.name,'levels',v_committee.levels,'active',v_committee.active,
-    'can_edit_final',(v_committee.can_edit_final and v_role='chairman'),'examiner_role',v_role));
+    'can_edit_final',(v_committee.can_edit_final and v_role='chairman'),'examiner_role',v_role,
+    'responsibleGender',v_committee.responsible_gender));
 end $$;
+
+-- محتاجة أيضاً لتلوين واجهة اللجان المسؤولة عن الإناث (نفس فكرة الأدمن الفرعي): كانت الدالتان أعلاه
+-- والدالة التالية لا تُرجعان responsible_gender للواجهة إطلاقاً، فتُعاد هنا فقط لإضافة الحقل، مع إبقاء
+-- بقية منطقها كما هو في two-examiners.sql تماماً.
+create or replace function public.committee_resume(p_token text)
+returns jsonb language plpgsql security definer set search_path=public,extensions
+as $$
+declare v_committee public.committees; v_role text;
+begin
+  v_committee=public.committee_from_token(p_token);v_role=public.committee_role_from_token(p_token);
+  if v_committee.id is null or v_role is null then raise exception 'انتهت جلسة اللجنة'; end if;
+  update public.committee_login_sessions set last_seen_at=now() where token_hash=encode(digest(p_token,'sha256'),'hex');
+  return jsonb_build_object('id',v_committee.id,'name',v_committee.name,'levels',v_committee.levels,
+    'active',v_committee.active,'can_edit_final',(v_committee.can_edit_final and v_role='chairman'),'examiner_role',v_role,
+    'responsibleGender',v_committee.responsible_gender);
+end $$;
+grant execute on function public.committee_resume(text) to anon,authenticated;
 
 -- ==========================================================================
 -- دخول الأدمن الفرعي
