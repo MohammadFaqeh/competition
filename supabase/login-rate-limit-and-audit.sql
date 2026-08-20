@@ -18,14 +18,17 @@ language sql immutable as $$ select interval '15 minutes' $$;
 -- ==========================================================================
 -- دخول اللجان
 -- ==========================================================================
+-- ملاحظة مهمة: هذه الدالة يجب أن تبقى تتحقق من رمز الرئيس (login_code) ورمز العضو
+-- (member_login_code) معاً، مثل نسخة two-examiners.sql تماماً — إسقاط أحدهما يعطّل
+-- دخول العضو بالكامل، وهذه بالضبط الثغرة التي وقعت بها هنا سابقاً وتم تصحيحها.
 create or replace function public.committee_login(p_login_code text,p_pin text)
 returns jsonb
 language plpgsql security definer set search_path=public,extensions
 as $$
-declare v_committee public.committees; v_token text;
+declare v_committee public.committees; v_token text; v_role text;
 begin
-  select * into v_committee from public.committees
-  where lower(login_code)=lower(trim(p_login_code)) and active=true;
+  select * into v_committee from public.committees where active=true and
+    (lower(login_code)=lower(trim(p_login_code)) or lower(member_login_code)=lower(trim(p_login_code))) limit 1;
 
   if v_committee.id is not null and v_committee.locked_until is not null and v_committee.locked_until>now() then
     insert into public.audit_log(actor_id,action,entity_type,entity_id,details)
@@ -34,7 +37,14 @@ begin
     raise exception 'الحساب مقفل مؤقتاً بسبب محاولات دخول فاشلة متكررة. حاول لاحقاً بعد دقائق قليلة.';
   end if;
 
-  if v_committee.id is null or v_committee.pin_hash is null or crypt(p_pin,v_committee.pin_hash)<>v_committee.pin_hash then
+  if v_committee.id is not null and lower(v_committee.login_code)=lower(trim(p_login_code))
+    and v_committee.pin_hash is not null and crypt(p_pin,v_committee.pin_hash)=v_committee.pin_hash then
+    v_role='chairman';
+  elsif v_committee.id is not null and v_committee.member_login_code is not null
+    and lower(v_committee.member_login_code)=lower(trim(p_login_code))
+    and v_committee.member_pin_hash is not null and crypt(p_pin,v_committee.member_pin_hash)=v_committee.member_pin_hash then
+    v_role='member';
+  else
     if v_committee.id is not null then
       update public.committees set
         failed_login_count=failed_login_count+1,
@@ -51,12 +61,13 @@ begin
   update public.committees set failed_login_count=0,locked_until=null where id=v_committee.id;
   delete from public.committee_login_sessions where expires_at<=now();
   v_token=encode(gen_random_bytes(32),'hex');
-  insert into public.committee_login_sessions(committee_id,token_hash,expires_at)
-    values(v_committee.id,encode(digest(v_token,'sha256'),'hex'),now()+interval '16 hours');
+  insert into public.committee_login_sessions(committee_id,token_hash,expires_at,examiner_role)
+    values(v_committee.id,encode(digest(v_token,'sha256'),'hex'),now()+interval '16 hours',v_role);
   insert into public.audit_log(actor_id,action,entity_type,entity_id,details)
-    values(null,'login_success','committee',v_committee.id::text,jsonb_build_object('login_code',v_committee.login_code));
+    values(null,'login_success','committee',v_committee.id::text,jsonb_build_object('login_code',upper(trim(p_login_code)),'role',v_role));
   return jsonb_build_object('token',v_token,'committee',jsonb_build_object(
-    'id',v_committee.id,'name',v_committee.name,'levels',v_committee.levels,'active',v_committee.active));
+    'id',v_committee.id,'name',v_committee.name,'levels',v_committee.levels,'active',v_committee.active,
+    'can_edit_final',(v_committee.can_edit_final and v_role='chairman'),'examiner_role',v_role));
 end $$;
 
 -- ==========================================================================
