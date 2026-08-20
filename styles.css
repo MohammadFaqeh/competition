@@ -345,16 +345,15 @@ main{padding:var(--sp-6) var(--sp-6) var(--sp-7);flex:1}
 .filter-result-count{min-width:112px;display:inline-flex;align-items:center;justify-content:center;padding:0 12px;border-radius:20px;background:var(--green-50);color:var(--green-800);font-size:11px;font-weight:800;white-space:nowrap}
 .table-wrap{overflow:auto}
 table{width:100%;border-collapse:collapse;text-align:right;min-width:720px}
-.table-wrap.is-empty table{min-width:0}
 .table-wrap.is-empty th{white-space:normal}
-th{background:#f7f9f8;color:var(--muted);font-size:11px;font-weight:800;padding:12px 17px;white-space:nowrap}
-td{padding:14px 17px;border-top:1px solid var(--line-soft);font-size:13px}
+th{background:#f7f9f8;color:var(--muted);font-size:11px;font-weight:800;padding:12px 11px;white-space:nowrap}
+td{padding:12px 11px;border-top:1px solid var(--line-soft);font-size:13px}
 td strong{display:block}
 tbody tr{transition:background var(--dur-fast) var(--ease)}
 tbody tr:hover{background:var(--green-50)}
 .row-actions{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;min-width:230px}
 .table-empty{text-align:center!important;padding:48px!important;color:var(--caption)}
-.table-wrap table{min-width:980px}
+.table-wrap table{min-width:0}
 
 /* 11. Draw view -------------------------------------------------------------- */
 .draw-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:var(--sp-4)}
