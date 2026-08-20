@@ -423,7 +423,9 @@ function renderLevelBreakdown(total){
   const showFull=Boolean(state.config?.showFullQuranStats);
   const labelFor=key=>key==="merged-10"?"المستوى السادس (حفظ 10 أجزاء)":key==="merged-5"?"المستوى السابع (حفظ 5 أجزاء)":key===UNRESOLVED?"مستوى غير محدد (يحتاج تصحيح)":(levelCatalogById(key)?.label||key);
   const partsFor=key=>key==="merged-10"?10:key==="merged-5"?5:key===UNRESOLVED?0:(levelCatalogById(key)?.parts??0);
-  const orderedKeys=[...groups.keys()].filter(key=>key===UNRESOLVED||showFull||partsFor(key)<30).sort((a,b)=>partsFor(a)-partsFor(b)||labelFor(a).localeCompare(labelFor(b),"ar"));
+  // بطاقة "غير محدد" لا تظهر هنا عمداً بناءً على طلب صريح — لا تفيد بشكل تلخيصي، وتصحيح هؤلاء المتسابقين
+  // يبقى متاحاً من زر "إصلاح تسميات المستويات القديمة" بالإعدادات، أو تعديل كل واحد يدوياً.
+  const orderedKeys=[...groups.keys()].filter(key=>key!==UNRESOLVED&&(showFull||partsFor(key)<30)).sort((a,b)=>partsFor(a)-partsFor(b)||labelFor(a).localeCompare(labelFor(b),"ar"));
   const cards=orderedKeys.map(key=>{
     const list=groups.get(key),m=byGenderList(list,"ذكر"),f=byGenderList(list,"أنثى");
     return `<article class="level-card${key===UNRESOLVED?" level-card-unresolved":""}"><h4>${escapeHtml(labelFor(key))}</h4><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(list.length)}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatNumber(m.length)}</b></span><span class="split-f">إناث <b>${formatNumber(f.length)}</b></span></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(passRateOf(list))}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatPct(passRateOf(m))}</b></span><span class="split-f">إناث <b>${formatPct(passRateOf(f))}</b></span></div></article>`;
