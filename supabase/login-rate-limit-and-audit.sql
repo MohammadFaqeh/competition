@@ -21,8 +21,10 @@ language sql immutable as $$ select interval '15 minutes' $$;
 -- دخول اللجان
 -- ==========================================================================
 -- ملاحظة مهمة: هذه الدالة يجب أن تبقى تتحقق من رمز الرئيس (login_code) ورمز العضو
--- (member_login_code) معاً، مثل نسخة two-examiners.sql تماماً — إسقاط أحدهما يعطّل
--- دخول العضو بالكامل، وهذه بالضبط الثغرة التي وقعت بها هنا سابقاً وتم تصحيحها.
+-- (member_login_code) معاً، وترجع كل الحقول (chairmanName, memberName, levelNames...)
+-- بالضبط مثل نسخة sub-admins-and-committee-upgrade.sql — هي آخر وأكمل نسخة من هذه
+-- الدالة قبل هذا الملف. إسقاط أي حقل هنا يكسر شيئاً بالواجهة بصمت (كان قد حصل مرتين
+-- فعلاً: مرة بإسقاط دخول العضو، ومرة بإسقاط اسم الرئيس/العضو وأسماء المستويات).
 create or replace function public.committee_login(p_login_code text,p_pin text)
 returns jsonb
 language plpgsql security definer set search_path=public,extensions
@@ -68,14 +70,11 @@ begin
   insert into public.audit_log(actor_id,action,entity_type,entity_id,details)
     values(null,'login_success','committee',v_committee.id::text,jsonb_build_object('login_code',upper(trim(p_login_code)),'role',v_role));
   return jsonb_build_object('token',v_token,'committee',jsonb_build_object(
-    'id',v_committee.id,'name',v_committee.name,'levels',v_committee.levels,'active',v_committee.active,
-    'can_edit_final',(v_committee.can_edit_final and v_role='chairman'),'examiner_role',v_role,
-    'responsibleGender',v_committee.responsible_gender));
+    'id',v_committee.id,'name',v_committee.name,'chairmanName',v_committee.chairman_name,'memberName',v_committee.member_name,
+    'responsibleGender',v_committee.responsible_gender,'levelNames',v_committee.level_names,'levels',v_committee.levels,
+    'active',v_committee.active,'can_edit_final',(v_committee.can_edit_final and v_role='chairman'),'examiner_role',v_role));
 end $$;
 
--- محتاجة أيضاً لتلوين واجهة اللجان المسؤولة عن الإناث (نفس فكرة الأدمن الفرعي): كانت الدالتان أعلاه
--- والدالة التالية لا تُرجعان responsible_gender للواجهة إطلاقاً، فتُعاد هنا فقط لإضافة الحقل، مع إبقاء
--- بقية منطقها كما هو في two-examiners.sql تماماً.
 create or replace function public.committee_resume(p_token text)
 returns jsonb language plpgsql security definer set search_path=public,extensions
 as $$
@@ -84,9 +83,10 @@ begin
   v_committee=public.committee_from_token(p_token);v_role=public.committee_role_from_token(p_token);
   if v_committee.id is null or v_role is null then raise exception 'انتهت جلسة اللجنة'; end if;
   update public.committee_login_sessions set last_seen_at=now() where token_hash=encode(digest(p_token,'sha256'),'hex');
-  return jsonb_build_object('id',v_committee.id,'name',v_committee.name,'levels',v_committee.levels,
-    'active',v_committee.active,'can_edit_final',(v_committee.can_edit_final and v_role='chairman'),'examiner_role',v_role,
-    'responsibleGender',v_committee.responsible_gender);
+  return jsonb_build_object('id',v_committee.id,'name',v_committee.name,'chairmanName',v_committee.chairman_name,
+    'memberName',v_committee.member_name,'responsibleGender',v_committee.responsible_gender,
+    'levelNames',v_committee.level_names,'levels',v_committee.levels,
+    'active',v_committee.active,'can_edit_final',(v_committee.can_edit_final and v_role='chairman'),'examiner_role',v_role);
 end $$;
 grant execute on function public.committee_resume(text) to anon,authenticated;
 

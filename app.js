@@ -389,6 +389,7 @@ function renderAll(){renderDashboard();renderParticipants();renderHistory();refr
 
 function passRateOf(list){const examined=list.filter(p=>Number.isFinite(p.score));return examined.length?examined.filter(p=>p.score>=PASS_SCORE).length/examined.length*100:null}
 function formatPct(n){return n==null?"—":`${new Intl.NumberFormat("ar-JO",{maximumFractionDigits:1,numberingSystem:"latn"}).format(n)}%`}
+function renderPassRateRing(ringId,valueId,pct){const ring=$(`#${ringId}`),value=$(`#${valueId}`);if(!ring||!value)return;const empty=pct==null;ring.classList.toggle("is-empty",empty);ring.style.setProperty("--pct",empty?0:Math.max(0,Math.min(100,pct)));value.textContent=empty?"لا يوجد بيانات":formatPct(pct)}
 function renderDashboard(){
   const byGender=(list,g)=>list.filter(p=>p.gender===g);
   const total=state.participants;
@@ -407,20 +408,22 @@ function renderDashboard(){
   $("#statFailed").textContent=formatNumber(failed.length);
   $("#statFailedM").textContent=formatNumber(byGender(failed,"ذكر").length);
   $("#statFailedF").textContent=formatNumber(byGender(failed,"أنثى").length);
-  $("#passRateAll").textContent=formatPct(passRateOf(total));
-  $("#passRateM").textContent=formatPct(passRateOf(byGender(total,"ذكر")));
-  $("#passRateF").textContent=formatPct(passRateOf(byGender(total,"أنثى")));
+  renderPassRateRing("passRateAllRing","passRateAll",passRateOf(total));
+  renderPassRateRing("passRateMRing","passRateM",passRateOf(byGender(total,"ذكر")));
+  renderPassRateRing("passRateFRing","passRateF",passRateOf(byGender(total,"أنثى")));
   renderLevelBreakdown(total);
 }
-function partsCountForKey(key){const catalogMatch=LEVEL_CATALOG.find(l=>l.label===key);if(catalogMatch)return catalogMatch.parts;const numMatch=String(key).match(/^(\d+)/);return numMatch?Number(numMatch[1]):999}
 function renderLevelBreakdown(total){
+  const UNRESOLVED="__unresolved__";
   const groups=new Map();
-  for(const p of total){const key=p.levelName||`${p.level} أجزاء`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p)}
+  for(const p of total){const key=resolveParticipantLevelId(p)||UNRESOLVED;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p)}
   const showFull=Boolean(state.config?.showFullQuranStats);
-  const orderedKeys=[...groups.keys()].filter(key=>showFull||partsCountForKey(key)<30).sort((a,b)=>partsCountForKey(a)-partsCountForKey(b)||a.localeCompare(b,"ar"));
+  const labelFor=key=>key===UNRESOLVED?"مستوى غير محدد (يحتاج تصحيح)":(levelCatalogById(key)?.label||key);
+  const partsFor=key=>key===UNRESOLVED?0:(levelCatalogById(key)?.parts??0);
+  const orderedKeys=[...groups.keys()].filter(key=>key===UNRESOLVED||showFull||partsFor(key)<30).sort((a,b)=>partsFor(a)-partsFor(b)||labelFor(a).localeCompare(labelFor(b),"ar"));
   const cards=orderedKeys.map(key=>{
     const list=groups.get(key),m=byGenderList(list,"ذكر"),f=byGenderList(list,"أنثى");
-    return `<article class="level-card"><h4>${escapeHtml(key)}</h4><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(list.length)}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatNumber(m.length)}</b></span><span class="split-f">إناث <b>${formatNumber(f.length)}</b></span></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(passRateOf(list))}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatPct(passRateOf(m))}</b></span><span class="split-f">إناث <b>${formatPct(passRateOf(f))}</b></span></div></article>`;
+    return `<article class="level-card${key===UNRESOLVED?" level-card-unresolved":""}"><h4>${escapeHtml(labelFor(key))}</h4><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(list.length)}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatNumber(m.length)}</b></span><span class="split-f">إناث <b>${formatNumber(f.length)}</b></span></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(passRateOf(list))}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatPct(passRateOf(m))}</b></span><span class="split-f">إناث <b>${formatPct(passRateOf(f))}</b></span></div></article>`;
   }).join("");
   $("#levelBreakdownGrid").innerHTML=cards||`<p class="committee-alerts-empty">لا يوجد متسابقون بعد.</p>`;
 }
@@ -467,18 +470,18 @@ function nextDrawSequence(){return Math.max(0,...state.draws.map(draw=>Number(dr
 function populateParticipantFilterOptions(){
   const centerSelect=$("#participantCenterFilter"),levelSelect=$("#participantLevelFilter");
   const centers=[...new Set(state.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),"ar"));
-  const levels=[...new Set(state.participants.map(p=>p.levelName||`${p.level} أجزاء`).filter(Boolean))];
   const currentCenter=centerSelect.value,currentLevel=levelSelect.value;
   centerSelect.innerHTML=`<option value="all">المركز: الكل</option>`+centers.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("");
-  levelSelect.innerHTML=`<option value="all">المستوى: الكل</option>`+levels.map(l=>`<option value="${escapeAttr(l)}">${escapeHtml(l)}</option>`).join("");
+  // قائمة ثابتة من LEVEL_CATALOG دائماً — لا تُشتق من بيانات المتسابقين، حتى لا تظهر مسميات قديمة أو أرقام أجزاء خام.
+  levelSelect.innerHTML=`<option value="all">المستوى: الكل</option>`+LEVEL_CATALOG.map(l=>`<option value="${l.id}">${escapeHtml(l.label)}</option>`).join("");
   centerSelect.value=centers.includes(currentCenter)?currentCenter:"all";
-  levelSelect.value=levels.includes(currentLevel)?currentLevel:"all";
+  levelSelect.value=LEVEL_CATALOG.some(l=>l.id===currentLevel)?currentLevel:"all";
 }
 function renderParticipants(){
   populateParticipantFilterOptions();
   const query=$("#participantSearch").value.trim().toLowerCase(),filter=$("#participantFilter").value,genderFilter=$("#participantGenderFilter").value,centerFilter=$("#participantCenterFilter").value,levelFilter=$("#participantLevelFilter").value,drawByParticipant=new Map(state.draws.filter(d=>d.participantId).map(d=>[d.participantId,d]));
   const statusOf=p=>Number.isFinite(p.score)?"completed":drawByParticipant.has(p.id)?"drawn":"pending";
-  const list=state.participants.filter(p=>[p.name,p.seat,p.center].some(x=>String(x).toLowerCase().includes(query))).filter(p=>filter==="all"||statusOf(p)===filter).filter(p=>genderFilter==="all"||p.gender===genderFilter).filter(p=>centerFilter==="all"||p.center===centerFilter).filter(p=>levelFilter==="all"||(p.levelName||`${p.level} أجزاء`)===levelFilter);
+  const list=state.participants.filter(p=>[p.name,p.seat,p.center].some(x=>String(x).toLowerCase().includes(query))).filter(p=>filter==="all"||statusOf(p)===filter).filter(p=>genderFilter==="all"||p.gender===genderFilter).filter(p=>centerFilter==="all"||p.center===centerFilter).filter(p=>levelFilter==="all"||resolveParticipantLevelId(p)===levelFilter);
   $("#participantFilterCount").textContent=list.length===state.participants.length?`${formatNumber(list.length)} متسابق`:`${formatNumber(list.length)} من ${formatNumber(state.participants.length)} متسابق`;
   const isSubAdmin=window.CloudCompetition?.context?.kind==="subAdmin",isMainAdmin=operationMode==="cloud"?window.CloudCompetition?.context?.kind==="admin":true;
   $("#participantsTable").closest(".table-wrap").classList.toggle("is-empty",!list.length);
