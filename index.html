@@ -10,21 +10,46 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260817-optional-member1">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
-  <div id="loadingScreen" class="loading-screen">
+  <div id="loadingScreen" class="loading-screen hidden">
     <img class="auth-logo loading-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
     <strong>منصة المسابقة السنوية</strong>
     <p>جاري تجهيز المنصة...</p>
   </div>
 
+  <section id="gatewayScreen" class="auth-screen gateway-screen">
+    <div class="gateway-card">
+      <div class="gateway-intro">
+        <img class="auth-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+        <span class="eyebrow">منصة إدارة المسابقات القرآنية</span>
+        <h1>اختر طريقة استخدام المنصة</h1>
+        <p>بيانات فرع الكورة محمية بتسجيل الدخول، ويمكن لبقية الفروع استخدام الأدوات محلياً دون إرسال بياناتهم إلينا.</p>
+      </div>
+      <div class="gateway-options">
+        <article class="gateway-option koura-option">
+          <div class="gateway-icon"><i data-lucide="shield-check"></i></div>
+          <div><span>النظام الرسمي</span><h2>فرع الكورة</h2><p>دخول إدارة المسابقة أو لجان الاختبار والوصول إلى البيانات السحابية المحمية.</p></div>
+          <button id="openKouraLoginBtn" class="primary-btn wide" type="button" onclick="openKouraMode()">دخول فرع الكورة</button>
+        </article>
+        <article class="gateway-option local-option">
+          <div class="gateway-icon"><i data-lucide="laptop"></i></div>
+          <div><span>استخدام مستقل</span><h2>تشغيل محلي لفرع آخر</h2><p>استيراد Excel، السحب والتقييم وتصدير النتائج. تبقى البيانات على هذا الجهاز فقط.</p></div>
+          <button id="openLocalModeBtn" class="secondary-btn wide" type="button" onclick="openLocalMode()">بدء الاستخدام المحلي</button>
+          <small><i data-lucide="hard-drive-download"></i> احفظ نسخة احتياطية دورياً؛ حذف بيانات المتصفح قد يفقد البيانات.</small>
+        </article>
+      </div>
+      <div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>
+    </div>
+  </section>
+
   <section id="setupScreen" class="auth-screen hidden">
     <div class="auth-panel">
       <div class="auth-brand">
         <img class="auth-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
-        <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
+        <p id="setupBrandLine">جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
         <h1>منصة المسابقة السنوية</h1>
         <div class="auth-facts">
           <span><b id="setupPositions">--</b> موضعاً محققاً</span>
@@ -33,6 +58,7 @@
         </div>
       </div>
       <form id="setupForm" class="auth-form">
+        <button class="gateway-back-button setup-back-button" type="button" data-back-gateway><i data-lucide="arrow-right"></i><span>العودة لاختيار طريقة الاستخدام</span></button>
         <span class="eyebrow">الإعداد الأول</span>
         <h2>إنشاء دورة المسابقة</h2>
         <p>تُحفظ البيانات على هذا الجهاز وتعمل المنصة دون اتصال.</p>
@@ -46,8 +72,9 @@
 
   <section id="loginScreen" class="auth-screen hidden">
     <div class="login-card">
+      <button class="gateway-back-button" type="button" data-back-gateway><i data-lucide="arrow-right"></i><span>رجوع</span></button>
       <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
-      <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
+      <p id="localLoginBrandLine">جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
       <h1 id="loginCompetitionName">المسابقة السنوية</h1>
       <form id="loginForm">
         <label>رمز الدخول<input id="loginPin" required type="password" inputmode="numeric" autofocus></label>
@@ -55,14 +82,63 @@
         <button class="primary-btn wide" type="submit">دخول المنصة</button>
       </form>
       <small>تعمل محلياً دون اتصال بالإنترنت</small>
+      <div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>
     </div>
+  </section>
+
+  <section id="cloudLoginScreen" class="auth-screen hidden">
+    <div class="login-card">
+      <button class="gateway-back-button" type="button" data-back-gateway><i data-lucide="arrow-right"></i><span>العودة لاختيار طريقة الاستخدام</span></button>
+      <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+      <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
+      <h1 id="cloudLoginTitle">دخول لجنة الاختبار</h1>
+      <form id="committeeLoginForm">
+        <label>رمز اللجنة<input id="committeeLoginCode" required autocomplete="username" inputmode="latin" placeholder="مثال: L01"></label>
+        <label>الرقم السري PIN<input id="committeeLoginPin" required type="password" inputmode="numeric" minlength="4" autocomplete="current-password"></label>
+        <p id="committeeLoginError" class="form-error hidden"></p>
+        <button class="primary-btn wide" type="submit">دخول اللجنة</button>
+      </form>
+      <div class="login-mode-links"><button id="showAdminLoginBtn" class="text-login-btn" type="button">دخول إدارة المسابقة</button><button id="showSubAdminLoginBtn" class="text-login-btn" type="button">دخول أدمن فرعي</button></div>
+      <form id="cloudLoginForm" class="admin-login-form hidden">
+        <label>البريد الإلكتروني للإدارة<input id="cloudLoginEmail" required type="email" autocomplete="username"></label>
+        <label>كلمة مرور الإدارة<input id="cloudLoginPassword" required type="password" autocomplete="current-password"></label>
+        <p id="cloudLoginError" class="form-error hidden"></p>
+        <button class="primary-btn wide" type="submit">دخول الإدارة</button>
+        <button class="secondary-btn wide" type="button" data-back-committee-login>العودة لدخول اللجان</button>
+      </form>
+      <form id="subAdminLoginForm" class="hidden">
+        <label>رمز الدخول<input id="subAdminLoginCode" required autocomplete="username" inputmode="latin" placeholder="مثال: SA-M"></label>
+        <label>الرقم السري PIN<input id="subAdminLoginPin" required type="password" inputmode="numeric" minlength="4" autocomplete="current-password"></label>
+        <p id="subAdminLoginError" class="form-error hidden"></p>
+        <button class="primary-btn wide" type="submit">دخول</button>
+        <button class="secondary-btn wide" type="button" data-back-committee-login>العودة لدخول اللجان</button>
+      </form>
+      <small>يُحفظ كل امتحان مباشرة في قاعدة بيانات الفرع</small>
+      <div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>
+    </div>
+  </section>
+
+  <section id="committeeApp" class="committee-app hidden">
+    <header class="committee-topbar">
+      <div><span id="committeeRoleLabel">لجنة الاختبار</span><h1 id="committeeExaminerGreeting">--</h1><small id="committeeName">--</small><small id="committeeLevels">--</small></div>
+      <div class="committee-topbar-actions"><button id="showExamInstructionsBtn" class="secondary-btn" type="button"><i data-lucide="file-text"></i> تعليمات الاختبار</button><button id="committeeLogoutBtn" class="secondary-btn"><i data-lucide="log-out"></i> خروج</button></div>
+    </header>
+    <main class="committee-main">
+      <section class="committee-alerts" aria-labelledby="committeeAlertsTitle">
+        <div class="committee-alerts-head"><div><span class="eyebrow">آخر التحديثات</span><h2 id="committeeAlertsTitle">تنبيهات اللجنة</h2></div><button id="clearCommitteeAlertsBtn" class="text-login-btn" type="button">تحديد الكل كمقروء</button></div>
+        <div id="committeeAlertsList" class="committee-alerts-list"><p class="committee-alerts-empty">لا توجد تنبيهات جديدة.</p></div>
+      </section>
+      <section class="committee-statusbar"><div><span>بانتظار الاختبار</span><b id="committeePendingCount">0</b></div><div><span>قيد الاختبار</span><b id="committeeActiveCount">0</b></div><div><span>مكتمل</span><b id="committeeCompletedCount">0</b></div></section>
+      <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="committeeSearch" placeholder="بحث باسم الطالب أو رقم الجلوس"></div><select id="committeeStatusFilter" aria-label="فرز الطلاب حسب الحالة"><option value="all">جميع الحالات</option><option value="no_draw">لم يتم السحب بعد</option><option value="pending">جاهز للاختبار</option><option value="in_progress">قيد الاختبار</option><option value="final">مكتمل الاختبار</option></select><button id="refreshCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
+      <section id="committeeStudents" class="committee-students"></section>
+    </main>
   </section>
 
   <div id="app" class="app hidden">
     <aside class="sidebar">
       <div class="sidebar-brand">
         <img class="sidebar-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
-        <div><b>جمعية المحافظة على القرآن الكريم</b><small>فرع الكورة | المسابقة السنوية</small></div>
+        <div><b id="sidebarBrandTitle">جمعية المحافظة على القرآن الكريم</b><small id="sidebarBrandSubtitle">فرع الكورة | المسابقة السنوية</small></div>
       </div>
       <nav id="mainNav">
         <button class="nav-item active" data-view="dashboard"><i data-lucide="layout-dashboard"></i><span>نظرة عامة</span></button>
@@ -82,9 +158,11 @@
         <button id="menuBtn" class="icon-btn menu-btn" title="القائمة"><i data-lucide="menu"></i></button>
         <div><span class="eyebrow">الدورة الحالية</span><h2 id="topCompetitionName"></h2></div>
         <div class="topbar-actions">
+          <button id="syncCloudBtn" class="secondary-btn hidden"><i data-lucide="cloud-download"></i> تحديث نتائج اللجان</button>
           <div class="date-chip"><i data-lucide="calendar-days"></i><span id="todayText"></span></div>
         </div>
       </header>
+      <div id="localModeNotice" class="local-mode-notice hidden"><i data-lucide="hard-drive"></i><div><b>وضع محلي مستقل</b><span>البيانات محفوظة على هذا الجهاز فقط ولا تُرسل إلى فرع الكورة. نزّل نسخة احتياطية دورياً.</span></div><button id="localBackupShortcut" type="button">تنزيل نسخة الآن</button></div>
 
       <main>
         <section id="dashboardView" class="view active-view">
@@ -93,20 +171,28 @@
             <img class="welcome-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
           </div>
           <div class="stats-grid">
-            <article class="stat"><div class="stat-icon green"><i data-lucide="users"></i></div><div><span>إجمالي المتسابقين</span><b id="statParticipants">0</b><small id="statPending">0 لم يكتمل امتحانهم</small></div></article>
-            <article class="stat"><div class="stat-icon gold"><i data-lucide="clipboard-check"></i></div><div><span>تم امتحانهم</span><b id="statDraws">0</b><small>أُدخلت علاماتهم النهائية</small></div></article>
-            <article class="stat"><div class="stat-icon blue"><i data-lucide="badge-check"></i></div><div><span>الناجحون</span><b id="statPositions">0</b><small id="statUsed">0 راسب</small></div></article>
-            <article class="stat"><div class="stat-icon red"><i data-lucide="percent"></i></div><div><span>نسبة النجاح</span><b id="statIntegrity">0%</b><small>من المتسابقين المكتملة علاماتهم</small></div></article>
+            <article class="stat"><div class="stat-icon green"><i data-lucide="users"></i></div><div><span>إجمالي المتسابقين</span><b id="statTotal">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statTotalM">0</b></span><span class="split-f">إناث <b id="statTotalF">0</b></span></div></div></article>
+            <article class="stat"><div class="stat-icon gold"><i data-lucide="clipboard-check"></i></div><div><span>تم امتحانهم</span><b id="statExamined">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statExaminedM">0</b></span><span class="split-f">إناث <b id="statExaminedF">0</b></span></div></div></article>
+            <article class="stat"><div class="stat-icon blue"><i data-lucide="badge-check"></i></div><div><span>الناجحون</span><b id="statPassed">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statPassedM">0</b></span><span class="split-f">إناث <b id="statPassedF">0</b></span></div></div></article>
+            <article class="stat"><div class="stat-icon red"><i data-lucide="x-circle"></i></div><div><span>الراسبون</span><b id="statFailed">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statFailedM">0</b></span><span class="split-f">إناث <b id="statFailedF">0</b></span></div></div></article>
           </div>
-          <div class="dashboard-grid">
-            <section class="panel"><div class="panel-head"><div><span class="eyebrow">سير العمل</span><h3>آخر المتسابقين</h3></div><button class="text-btn" data-go="participants">عرض الكل <i data-lucide="arrow-left"></i></button></div><div id="recentParticipants" class="participant-list empty-state"></div></section>
-            <section class="panel"><div class="panel-head"><div><span class="eyebrow">تغطية عادلة</span><h3>استخدام أجزاء القرآن</h3></div><span class="status-pill">متابعة مباشرة</span></div><div id="miniDistribution" class="mini-bars"></div></section>
-          </div>
+          <section class="panel pass-rate-panel">
+            <div class="panel-head"><div><span class="eyebrow">من المتسابقين المكتملة علاماتهم</span><h3>نسبة النجاح</h3></div></div>
+            <div class="pass-rate-row">
+              <div class="pass-rate-tile all"><span>الكل</span><b id="passRateAll">0%</b></div>
+              <div class="pass-rate-tile"><span>ذكور</span><b id="passRateM">0%</b></div>
+              <div class="pass-rate-tile"><span>إناث</span><b id="passRateF">0%</b></div>
+            </div>
+          </section>
+          <section class="panel level-breakdown-panel">
+            <div class="panel-head"><div><span class="eyebrow">تفصيل الدورة</span><h3>التوزيع حسب المستوى</h3></div></div>
+            <div id="levelBreakdownGrid" class="level-breakdown-grid"></div>
+          </section>
         </section>
 
         <section id="participantsView" class="view">
-          <div class="page-head"><div><span class="eyebrow">إدارة الدورة</span><h1>المتسابقون</h1><p>أضف الأسماء أو استورد ملف Excel الجاهز.</p></div><div class="page-actions"><label class="secondary-btn file-btn"><i data-lucide="file-up"></i> استيراد Excel<input id="csvInput" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label><button id="exportResultsBtn" class="secondary-btn"><i data-lucide="sheet"></i> النتائج والترتيب</button><button id="bulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><button id="deleteAllParticipantsBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button><button id="addParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
-          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="participantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="participantFilter"><option value="all">جميع الحالات</option><option value="pending">بانتظار السحب</option><option value="drawn">تم السحب / بانتظار العلامة</option><option value="completed">تم الاختبار</option></select></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>العلامة / 100</th><th>الإجراءات</th></tr></thead><tbody id="participantsTable"></tbody></table></div></section>
+          <div class="page-head"><div><span class="eyebrow">إدارة الدورة</span><h1>المتسابقون</h1><p>أضف الأسماء أو استورد ملف Excel الجاهز.</p></div><div class="page-actions"><label class="secondary-btn file-btn"><i data-lucide="file-up"></i> استيراد Excel<input id="csvInput" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label><button id="bulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><details class="page-actions-more"><summary class="secondary-btn"><i data-lucide="more-horizontal"></i> المزيد</summary><div class="page-actions-more-list"><button id="exportResultsBtn" class="secondary-btn"><i data-lucide="sheet"></i> النتائج والترتيب</button><button id="exportUnifiedResultsBtn" class="secondary-btn"><i data-lucide="table-2"></i> النتائج كاملة بشيت واحد</button><button id="bulkPdfBtn" class="secondary-btn"><i data-lucide="files"></i> PDF للطلاب</button><button id="bulkDrawPdfBtn" class="secondary-btn"><i data-lucide="file-stack"></i> حفظ السحب للطلاب PDF</button><button id="deleteAllParticipantsBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button></div></details><button id="addParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
+          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="participantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="participantFilter"><option value="all">جميع الحالات</option><option value="pending">بانتظار السحب</option><option value="drawn">تم السحب / بانتظار العلامة</option><option value="completed">تم الاختبار</option></select><select id="participantGenderFilter"><option value="all">الجنس: الكل</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select><select id="participantCenterFilter"><option value="all">المركز: الكل</option></select><select id="participantLevelFilter"><option value="all">المستوى: الكل</option></select><span id="participantFilterCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>العلامة / 100</th><th>الإجراءات</th></tr></thead><tbody id="participantsTable"></tbody></table></div></section>
         </section>
 
         <section id="drawView" class="view">
@@ -118,8 +204,7 @@
               <div class="form-grid"><label>الاسم<input id="drawName" required placeholder="اسم المتسابق الثلاثي"></label><label>رقم الجلوس<input id="drawSeat" placeholder="اختياري"></label><label>المركز<input id="drawCenter" required placeholder="اسم المركز"></label><label>العمر<input id="drawAge" type="number" min="4" max="100" placeholder="اختياري"></label></div>
               <div class="step-title"><span>2</span><div><b>مستوى الحفظ</b><small>حدد الأجزاء التي يتقدم بها المتسابق</small></div></div>
               <div class="form-grid"><label>عدد الأجزاء<select id="drawLevel" required><option value="">اختر المستوى</option><option>5</option><option>10</option><option>15</option><option>20</option><option>25</option><option>30</option></select></label><label>عدد أسئلة الاختبار<input id="drawQuestionCount" type="number" min="1" max="15" value="3"></label></div>
-              <div class="parts-head"><span>الأجزاء المشمولة</span><div class="parts-shortcuts"><button type="button" class="range-btn" data-part-range="1-10">الأولى 1-10</button><button type="button" class="range-btn" data-part-range="11-20">الثانية 11-20</button><button type="button" class="range-btn" data-part-range="21-30">الأخيرة 21-30</button><button id="selectFirstParts" type="button" class="range-btn">بحسب المستوى</button><button id="clearParts" type="button" class="text-btn muted">مسح</button></div></div>
-              <div id="partsGrid" class="parts-grid"></div>
+              <div class="draw-parts-readonly"><span>الأجزاء المعتمدة للمتسابق</span><b id="drawPartsSummary">اختر متسابقًا مسجلًا</b><small>تُعدّل الأجزاء من بيانات المتسابق فقط، وتظهر هنا تلقائيًا.</small></div>
               <p id="drawError" class="form-error hidden"></p>
               <button class="draw-trigger" type="submit"><i data-lucide="sparkles"></i><span>تنفيذ السحب العادل</span><small>تثبيت النتيجة وحفظها في سجل الدورة</small></button>
             </form>
@@ -142,20 +227,26 @@
 
         <section id="settingsView" class="view">
           <div class="page-head"><div><span class="eyebrow">إعداد دورة المسابقة</span><h1>الإعدادات والنسخ الاحتياطي</h1><p>اضبط بيانات الدورة واحفظ نسخة احتياطية قبل يوم المسابقة.</p></div></div>
-          <div class="settings-grid"><form id="settingsForm" class="panel"><h3>بيانات الدورة</h3><label>اسم المسابقة<input id="settingsCompetitionName" required></label><label>اسم المشرف<input id="settingsAdminName" required></label><label>رمز دخول جديد<input id="settingsPin" type="password" minlength="4" placeholder="اتركه فارغاً للإبقاء على الحالي"></label><button class="primary-btn" type="submit">حفظ التغييرات</button></form><section class="panel"><h3>البيانات والنسخ الاحتياطي</h3><div class="backup-actions"><button id="backupBtn" class="secondary-btn"><i data-lucide="archive"></i> تنزيل نسخة احتياطية</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استعادة نسخة<input id="restoreInput" type="file" accept="application/json,.json"></label><a class="secondary-btn" href="participants-template.csv" download><i data-lucide="file-spreadsheet"></i> قالب المتسابقين</a><button id="newCycleBtn" class="danger-btn"><i data-lucide="rotate-ccw"></i> بدء دورة جديدة</button></div><div class="data-source"><i data-lucide="badge-check"></i><div><b>مصدر القرآن</b><span>Quran Foundation Content API v4</span><small>النص العثماني، ترقيم مصحف المدينة 604 صفحات</small></div></div></section></div>
+          <div class="settings-grid"><form id="settingsForm" class="panel"><h3>بيانات الدورة</h3><label>اسم المسابقة<input id="settingsCompetitionName" required></label><label>اسم المشرف<input id="settingsAdminName" required></label><label>رمز دخول جديد<input id="settingsPin" type="password" minlength="4" placeholder="اتركه فارغاً للإبقاء على الحالي"></label><label class="committee-member-toggle"><input id="settingsShowFullQuran" type="checkbox"> إظهار مستوى القرآن الكامل (30 جزءاً) بالإحصائيات</label><button class="primary-btn" type="submit">حفظ التغييرات</button></form><section class="panel"><h3>البيانات والنسخ الاحتياطي</h3><div class="backup-actions"><button id="backupBtn" class="secondary-btn"><i data-lucide="archive"></i> تنزيل نسخة احتياطية JSON</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استعادة نسخة JSON<input id="restoreInput" type="file" accept="application/json,.json"></label><a class="secondary-btn" href="participants-template.xlsx" download><i data-lucide="file-spreadsheet"></i> قالب Excel للمتسابقين</a><button id="newCycleBtn" class="danger-btn"><i data-lucide="rotate-ccw"></i> بدء دورة جديدة</button></div><div class="data-source"><i data-lucide="badge-check"></i><div><b>مصدر القرآن</b><span>Quran Foundation Content API v4</span><small>النص العثماني، ترقيم مصحف المدينة 604 صفحات</small></div></div></section><section class="panel"><h3>تصحيح اسم مركز</h3><p class="field-help">يُحدّث اسم المركز لكل المتسابقين المسجَّلين تحته دفعة واحدة.</p><form id="renameCenterForm" class="form-grid"><label>المركز الحالي<select id="renameCenterFrom" required><option value="">اختر مركزاً</option></select></label><label>الاسم الصحيح الجديد<input id="renameCenterTo" required placeholder="مثال: المقداد بن عمرو"></label><button class="secondary-btn" type="submit">تحديث الاسم</button></form></section></div>
+          <section id="cloudCommitteesPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">جاهزة لأي عدد من اللجان</span><h3>إدارة لجان الاختبار</h3></div><span class="status-pill">رمز وPIN لكل لجنة</span></div><form id="committeeAccountForm" class="committee-account-form"><input id="editingCommitteeId" type="hidden"><label>اسم اللجنة<input id="newCommitteeName" required placeholder="مثال: لجنة المستوى الأول"></label><label>الجنس المسؤولة عنه اللجنة<select id="newCommitteeGender" required><option value="">اختر</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select></label><label>اسم رئيس اللجنة<input id="newCommitteeChairmanName" required placeholder="الاسم الثلاثي"></label><label>رمز رئيس اللجنة<input id="newCommitteeCode" required maxlength="20" placeholder="مثال: L01"></label><label>PIN رئيس اللجنة<input id="newCommitteePin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label><fieldset><legend>المستويات المسؤولة عنها</legend><div id="committeeLevelOptions" class="committee-level-options"></div></fieldset><div class="committee-form-actions"><button class="primary-btn" type="submit"><i data-lucide="user-plus"></i> <span id="committeeSubmitLabel">إضافة اللجنة</span></button><button id="cancelCommitteeEdit" class="secondary-btn hidden" type="button">إلغاء التعديل</button></div></form><p class="field-help">يمكن إضافة اللجان وتوزيع المستويات لاحقاً دون تعديل الكود أو قاعدة البيانات. عند تعديل لجنة، اترك PIN فارغاً للاحتفاظ بالرقم الحالي.</p><div id="committeesList" class="committees-list"></div><div class="committee-audit"><div class="panel-head"><h3>سجل نشاط تعديل النتائج</h3><button id="refreshFinalEditAuditBtn" class="compact-btn" type="button">تحديث السجل</button></div><div id="finalEditAuditList" class="final-edit-audit-list"><p class="committee-alerts-empty">لا يوجد نشاط مسجل بعد.</p></div></div></section>
+
+          <section id="subAdminsPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">صلاحيات محدودة بجنس واحد</span><h3>حسابات الأدمن الفرعي</h3></div><span class="status-pill">رمز وPIN لكل حساب</span></div><form id="subAdminAccountForm" class="committee-account-form"><input id="editingSubAdminId" type="hidden"><label>اسم الحساب<input id="newSubAdminName" required placeholder="مثال: أدمن الذكور"></label><label>الجنس<select id="newSubAdminGender" required><option value="">اختر</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select></label><label>رمز الدخول<input id="newSubAdminCode" required maxlength="20" placeholder="مثال: SA-M"></label><label>PIN<input id="newSubAdminPin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label><div class="committee-form-actions"><button class="primary-btn" type="submit"><i data-lucide="user-plus"></i> <span id="subAdminSubmitLabel">إضافة الحساب</span></button><button id="cancelSubAdminEdit" class="secondary-btn hidden" type="button">إلغاء التعديل</button></div></form><p class="field-help">أدمن الذكور يرى متسابقي الذكور فقط، وأدمن الإناث يرى متسابقات الإناث فقط. لا يمكنهما إدارة اللجان أو حذف جميع المتسابقين. عند التعديل، اترك PIN فارغاً للاحتفاظ بالرقم الحالي.</p><div id="subAdminsList" class="committees-list"></div></section>
+
+          <section id="drRequestsPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">تسجيل يدوي طارئ عند تعطل النظام</span><h3>طلبات DR بانتظار الموافقة</h3></div><button id="approveAllDrBtn" class="secondary-btn" type="button">موافقة على الكل</button></div><div id="drRequestsList" class="committees-list"><p class="committee-alerts-empty">لا توجد طلبات حاليًا.</p></div></section>
+
+          <section id="activityLogPanel" class="panel hidden"><div class="panel-head"><div><span class="eyebrow">كل الأفعال، بما فيها الأدمن الفرعي واللجان</span><h3>سجل النشاط الكامل</h3></div><button id="refreshActivityLogBtn" class="compact-btn" type="button">تحديث السجل</button></div><div id="activityLogList" class="final-edit-audit-list"><p class="committee-alerts-empty">لا يوجد نشاط مسجل بعد.</p></div></section>
         </section>
       </main>
-      <footer><span>تصميم وتطوير م. مأمون محمود الفقيه</span><span>تحسين م. محمد عادل الفقيه</span></footer>
+      <footer><div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div></footer>
     </div>
   </div>
 
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true"><div id="modalContent" class="modal-card"></div></div>
   <div id="toast" class="toast hidden"></div>
   <script src="vendor/lucide.min.js"></script>
-  <script src="vendor/xlsx.full.min.js"></script>
-  <script src="vendor/html2canvas.min.js"></script>
-  <script src="vendor/jspdf.umd.min.js"></script>
-  <script src="data/quran-data.js"></script>
-  <script src="app.js"></script>
+  <script src="vendor/supabase.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="cloud.js?v=20260817-two-examiners1"></script>
+  <script src="app.js?v=20260817-optional-member1"></script>
 </body>
 </html>
