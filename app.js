@@ -215,6 +215,7 @@ function bindEvents(){
   $("#exportUnifiedResultsBtn")?.addEventListener("click",exportUnifiedResults);
   $("#bulkPdfBtn")?.addEventListener("click",openBulkPdfDialog);
   $("#bulkDrawPdfBtn")?.addEventListener("click",openBulkDrawPdfDialog);
+  $("#associationCardBtn")?.addEventListener("click",openAssociationCardDialog);
   $("#participantSearch").addEventListener("input",renderParticipants);
   $("#participantFilter").addEventListener("change",renderParticipants);
   $("#participantGenderFilter").addEventListener("change",renderParticipants);
@@ -554,10 +555,11 @@ async function exportUnifiedResults(){
     const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rows);sheet["!views"]=[{rightToLeft:true}];sheet["!cols"]=[{wch:32},{wch:26},{wch:9},{wch:14},{wch:14},{wch:16},{wch:20},{wch:20},{wch:38},{wch:16},{wch:14},{wch:14},{wch:12},{wch:12}];workbook.Workbook={Views:[{RTL:true}]};XLSX.utils.book_append_sheet(workbook,sheet,"جميع النتائج");XLSX.writeFile(workbook,`النتائج-الكاملة-${dateStamp()}.xlsx`);toast("تم تنزيل جميع النتائج في شيت واحد")
   });
 }
-function levelCheckboxesHtml(name){return LEVEL_CATALOG.map(l=>`<label class="committee-member-toggle"><input type="checkbox" name="${name}" value="${escapeAttr(l.label)}"> ${escapeHtml(l.label)}</label>`).join("")}
+function levelCheckboxesHtml(name){return `<label class="committee-member-toggle level-select-all"><input type="checkbox" data-level-all="${name}"> <b>جميع المستويات</b></label>`+LEVEL_CATALOG.map(l=>`<label class="committee-member-toggle"><input type="checkbox" name="${name}" value="${escapeAttr(l.label)}"> ${escapeHtml(l.label)}</label>`).join("")}
+function wireLevelSelectAll(name){const all=$(`[data-level-all="${name}"]`),boxes=$$(`[name="${name}"]`);if(!all||!boxes.length)return;all.onchange=()=>boxes.forEach(box=>box.checked=all.checked);boxes.forEach(box=>box.onchange=()=>{all.checked=boxes.every(item=>item.checked)})}
 function genderCenterFieldsHtml(idPrefix,centers){return `<label>الجنس<select id="${idPrefix}Gender"><option value="all">الكل</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select></label><label>المركز<select id="${idPrefix}Center"><option value="all">الكل</option>${centers.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("")}</select></label>`}
-async function openBulkPdfDialog(){let committees=[...new Set(state.participants.map(resultCommitteeName).filter(Boolean))];if(operationMode==="cloud"&&window.CloudCompetition.context?.profile?.role==="admin")try{cloudCommittees=await window.CloudCompetition.listCommittees();committees=cloudCommittees.map(item=>item.name)}catch(error){toast(`تعذر تحديث قائمة اللجان: ${error.message}`)}committees=[...new Set(committees)].sort((a,b)=>a.localeCompare(b,"ar"));const centers=[...new Set(state.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));openModal(`<div class="modal-head"><div><span class="eyebrow">ملف واحد للطباعة</span><h2>تجميع ملفات الطلاب PDF</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid"><label>الحالة<select id="bulkPdfStatus"><option value="all">كل من تم سحبهم</option><option value="completed">المكتملون فقط</option></select></label>${genderCenterFieldsHtml("bulkPdf",centers)}<label>اللجنة<select id="bulkPdfCommittee"><option value="all">كل اللجان</option>${committees.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label></div><fieldset><legend>المستوى (اختياري، يمكن اختيار أكثر من مستوى)</legend><div class="committee-level-options">${levelCheckboxesHtml("bulkPdfLevel")}</div></fieldset><p>تُحدّث قائمة اللجان مباشرة من الإعدادات. لكل متسابق صفحة واحدة، ويظهر معه المواضع واللجنة والعلامة وملخص التقييم.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="createBulkPdf" class="primary-btn"><i data-lucide="files"></i> إنشاء الملف</button></div>`,"bulk-pdf-modal");$("#createBulkPdf").onclick=()=>createBulkResultsPdf({status:$("#bulkPdfStatus").value,gender:$("#bulkPdfGender").value,center:$("#bulkPdfCenter").value,committee:$("#bulkPdfCommittee").value,levels:$$(`[name="bulkPdfLevel"]`).filter(i=>i.checked).map(i=>i.value)},{buttonId:"createBulkPdf",filenamePrefix:"ملفات-طلاب-المسابقة"});lucide.createIcons()}
-async function openBulkDrawPdfDialog(){const centers=[...new Set(state.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));openModal(`<div class="modal-head"><div><span class="eyebrow">قبل الاختبار — بدون علامات</span><h2>حفظ السحب للطلاب PDF</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid">${genderCenterFieldsHtml("bulkDrawPdf",centers)}</div><fieldset><legend>المستوى (اختياري، يمكن اختيار أكثر من مستوى)</legend><div class="committee-level-options">${levelCheckboxesHtml("bulkDrawPdfLevel")}</div></fieldset><p>ملف واحد يجمع مواضع كل من تم سحبهم (بدون علامات)، حسب الفلترة المختارة.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="createBulkDrawPdf" class="primary-btn"><i data-lucide="file-stack"></i> إنشاء الملف</button></div>`,"bulk-pdf-modal");$("#createBulkDrawPdf").onclick=()=>createBulkResultsPdf({status:"all",gender:$("#bulkDrawPdfGender").value,center:$("#bulkDrawPdfCenter").value,committee:"all",levels:$$(`[name="bulkDrawPdfLevel"]`).filter(i=>i.checked).map(i=>i.value)},{buttonId:"createBulkDrawPdf",filenamePrefix:"سحب-الطلاب"});lucide.createIcons()}
+async function openBulkPdfDialog(){let committees=[...new Set(state.participants.map(resultCommitteeName).filter(Boolean))];if(operationMode==="cloud"&&window.CloudCompetition.context?.profile?.role==="admin")try{cloudCommittees=await window.CloudCompetition.listCommittees();committees=cloudCommittees.map(item=>item.name)}catch(error){toast(`تعذر تحديث قائمة اللجان: ${error.message}`)}committees=[...new Set(committees)].sort((a,b)=>a.localeCompare(b,"ar"));const centers=[...new Set(state.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));openModal(`<div class="modal-head"><div><span class="eyebrow">ملف واحد للطباعة</span><h2>تجميع ملفات الطلاب PDF</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid"><label>الحالة<select id="bulkPdfStatus"><option value="all">كل من تم سحبهم</option><option value="completed">المكتملون فقط</option></select></label>${genderCenterFieldsHtml("bulkPdf",centers)}<label>اللجنة<select id="bulkPdfCommittee"><option value="all">كل اللجان</option>${committees.map(name=>`<option>${escapeHtml(name)}</option>`).join("")}</select></label></div><fieldset><legend>المستوى (اختياري، يمكن اختيار أكثر من مستوى)</legend><div class="committee-level-options">${levelCheckboxesHtml("bulkPdfLevel")}</div></fieldset><p>تُحدّث قائمة اللجان مباشرة من الإعدادات. لكل متسابق صفحة واحدة، ويظهر معه المواضع واللجنة والعلامة وملخص التقييم.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="createBulkPdf" class="primary-btn"><i data-lucide="files"></i> إنشاء الملف</button></div>`,"bulk-pdf-modal");$("#createBulkPdf").onclick=()=>createBulkResultsPdf({status:$("#bulkPdfStatus").value,gender:$("#bulkPdfGender").value,center:$("#bulkPdfCenter").value,committee:$("#bulkPdfCommittee").value,levels:$$(`[name="bulkPdfLevel"]`).filter(i=>i.checked).map(i=>i.value)},{buttonId:"createBulkPdf",filenamePrefix:"ملفات-طلاب-المسابقة"});wireLevelSelectAll("bulkPdfLevel");lucide.createIcons()}
+async function openBulkDrawPdfDialog(){const centers=[...new Set(state.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));openModal(`<div class="modal-head"><div><span class="eyebrow">قبل الاختبار — بدون علامات</span><h2>حفظ السحب للطلاب PDF</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid">${genderCenterFieldsHtml("bulkDrawPdf",centers)}</div><fieldset><legend>المستوى (اختياري، يمكن اختيار أكثر من مستوى)</legend><div class="committee-level-options">${levelCheckboxesHtml("bulkDrawPdfLevel")}</div></fieldset><p>ملف واحد يجمع مواضع كل من تم سحبهم (بدون علامات)، حسب الفلترة المختارة.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="createBulkDrawPdf" class="primary-btn"><i data-lucide="file-stack"></i> إنشاء الملف</button></div>`,"bulk-pdf-modal");$("#createBulkDrawPdf").onclick=()=>createBulkResultsPdf({status:"all",gender:$("#bulkDrawPdfGender").value,center:$("#bulkDrawPdfCenter").value,committee:"all",levels:$$(`[name="bulkDrawPdfLevel"]`).filter(i=>i.checked).map(i=>i.value)},{buttonId:"createBulkDrawPdf",filenamePrefix:"سحب-الطلاب"});wireLevelSelectAll("bulkDrawPdfLevel");lucide.createIcons()}
 async function createBulkResultsPdf(filters,options){
   const button=$(`#${options.buttonId}`);
   let draws=state.draws.filter(draw=>draw.participantId).filter(draw=>{
@@ -576,6 +578,81 @@ async function createBulkResultsPdf(filters,options){
 }
 function preparePdfClone(clone,draw){clone.classList.add("pdf-export-sheet");if(draw.positions.length>=8)clone.classList.add("pdf-dense");if(draw.positions.length>=11)clone.classList.add("pdf-ultra-dense")}
 function addCanvasAsSinglePdfPage(pdf,canvas,format="JPEG",quality=.88){const margin=7,pageWidth=pdf.internal.pageSize.getWidth(),pageHeight=pdf.internal.pageSize.getHeight(),availableWidth=pageWidth-margin*2,availableHeight=pageHeight-margin*2,scale=Math.min(availableWidth/canvas.width,availableHeight/canvas.height),width=canvas.width*scale,height=canvas.height*scale,x=(pageWidth-width)/2,y=margin;pdf.addImage(canvas.toDataURL(`image/${format.toLowerCase()}`,quality),format,x,y,width,height,undefined,"FAST")}
+function openAssociationCardDialog(){const centers=[...new Set(state.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));openModal(`<div class="modal-head"><div><span class="eyebrow">نموذج جمعية المحافظة على القرآن الكريم</span><h2>حفظ بطاقات الاختبار للجمعية</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid"><label>الحالة<select id="assocCardStatus"><option value="all">الكل</option><option value="drawn">تم السحب فقط ولم يُختبر بعد</option><option value="completed">المكتملون فقط (تم اختبارهم)</option></select></label>${genderCenterFieldsHtml("assocCard",centers)}</div><fieldset><legend>المستوى (اختياري، يمكن اختيار أكثر من مستوى)</legend><div class="committee-level-options">${levelCheckboxesHtml("assocCardLevel")}</div></fieldset><p>ملف واحد يجمع بطاقة اختبار بصيغة الجمعية لكل متسابق مطابق للفلترة، بصفحة مستقلة لكل متسابق.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="createAssociationCards" class="primary-btn"><i data-lucide="badge-check"></i> إنشاء الملف</button></div>`,"bulk-pdf-modal");$("#createAssociationCards").onclick=()=>createAssociationCardsPdf({status:$("#assocCardStatus").value,gender:$("#assocCardGender").value,center:$("#assocCardCenter").value,levels:$$(`[name="assocCardLevel"]`).filter(i=>i.checked).map(i=>i.value)},{buttonId:"createAssociationCards",filenamePrefix:"بطاقات-الجمعية"});wireLevelSelectAll("assocCardLevel");lucide.createIcons()}
+async function createAssociationCardsPdf(filters,options){
+  const button=$(`#${options.buttonId}`);
+  const list=state.participants.filter(participant=>{
+    const hasDraw=state.draws.some(draw=>draw.participantId===participant.id),hasScore=Number.isFinite(participant.score);
+    if(filters.status==="drawn"&&!(hasDraw&&!hasScore))return false;
+    if(filters.status==="completed"&&!hasScore)return false;
+    if(filters.gender&&filters.gender!=="all"&&participant.gender!==filters.gender)return false;
+    if(filters.center&&filters.center!=="all"&&participant.center!==filters.center)return false;
+    if(filters.levels?.length&&!filters.levels.includes(participant.levelName||`${participant.level} أجزاء`))return false;
+    return true;
+  });
+  if(!list.length)return toast("لا يوجد متسابقون مطابقون للاختيار");
+  button.disabled=true;button.textContent=`جاري تجهيز 1 من ${list.length}`;
+  try{
+    await ensurePdfLibraries();
+    const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
+    for(let index=0;index<list.length;index++){
+      const participant=list[index];
+      if(index%3===0)toast(`جاري تجهيز ${index+1} من ${list.length}`);
+      const wrapper=document.createElement("div");wrapper.innerHTML=associationCardHtml(participant);
+      const clone=wrapper.firstElementChild;document.body.appendChild(clone);
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+      const canvas=await window.html2canvas(clone,{scale:1.4,useCORS:false,allowTaint:false,backgroundColor:"#ffffff",logging:false});
+      clone.remove();
+      if(index)pdf.addPage();
+      addCanvasAsSinglePdfPage(pdf,canvas,"JPEG",.85);
+    }
+    const blob=pdf.output("blob"),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${options.filenamePrefix}-${dateStamp()}.pdf`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);closeModal();toast(`تم تنزيل ${list.length} بطاقة؛ صفحة واحدة لكل متسابق`)
+  }catch(error){console.error(error);toast(`تعذر إنشاء الملف: ${error.message}`);button.disabled=false;button.textContent="إنشاء الملف"}
+}
+function associationCardHtml(participant){
+  const final=participant?.assessment?.positions?.length?calculateFinalAssessment(participant.assessment):null;
+  const totals=final?.totals||{},deductions=final?.deductions||{};
+  const score=Number.isFinite(participant?.score)?participant.score:(final?final.score:null);
+  const hasScore=Number.isFinite(score),passed=hasScore&&score>=PASS_SCORE;
+  const errorRow=(label,type,perError)=>`<tr><td class="assoc-err-label">${escapeHtml(label)}</td><td colspan="3">${totals[type]?formatAssessmentNumber(totals[type]):"-"}</td><td>(${perError})</td><td>${deductions[type]?formatAssessmentNumber(deductions[type]):"-"}</td></tr>`;
+  const parts=Array.isArray(participant?.parts)?participant.parts:[];
+  const partsGrid=Array.from({length:30},(_,i)=>i+1).map(n=>`<span class="${parts.includes(n)?"marked":""}">${n}</span>`).join("");
+  const center=participant?.center||"-";
+  const examDate=participant?.assessment?.startedAt||participant?.gradedAt||null;
+  const infoField=(label,value)=>`<td><span>${escapeHtml(label)}</span><b>${escapeHtml(String(value??"")||"-")}</b></td>`;
+  return `<div class="pdf-export-sheet association-card-sheet">
+    <div class="assoc-header">
+      <img class="assoc-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+      <div class="assoc-header-text"><b>جمعية المحافظة على القرآن الكريم</b><span>بسم الله الرحمن الرحيم</span></div>
+      <div class="assoc-year">1448هـ – 2026م</div>
+    </div>
+    <h2 class="assoc-title">بطاقة الاختبار</h2>
+    <table class="assoc-info-table">
+      <tr>${infoField("الاسم",participant?.name)}${infoField("الرقم",participant?.seat)}${infoField("العمر",participant?.age)}</tr>
+      <tr>${infoField("الفرع",participant?.branch)}${infoField("المركز",center)}${infoField("المنطقة",center)}</tr>
+      <tr>${infoField("المستوى",participant?.levelName||(participant?.level?`${participant.level} أجزاء`:""))}${infoField("رقم الهاتف",participant?.phone)}${infoField("التاريخ",examDate?formatExamDate(examDate):"")}</tr>
+    </table>
+    <div class="assoc-parts"><span>الأجزاء المحفوظة</span><div class="assoc-parts-grid">${partsGrid}</div></div>
+    <table class="assoc-errors-table">
+      <thead><tr><th>نوع الخطأ</th><th colspan="3">عدد الأخطاء</th><th>علامة كل خطأ</th><th>مجموع العلامات المخصومة</th></tr></thead>
+      <tbody>
+        ${errorRow("أخطاء اللغة","language",2)}
+        ${errorRow("أخطاء الحفظ","memorization",2)}
+        ${errorRow("أخطاء الأحكام","tajweed",1)}
+        ${errorRow("الاعتذار عن القراءة من أحد المواضع","positionChange",10)}
+        ${errorRow("أخطاء الأداء","hesitation",.2)}
+        <tr class="assoc-total-row"><td colspan="5">مجموع علامات الأخطاء</td><td>${final?formatAssessmentNumber(final.totalDeduction):"-"}</td></tr>
+      </tbody>
+    </table>
+    <table class="assoc-score-table">
+      <tr><td rowspan="2" class="assoc-score-label">العلامة ( بعد طرح مجموع الأخطاء من 100 )<br>علامة النجاح (75%)</td><td>رقماً</td><td>${hasScore?score:"-"}</td></tr>
+      <tr><td>كتابة</td><td></td></tr>
+    </table>
+    <div class="assoc-result-row"><span>النتيجة :</span><label><span class="assoc-check ${passed?"checked":""}"></span> ناجح</label><label><span class="assoc-check ${hasScore&&!passed?"checked":""}"></span> غير ناجح</label></div>
+    <div class="assoc-notes-row"><span>ملاحظات</span><b></b></div>
+    <div class="assoc-committee-row"><span>لجنة الاختبار</span><b>${escapeHtml(resultCommitteeName(participant)||"-")}</b></div>
+  </div>`;
+}
 async function importCsv(event){
   const file=event.target.files[0];if(!file)return;
   try{
