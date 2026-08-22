@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#164c3b">
   <title>منصة المسابقة السنوية القرآنية</title>
+  <script>try{if(localStorage.getItem("competition-color-mode")==="dark")document.documentElement.classList.add("theme-dark")}catch(e){}</script>
   <!-- خط Tajawal: يُحمَّل عند توفر اتصال بالإنترنت فقط. عند عدم توفره، يعمل CSS fallback
        المحدد في --font-arabic تلقائياً (Segoe UI / Tahoma) دون كسر الصفحة أو تأخيرها. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260817-optional-member1">
+  <link rel="stylesheet" href="styles.css?v=20260822-darkmode1">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -146,6 +147,7 @@
         <button class="nav-item" data-view="draw"><i data-lucide="sparkles"></i><span>إجراء السحب</span></button>
         <button class="nav-item" data-view="other"><i data-lucide="shuffle"></i><span>سحب لغير المسابقة السنوية</span></button>
         <button class="nav-item" data-view="history"><i data-lucide="history"></i><span>سجل السحوبات</span></button>
+        <button class="nav-item" data-view="examDuration"><i data-lucide="timer"></i><span>مدة الاختبار</span></button>
         <button class="nav-item" data-view="analytics"><i data-lucide="chart-no-axes-combined"></i><span>الإحصاءات</span></button>
         <button class="nav-item" data-view="settings"><i data-lucide="settings"></i><span>الإعدادات</span></button>
       </nav>
@@ -160,7 +162,7 @@
         <div><span class="eyebrow" id="topAdminGreeting">الدورة الحالية</span><h2 id="topCompetitionName"></h2></div>
         <div class="topbar-actions">
           <button id="syncCloudBtn" class="secondary-btn hidden"><i data-lucide="cloud-download"></i> تحديث نتائج اللجان</button>
-          <div class="date-chip"><i data-lucide="calendar-days"></i><span id="todayText"></span></div>
+          <div class="date-chip"><i data-lucide="calendar-days"></i><div class="date-chip-text"><span id="todayText"></span><small id="todayTime"></small></div></div>
         </div>
       </header>
       <div id="localModeNotice" class="local-mode-notice hidden"><i data-lucide="hard-drive"></i><div><b>وضع محلي مستقل</b><span>البيانات محفوظة على هذا الجهاز فقط ولا تُرسل إلى فرع الكورة. نزّل نسخة احتياطية دورياً.</span></div><button id="localBackupShortcut" type="button">تنزيل نسخة الآن</button></div>
@@ -226,6 +228,11 @@
           <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="historySearch" placeholder="بحث باسم المتسابق أو رقم السحب"></div></div><div class="table-wrap"><table><thead><tr><th>رقم السحب</th><th>المتسابق</th><th>المستوى</th><th>المواضع</th><th>التاريخ</th><th></th></tr></thead><tbody id="historyTable"></tbody></table></div></section>
         </section>
 
+        <section id="examDurationView" class="view">
+          <div class="page-head"><div><span class="eyebrow">من بداية الاختبار عند اللجنة حتى اعتماد النتيجة</span><h1>مدة الاختبار</h1><p>مدة كل متسابق داخل لجنته، من بدء الاختبار إلى اعتماد النتيجة.</p></div><div class="page-actions"><button id="exportExamDurationsBtn" class="secondary-btn"><i data-lucide="file-spreadsheet"></i> تنزيل Excel</button></div></div>
+          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="examDurationSearch" placeholder="بحث باسم المتسابق"></div></div><div class="table-wrap"><table><thead><tr><th>الطالب</th><th>المستوى</th><th>اللجنة</th><th>المدة</th></tr></thead><tbody id="examDurationTable"></tbody></table></div></section>
+        </section>
+
         <section id="analyticsView" class="view">
           <div class="page-head"><div><span class="eyebrow">شفافية الخوارزمية</span><h1>العدالة والإحصاءات</h1><p>مراقبة توزيع المواضع المستخدمة على أجزاء القرآن أثناء الدورة.</p></div><button id="runAuditBtn" class="secondary-btn"><i data-lucide="activity"></i> تشغيل فحص العشوائية</button></div>
           <div class="analytics-grid"><section class="panel"><div class="panel-head"><h3>الاستخدام حسب الجزء</h3><span id="fairnessLabel" class="status-pill">لا توجد بيانات كافية</span></div><div id="distributionChart" class="distribution-chart"></div></section><section class="panel audit-panel"><div class="audit-score"><span>نتيجة الفحص</span><b id="auditScore">--</b><small id="auditDetail">شغّل الفحص لمحاكاة 100,000 سحب</small></div><div class="audit-notes"><p><i data-lucide="shield-check"></i> يستخدم النظام Web Crypto بدلاً من Math.random.</p><p><i data-lucide="database"></i> سلامة قاعدة الآيات تُفحص عند كل تشغيل.</p><p><i data-lucide="scale"></i> لا توجد أفضلية رقمية لأي جزء داخل المجموعة المختارة.</p></div></section></div>
@@ -247,12 +254,13 @@
     </div>
   </div>
 
+  <button id="colorModeToggle" class="color-mode-toggle" type="button" title="تبديل الوضع الداكن/الفاتح"><i data-lucide="moon"></i></button>
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true"><div id="modalContent" class="modal-card"></div></div>
   <div id="toast" class="toast hidden"></div>
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260817-two-examiners1"></script>
-  <script src="app.js?v=20260817-optional-member1"></script>
+  <script src="cloud.js?v=20260822-no-committee-draw1"></script>
+  <script src="app.js?v=20260822-darkmode1"></script>
 </body>
 </html>

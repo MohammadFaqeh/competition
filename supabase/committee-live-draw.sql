@@ -1,5 +1,7 @@
 -- السحب الذري من حساب اللجنة وتبديل موضع أثناء الامتحان.
 -- شغّل الملف كاملاً مرة واحدة بعد exam-readiness-hardening.sql.
+-- تحديث: السحب من اللجان (رئيساً أو عضواً) أُلغي نهائياً؛ السحب أصبح صلاحية إدارة/مسؤول فرعي فقط.
+-- إن كنت تحدّث قاعدة بيانات قائمة، أعد تشغيل هذا الملف كاملاً لتطبيق منع السحب من اللجان.
 
 create or replace function public.committee_create_draw(
   p_token text,
@@ -22,7 +24,7 @@ declare
 begin
   v_committee=public.committee_from_token(p_token);
   if v_committee.id is null then raise exception 'انتهت جلسة اللجنة'; end if;
-  if public.committee_role_from_token(p_token)<>'chairman' then raise exception 'إجراء السحب متاح لرئيس اللجنة فقط'; end if;
+  raise exception 'إجراء السحب لم يعد متاحاً للجان؛ يقوم به الإدارة أو المسؤول الفرعي فقط';
   if not (p_level=any(v_committee.levels)) then raise exception 'هذا المستوى غير مخصص لهذه اللجنة'; end if;
   if cardinality(p_parts)<>p_level or exists(select 1 from unnest(p_parts) n where n<1 or n>30) then
     raise exception 'الأجزاء المشاركة غير مكتملة أو غير صالحة';
