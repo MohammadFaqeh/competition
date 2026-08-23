@@ -47,6 +47,8 @@ python -m http.server 8000
    7. `sub-admin-committee-assignment-visibility.sql`
    8. `security-fix-null-safe-admin-checks.sql`
    9. `login-rate-limit-and-audit.sql`
+   10. `admin-safe-state-merge.sql`
+   11. `participant-transfer.sql`
 
 3. انسخ `supabase-config.example.js` إلى `supabase-config.js`، وضع فيه **Project URL** ومفتاح **anon** العام فقط من إعدادات المشروع.
    لا تضع مفتاح `service_role` في أي ملف داخل الموقع — هذا المفتاح يمنح صلاحيات كاملة ويجب أن يبقى خارج أي كود يصل للمتصفح.
