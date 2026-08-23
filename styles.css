@@ -235,7 +235,7 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 .sidebar-logo{width:150px;height:118px;object-fit:contain;flex:0 0 auto;background:var(--surface);padding:7px;border-radius:6px;border-bottom:3px solid var(--gold)}
 .sidebar-brand b{display:block;font-size:12px;line-height:1.55}
 .sidebar-brand small{display:block;color:#8fb0a1;font-size:10.5px;margin-top:2px}
-.sidebar nav{padding-top:var(--sp-5);display:flex;flex-direction:column;gap:3px}
+.sidebar nav{padding-top:var(--sp-5);display:flex;flex-direction:column;gap:3px;flex:1 1 auto;min-height:0;overflow-y:auto}
 .nav-item{
   width:100%;height:45px;border:0;border-radius:var(--radius-sm);padding:0 13px;background:transparent;
   color:#a4c0b3;display:flex;gap:12px;align-items:center;text-align:right;font-weight:600;
@@ -659,6 +659,32 @@ footer{display:flex;justify-content:center;gap:var(--sp-5);padding:var(--sp-4);b
 .missing-parts-list{display:grid;gap:6px;max-height:260px;overflow:auto;margin-top:12px}.missing-parts-list span{padding:9px 12px;border:1px solid #efcaca;border-radius:8px;background:#fff7f7;color:#9e3434;font-weight:700}
 .cloud-committees-panel{margin-top:16px}.committee-account-form{display:grid;grid-template-columns:1fr 1.4fr 1.5fr auto;align-items:end;gap:12px}.committee-account-form fieldset{border:0;padding:0;margin:0;grid-column:1/-1}.committee-account-form legend{font-size:11px;font-weight:700;margin-bottom:7px}.committee-level-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:7px}.committee-level-options label{display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:11px;line-height:1.4}.committee-level-options input{width:auto;margin:0;flex:0 0 auto}.field-help{color:var(--muted);font-size:10px;margin:10px 0}.committees-list{display:grid;gap:8px;margin-top:12px}.committee-row{display:flex;flex-direction:column;gap:9px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:9px}.committee-row-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.committee-row b{display:block;font-size:13px}.committee-row small{display:block;color:var(--muted);font-size:10.5px;line-height:1.7}.committee-row.inactive{opacity:.6}.committee-levels-badges{display:flex;flex-wrap:wrap;gap:6px}.committee-levels-badges span{padding:3px 9px;border-radius:999px;background:var(--green-100);color:var(--green-800);font-size:9.5px;font-weight:700}
 .committee-row .permission-on{color:var(--green-700);font-weight:800;margin-top:3px}.committee-audit{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}.committee-audit .panel-head{margin-bottom:9px}.committee-audit h3{font-size:15px}.final-edit-audit-list{display:grid;gap:6px;max-height:280px;overflow:auto}.final-edit-audit-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}.final-edit-audit-list article div{display:flex;flex-direction:column}.final-edit-audit-list b{font-size:11px}.final-edit-audit-list span,.final-edit-audit-list small{color:var(--muted);font-size:9px}.final-edit-audit-list small{white-space:nowrap}
+.monitor-layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;align-items:start}
+.monitor-committees-panel .committees-list{margin-top:0}
+.monitor-committee-btn{width:100%;text-align:right;font:inherit;cursor:pointer;transition:border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
+.monitor-committee-btn:hover{border-color:var(--green-600)}
+.monitor-committee-btn.is-selected{border-color:var(--green-700);background:var(--green-50)}
+.status-pill.is-live{background:var(--red-soft);color:var(--red);animation:monitorPulse 1.8s ease-in-out infinite}
+@keyframes monitorPulse{0%,100%{opacity:1}50%{opacity:.55}}
+.monitor-detail-panel{min-height:220px}
+.monitor-empty{padding:45px 20px;text-align:center;color:var(--muted)}
+.monitor-detail-head{display:grid;gap:10px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+.monitor-participant h3{margin:0 0 2px;font-size:17px}
+.monitor-participant span{color:var(--muted);font-size:11px}
+.monitor-session-tabs,.monitor-role-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.compact-btn.is-active{background:var(--green-700);border-color:var(--green-700);color:#fff}
+.monitor-live-score{font-size:15px;font-weight:800}
+.monitor-positions{display:grid;gap:10px}
+.monitor-position-card{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:12px 14px}
+.monitor-position-card.is-current{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+.monitor-position-card.is-done{opacity:.7}
+.monitor-position-head{display:flex;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;color:var(--green-700)}
+.monitor-position-head b{color:var(--red)}
+.monitor-position-card>p{margin:4px 0 8px;color:var(--muted);font-size:11px}
+.monitor-position-badges{display:flex;flex-wrap:wrap;gap:6px}
+.monitor-position-badges span{padding:3px 9px;border-radius:999px;background:var(--red-soft);color:var(--red);font-size:9.5px;font-weight:700}
+.monitor-position-badges.empty span,.monitor-position-badges.empty{color:var(--muted);font-size:10.5px;background:none;padding:0}
+@media(max-width:900px){.monitor-layout{grid-template-columns:1fr}}
 @media(max-width:900px){.committee-account-form{grid-template-columns:1fr 1fr}.committee-account-form fieldset{grid-column:1/-1}.committee-account-form>button{align-self:stretch}}
 @media(max-width:600px){.committee-topbar{padding:10px 12px}.committee-topbar h1{font-size:17px}.committee-topbar .secondary-btn{padding:8px}.committee-alerts{padding:11px}.committee-alerts-head{align-items:flex-start}.committee-alerts-head h2{font-size:16px}.committee-alert{grid-template-columns:auto 1fr}.committee-alert>span{grid-column:2;justify-self:start}.committee-statusbar{gap:6px}.committee-statusbar>div{padding:9px 4px}.committee-statusbar b{font-size:21px}.committee-student{grid-template-columns:1fr}.committee-student>button{width:100%;justify-content:center}.committee-account-form{grid-template-columns:1fr}.committee-account-form fieldset{grid-column:auto}.committee-row{grid-template-columns:1fr auto}.committee-row>span{grid-column:1/-1}}
 .assessment-modal{width:min(1120px,100%)}
