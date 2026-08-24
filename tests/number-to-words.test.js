@@ -49,18 +49,22 @@ function test(name, fn) {
   }
 }
 
-test("صفر", () => assert.strictEqual(numberToArabicWords(0), "صفر علامة"));
-test("واحد (حالة خاصة)", () => assert.strictEqual(numberToArabicWords(1), "علامة واحدة"));
-test("اثنان (مثنى)", () => assert.strictEqual(numberToArabicWords(2), "علامتان"));
-test("ثلاثة (تأنيث العدد لأن المعدود مؤنث: بدون تاء)", () => assert.strictEqual(numberToArabicWords(3), "ثلاث علامة"));
-test("خمسة عشر", () => assert.strictEqual(numberToArabicWords(15), "خمس عشرة علامة"));
-test("عشرون بالضبط", () => assert.strictEqual(numberToArabicWords(20), "عشرون علامة"));
-test("واحد وعشرون", () => assert.strictEqual(numberToArabicWords(21), "إحدى وعشرون علامة"));
-test("سبعة وثمانون", () => assert.strictEqual(numberToArabicWords(87), "سبع وثمانون علامة"));
-test("مئة بالضبط", () => assert.strictEqual(numberToArabicWords(100), "مئة علامة"));
-test("كسر نصف", () => assert.strictEqual(numberToArabicWords(87.5), "سبع وثمانون علامة ونصف"));
-test("كسر ربع", () => assert.strictEqual(numberToArabicWords(75.25), "خمس وسبعون علامة وربع"));
-test("كسر ثلاثة أرباع", () => assert.strictEqual(numberToArabicWords(90.75), "تسعون علامة وثلاثة أرباع"));
+test("صفر", () => assert.strictEqual(numberToArabicWords(0), "صفر"));
+test("واحد", () => assert.strictEqual(numberToArabicWords(1), "واحد"));
+test("اثنان", () => assert.strictEqual(numberToArabicWords(2), "اثنان"));
+test("ثلاثة", () => assert.strictEqual(numberToArabicWords(3), "ثلاثة"));
+test("خمسة عشر", () => assert.strictEqual(numberToArabicWords(15), "خمسة عشر"));
+test("عشرون بالضبط", () => assert.strictEqual(numberToArabicWords(20), "عشرون"));
+test("واحد وعشرون", () => assert.strictEqual(numberToArabicWords(21), "واحد وعشرون"));
+test("سبعة وثمانون", () => assert.strictEqual(numberToArabicWords(87), "سبعة وثمانون"));
+test("مئة بالضبط", () => assert.strictEqual(numberToArabicWords(100), "مئة"));
+test("كسر نصف", () => assert.strictEqual(numberToArabicWords(87.5), "سبعة وثمانون ونصف"));
+test("كسر ربع", () => assert.strictEqual(numberToArabicWords(75.25), "خمسة وسبعون وربع"));
+test("كسر ثلاثة أرباع", () => assert.strictEqual(numberToArabicWords(90.75), "تسعون وثلاثة أرباع"));
+test("عُشر واحد", () => assert.strictEqual(numberToArabicWords(45.1), "خمسة وأربعون وعُشر"));
+test("عُشران (مثنى)", () => assert.strictEqual(numberToArabicWords(45.2), "خمسة وأربعون وعُشران"));
+test("ثمانية أعشار (مثال العلامة الفعلي)", () => assert.strictEqual(numberToArabicWords(73.8), "ثلاثة وسبعون وثمانية أعشار"));
+test("كسر بخانتين عشريتين ليس من مضاعفات العشر", () => assert.strictEqual(numberToArabicWords(73.85), "ثلاثة وسبعون وخمسة وثمانون من مئة"));
 test("قيمة غير رقمية ترجع نصاً فارغاً", () => assert.strictEqual(numberToArabicWords(NaN), ""));
 
 console.log(`\n${passed} نجح، ${failed} فشل`);

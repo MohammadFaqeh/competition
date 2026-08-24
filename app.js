@@ -275,6 +275,7 @@ function bindEvents(){
   $("#syncCloudBtn").addEventListener("click",refreshAdminCloudResults);
   $("#refreshFinalEditAuditBtn").addEventListener("click",renderFinalEditAudit);
   $("#refreshActivityLogBtn").addEventListener("click",renderActivityLog);
+  $("#activityLogFilter").addEventListener("change",renderActivityLogList);
   $("#approveAllDrBtn").addEventListener("click",approveAllDrRequests);
 }
 
@@ -331,7 +332,7 @@ function setupIdleLogout(){const reset=()=>{clearTimeout(idleLogoutTimer);if(!wi
 function toggleCommitteeMemberFields(){const enabled=$("#enableCommitteeMember")?.checked,fields=$("#committeeMemberFields");if(!fields)return;fields.classList.toggle("hidden",!enabled);$("#newCommitteeMemberName").required=Boolean(enabled);$("#newCommitteeMemberCode").required=Boolean(enabled);$("#newCommitteeMemberPin").required=Boolean(enabled&&!$("#newCommitteeMemberCode").dataset.existing)}
 function ensureCommitteeMemberFields(){if($("#newCommitteeMemberCode"))return;const chairmanPin=$("#newCommitteePin")?.closest("label");if(!chairmanPin)return;chairmanPin.insertAdjacentHTML("afterend",`<label class="committee-member-toggle"><input id="enableCommitteeMember" type="checkbox"> تفعيل حساب عضو اللجنة ورصده المستقل</label><div id="committeeMemberFields" class="committee-member-fields hidden"><label>اسم عضو اللجنة<input id="newCommitteeMemberName" placeholder="الاسم الثلاثي"></label><label>رمز عضو اللجنة<input id="newCommitteeMemberCode" maxlength="20" placeholder="مثال: L01-M"></label><label>PIN عضو اللجنة<input id="newCommitteeMemberPin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label></div>`);$("#enableCommitteeMember").addEventListener("change",toggleCommitteeMemberFields);toggleCommitteeMemberFields()}
 function renderCommitteeLevelOptions(){const box=$("#committeeLevelOptions");if(!box||box.children.length)return;box.innerHTML=LEVEL_CATALOG.map(l=>`<label><input type="checkbox" name="committeeLevel" value="${l.id}"> ${escapeHtml(l.label)}</label>`).join("")}
-async function setupCloudAdminPanel(){ensureCommitteeMemberFields();renderCommitteeLevelOptions();const isMainAdmin=window.CloudCompetition.context?.profile.role==="admin";$("#cloudCommitteesPanel").classList.remove("hidden");$("#subAdminsPanel").classList.remove("hidden");$("#drRequestsPanel").classList.remove("hidden");$("#activityLogPanel").classList.remove("hidden");$("#syncCloudBtn").classList.remove("hidden");$("#supervisorsPanel").classList.toggle("hidden",!isMainAdmin);renderDrRequests();const tasks=[renderCloudCommittees(),renderFinalEditAudit(),renderSubAdmins(),renderActivityLog()];if(isMainAdmin)tasks.push(renderSupervisors());await Promise.all(tasks)}
+async function setupCloudAdminPanel(){ensureCommitteeMemberFields();renderCommitteeLevelOptions();const isMainAdmin=window.CloudCompetition.context?.profile.role==="admin";$("#cloudCommitteesPanel").classList.remove("hidden");$("#subAdminsPanel").classList.remove("hidden");$("#drRequestsPanel").classList.remove("hidden");$("#activityLogPanel").classList.toggle("hidden",!isMainAdmin);$("#syncCloudBtn").classList.remove("hidden");$("#supervisorsPanel").classList.toggle("hidden",!isMainAdmin);renderDrRequests();const tasks=[renderCloudCommittees(),renderFinalEditAudit(),renderSubAdmins()];if(isMainAdmin){tasks.push(renderSupervisors());tasks.push(renderActivityLog())}await Promise.all(tasks)}
 async function refreshAdminCloudResults(){const button=$("#syncCloudBtn");button.disabled=true;try{await syncFinalSessionsIntoState();renderAll();toast("تم تحديث نتائج جميع اللجان")}catch(error){toast(`تعذر تحديث النتائج: ${error.message}`)}finally{button.disabled=false}}
 let cloudCommittees=[];
 let subAdminCommittees=[];
@@ -397,18 +398,27 @@ async function renderSupervisors(){try{cloudSupervisors=await window.CloudCompet
 function resetSupervisorForm(){$("#supervisorAccountForm").reset();$("#editingSupervisorId").value="";$("#newSupervisorUid").disabled=false;$("#supervisorSubmitLabel").textContent="ربط الحساب";$("#cancelSupervisorEdit").classList.add("hidden")}
 function editSupervisor(id){const supervisor=cloudSupervisors.find(item=>item.id===id);if(!supervisor)return;$("#editingSupervisorId").value=supervisor.id;$("#newSupervisorUid").value=supervisor.id;$("#newSupervisorUid").disabled=true;$("#newSupervisorName").value=supervisor.display_name;$("#newSupervisorCanEditFinal").checked=Boolean(supervisor.can_edit_final);$("#newSupervisorCanDeleteData").checked=Boolean(supervisor.can_delete_data);$("#supervisorSubmitLabel").textContent="حفظ التعديل";$("#cancelSupervisorEdit").classList.remove("hidden");$("#newSupervisorName").focus()}
 async function saveSupervisorAccount(event){event.preventDefault();const id=$("#editingSupervisorId").value||null,userId=id||$("#newSupervisorUid").value.trim(),name=$("#newSupervisorName").value.trim(),canEditFinal=$("#newSupervisorCanEditFinal").checked,canDeleteData=$("#newSupervisorCanDeleteData").checked,button=event.submitter;if(!userId)return toast("أدخل معرّف المستخدم (UID) من لوحة Supabase");if(!name)return toast("أدخل اسم المشرف");button.disabled=true;try{await window.CloudCompetition.linkSupervisor({userId,name,canEditFinal,canDeleteData});resetSupervisorForm();await renderSupervisors();toast("تم حفظ حساب مشرف المسابقة")}catch(error){toast(`تعذر حفظ الحساب: ${error.message}`)}finally{button.disabled=false}}
+let activityLogEntries=[];
+function activityLogActorOf(entry){const details=entry.details||{};return details.supervisor_name?`مشرف المسابقة: ${details.supervisor_name}`:details.sub_admin_name?`مسؤول فرعي: ${details.sub_admin_name}`:details.committee_name?`لجنة: ${details.committee_name}`:"الإدارة"}
 async function renderActivityLog(){
   try{
-    const entries=await window.CloudCompetition.listActivityLog(150);
-    const labels={create_committee:"إنشاء لجنة",update_committee:"تعديل لجنة",delete_committee:"حذف لجنة",activate_committee:"تفعيل لجنة",deactivate_committee:"تعطيل لجنة",create_sub_admin:"إنشاء حساب مسؤول فرعي",update_sub_admin:"تعديل حساب مسؤول فرعي",delete_sub_admin:"حذف حساب مسؤول فرعي",link_supervisor:"ربط حساب مشرف مسابقة",unlink_supervisor:"إلغاء ربط حساب مشرف مسابقة",assign_participant_to_committee:"نقل متسابق للجنة",unassign_participant_from_committee:"إلغاء نقل متسابق",transfer_participant:"نقل متسابق بين اللجان",sub_admin_save_participants:"حفظ بيانات متسابقين (مسؤول فرعي)",sub_admin_draw:"سحب موضع (مسؤول فرعي)",admin_draw:"سحب موضع (الإدارة)",supervisor_draw:"سحب موضع (مشرف المسابقة)",committee_draw:"سحب موضع (لجنة)",committee_change_parts:"تعديل أجزاء متسابق (لجنة)",replace_exam_position:"تغيير موضع أثناء الاختبار",grant_final_edit:"منح صلاحية تعديل النتائج",revoke_final_edit:"سحب صلاحية تعديل النتائج",grant_self_draw:"منح صلاحية السحب للجنة",revoke_self_draw:"سحب صلاحية السحب من اللجنة",reopen_final_result:"فتح نتيجة معتمدة للتعديل",revise_final_result:"إعادة اعتماد نتيجة معدلة",finalize:"اعتماد نتيجة",save_examiner_draft:"حفظ مسودة تقييم"};
-    $("#activityLogList").innerHTML=entries.length?entries.map(entry=>{
-      const details=entry.details||{};
-      const participant=entry.entity_type==="participant"?state.participants.find(p=>p.id===entry.entity_id):null;
-      const who=details.supervisor_name?`مشرف المسابقة: ${details.supervisor_name}`:details.sub_admin_name?`مسؤول فرعي: ${details.sub_admin_name}`:details.committee_name?`لجنة: ${details.committee_name}`:"الإدارة";
-      const subject=participant?` · ${participant.name}`:"";
-      return `<article><div><b>${labels[entry.action]||entry.action}${escapeHtml(subject)}</b><span>${escapeHtml(who)}</span></div><small>${formatDate(entry.created_at)}</small></article>`;
-    }).join(""):`<p class="committee-alerts-empty">لا يوجد نشاط مسجل بعد.</p>`;
+    activityLogEntries=await window.CloudCompetition.listActivityLog(150);
+    const filterSelect=$("#activityLogFilter"),previousChoice=filterSelect?.value||"all";
+    const actors=[...new Set(activityLogEntries.map(activityLogActorOf))].sort((a,b)=>a.localeCompare(b,"ar"));
+    if(filterSelect){filterSelect.innerHTML=`<option value="all">الكل</option>${actors.map(actor=>`<option value="${escapeAttr(actor)}">${escapeHtml(actor)}</option>`).join("")}`;filterSelect.value=actors.includes(previousChoice)?previousChoice:"all"}
+    renderActivityLogList()
   }catch(error){$("#activityLogList").innerHTML=`<p class="form-error">تعذر تحميل سجل النشاط: ${escapeHtml(error.message)}</p>`}
+}
+function renderActivityLogList(){
+  const labels={create_committee:"إنشاء لجنة",update_committee:"تعديل لجنة",delete_committee:"حذف لجنة",activate_committee:"تفعيل لجنة",deactivate_committee:"تعطيل لجنة",create_sub_admin:"إنشاء حساب مسؤول فرعي",update_sub_admin:"تعديل حساب مسؤول فرعي",delete_sub_admin:"حذف حساب مسؤول فرعي",link_supervisor:"ربط حساب مشرف مسابقة",unlink_supervisor:"إلغاء ربط حساب مشرف مسابقة",assign_participant_to_committee:"نقل متسابق للجنة",unassign_participant_from_committee:"إلغاء نقل متسابق",transfer_participant:"نقل متسابق بين اللجان",sub_admin_save_participants:"حفظ بيانات متسابقين (مسؤول فرعي)",sub_admin_draw:"سحب موضع (مسؤول فرعي)",admin_draw:"سحب موضع (الإدارة)",supervisor_draw:"سحب موضع (مشرف المسابقة)",committee_draw:"سحب موضع (لجنة)",committee_change_parts:"تعديل أجزاء متسابق (لجنة)",replace_exam_position:"تغيير موضع أثناء الاختبار",grant_final_edit:"منح صلاحية تعديل النتائج",revoke_final_edit:"سحب صلاحية تعديل النتائج",grant_self_draw:"منح صلاحية السحب للجنة",revoke_self_draw:"سحب صلاحية السحب من اللجنة",reopen_final_result:"فتح نتيجة معتمدة للتعديل",revise_final_result:"إعادة اعتماد نتيجة معدلة",finalize:"اعتماد نتيجة",save_examiner_draft:"حفظ مسودة تقييم"};
+  const chosen=$("#activityLogFilter")?.value||"all";
+  const entries=chosen==="all"?activityLogEntries:activityLogEntries.filter(entry=>activityLogActorOf(entry)===chosen);
+  $("#activityLogList").innerHTML=entries.length?entries.map(entry=>{
+    const participant=entry.entity_type==="participant"?state.participants.find(p=>p.id===entry.entity_id):null;
+    const who=activityLogActorOf(entry);
+    const subject=participant?` · ${participant.name}`:"";
+    return `<article><div><b>${labels[entry.action]||entry.action}${escapeHtml(subject)}</b><span>${escapeHtml(who)}</span></div><small>${formatDate(entry.created_at)}</small></article>`;
+  }).join(""):`<p class="committee-alerts-empty">لا يوجد نشاط مطابق للفلترة.</p>`;
 }
 async function saveSubAdminAccount(event){event.preventDefault();const id=$("#editingSubAdminId").value||null,name=$("#newSubAdminName").value.trim(),gender=$("#newSubAdminGender").value,code=$("#newSubAdminCode").value.trim(),pin=$("#newSubAdminPin").value,button=event.submitter;if(!gender)return toast("اختر جنس الحساب");if(!id&&pin.length<4)return toast("أدخل PIN من 4 خانات على الأقل");button.disabled=true;try{await window.CloudCompetition.saveSubAdmin({id,name,code,pin,gender});resetSubAdminForm();await renderSubAdmins();toast("تم حفظ حساب المسؤول الفرعي")}catch(error){toast(`تعذر حفظ الحساب: ${error.message}`)}finally{button.disabled=false}}
 function editCommittee(id){const committee=cloudCommittees.find(item=>item.id===id);if(!committee)return;ensureCommitteeMemberFields();renderCommitteeLevelOptions();$("#editingCommitteeId").value=committee.id;$("#newCommitteeName").value=committee.name;$("#newCommitteeGender").value=committee.responsible_gender||"";$("#newCommitteeChairmanName").value=committee.chairman_name||"";$("#newCommitteeCode").value=committee.login_code||"";$("#newCommitteePin").value="";$("#newCommitteePin").required=false;$("#enableCommitteeMember").checked=Boolean(committee.member_login_code);$("#newCommitteeMemberName").value=committee.member_name||"";$("#newCommitteeMemberCode").value=committee.member_login_code||`${committee.login_code||"L"}-M`;$("#newCommitteeMemberCode").dataset.existing=committee.member_login_code||"";$("#newCommitteeMemberPin").value="";const hasLevelNames=(committee.level_names||[]).length>0;$$(`[name="committeeLevel"]`).forEach(input=>{const entry=levelCatalogById(input.value);input.checked=hasLevelNames?(committee.level_names||[]).includes(entry?.label):(committee.levels||[]).includes(entry?.parts)});if(!hasLevelNames&&(committee.levels||[]).length)toast("هذه لجنة قديمة بلا أسماء مستويات محددة؛ راجع الاختيار أدناه ثم احفظ لتحديثها للنظام الجديد");toggleCommitteeMemberFields();$("#committeeSubmitLabel").textContent="حفظ التعديل";$("#cancelCommitteeEdit").classList.remove("hidden");$("#newCommitteeName").focus()}
@@ -441,7 +451,7 @@ async function enterCloudContext(context){try{operationMode="cloud";stopCommitte
   mergeFinalSessionsIntoState(sessions,committees);
   const greeting=$("#topAdminGreeting");if(greeting)greeting.textContent=context.profile.display_name?`أهلاً، ${context.profile.display_name}`:"الدورة الحالية";
   showApp()}catch(error){toast(`تعذر فتح البيانات المشتركة: ${error.message}`);showScreen("cloudLoginScreen")}}
-function mergeFinalSessionsIntoState(sessions,committees){committeeSessions=sessions;const committeeById=new Map(committees.map(item=>[item.id,item.name]));let changed=false;committeeSessions.filter(session=>session.status==="final").forEach(session=>{const participant=state.participants.find(item=>item.id===session.participant_id);if(!participant)return;const assessment={...(session.assessment||{})};if(!assessment.committeeName&&committeeById.has(session.committee_id))assessment.committeeName=committeeById.get(session.committee_id);if(participant.score!==Number(session.score)||participant.assessment?.updatedAt!==assessment.updatedAt||participant.assessment?.committeeName!==assessment.committeeName){participant.score=Number(session.score);participant.gradedAt=session.finalized_at;participant.scoreSource="electronic";participant.assessment=assessment;changed=true}});if(changed)saveState();return changed}
+function mergeFinalSessionsIntoState(sessions,committees){committeeSessions=sessions;const committeeById=new Map(committees.map(item=>[item.id,item]));let changed=false;committeeSessions.filter(session=>session.status==="final").forEach(session=>{const participant=state.participants.find(item=>item.id===session.participant_id);if(!participant)return;const assessment={...(session.assessment||{})};const committee=committeeById.get(session.committee_id);if(!assessment.committeeName&&committee){assessment.committeeName=committee.name;if(committee.chairman_name)assessment.committeeChairmanName=committee.chairman_name;if(committee.member_name)assessment.committeeMemberName=committee.member_name}if(participant.score!==Number(session.score)||participant.assessment?.updatedAt!==assessment.updatedAt||participant.assessment?.committeeName!==assessment.committeeName||participant.assessment?.committeeChairmanName!==assessment.committeeChairmanName||participant.assessment?.committeeMemberName!==assessment.committeeMemberName){participant.score=Number(session.score);participant.gradedAt=session.finalized_at;participant.scoreSource="electronic";participant.assessment=assessment;changed=true}});if(changed)saveState();return changed}
 async function syncFinalSessionsIntoState(){const [sessions,committees]=await Promise.all([window.CloudCompetition.listSessions(),window.CloudCompetition.listCommittees()]);return mergeFinalSessionsIntoState(sessions,committees)}
 async function renderCommitteeWorkspace(){let context=window.CloudCompetition.context;if(!context?.committee)return;try{await window.CloudCompetition.refreshCommitteeAccess(true);context=window.CloudCompetition.context;const examinerName=context.committee.examiner_role==="member"?context.committee.memberName:context.committee.chairmanName;$("#committeeExaminerGreeting").textContent=examinerName?`أهلاً، ${examinerName}`:context.committee.name;$("#committeeName").textContent=`لجنة: ${context.committee.name}`;const levelNamesLabel=(context.committee.levelNames||[]).join("، ")||`${(context.committee.levels||[]).sort((a,b)=>a-b).join("، ")} أجزاء`,genderLabel=context.committee.responsibleGender==="أنثى"?"إناث":context.committee.responsibleGender==="ذكر"?"ذكور":"";$("#committeeLevels").textContent=`${genderLabel?genderLabel+" · ":""}${levelNamesLabel}`;const [remote,sessions]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listSessions()]);if(remote.payload?.config){const previous=loadCommitteeSnapshot(),next=committeeScopedState(remote.payload),previousById=new Map(previous.participants.map(item=>[item.id,item])),nextById=new Map(next.participants.map(item=>[item.id,item])),previousDraws=new Map(previous.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw])),nextDraws=new Map(next.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw]));if(previous.config){const updates=[];for(const participant of next.participants){const old=previousById.get(participant.id);if(!old||participantCloudSignature(old,previousDraws.get(participant.id))!==participantCloudSignature(participant,nextDraws.get(participant.id)))updates.push({text:describeCommitteeChange(participant,old),participantId:participant.id})}for(const old of previous.participants)if(!nextById.has(old.id))updates.push({text:describeCommitteeChange(null,old),participantId:old.id});if(updates.length)addCommitteeAlerts(updates)}state=next;saveCommitteeSnapshot(state)}committeeSessions=sessions;renderCommitteeAlerts();renderCommitteeStudents();lucide.createIcons();prewarmQuranData()}catch(error){toast(`تعذر تحديث قائمة اللجنة: ${error.message}`)}}
 function stopCommitteeAutoRefresh(){if(committeeAutoRefreshTimer)clearInterval(committeeAutoRefreshTimer);committeeAutoRefreshTimer=null;committeeRefreshBusy=false}
@@ -872,26 +882,28 @@ async function createAssociationCardsPdf(filters,options){
 function numberToArabicWords(value){
   const num=Number(value);
   if(!Number.isFinite(num))return "";
-  const onesF=["","إحدى","اثنتان","ثلاث","أربع","خمس","ست","سبع","ثمان","تسع"];
-  const teensF=["عشر","إحدى عشرة","اثنتا عشرة","ثلاث عشرة","أربع عشرة","خمس عشرة","ست عشرة","سبع عشرة","ثمان عشرة","تسع عشرة"];
-  const tensF=["","","عشرون","ثلاثون","أربعون","خمسون","ستون","سبعون","ثمانون","تسعون"];
+  const ones=["","واحد","اثنان","ثلاثة","أربعة","خمسة","ستة","سبعة","ثمانية","تسعة"];
+  const teens=["عشرة","أحد عشر","اثنا عشر","ثلاثة عشر","أربعة عشر","خمسة عشر","ستة عشر","سبعة عشر","ثمانية عشر","تسعة عشر"];
+  const tens=["","","عشرون","ثلاثون","أربعون","خمسون","ستون","سبعون","ثمانون","تسعون"];
   function upTo99(n){
     if(n===0)return "";
-    if(n===1)return "واحدة";
-    if(n===2)return "اثنتان";
-    if(n<10)return onesF[n];
-    if(n<20)return teensF[n-10];
-    const tens=Math.floor(n/10),ones=n%10;
-    return ones===0?tensF[tens]:`${onesF[ones]} و${tensF[tens]}`;
+    if(n<10)return ones[n];
+    if(n<20)return teens[n-10];
+    const t=Math.floor(n/10),o=n%10;
+    return o===0?tens[t]:`${ones[o]} و${tens[t]}`;
   }
   function wholeWords(n){return n===0?"صفر":n===100?"مئة":upTo99(n)}
   const whole=Math.floor(Math.abs(num));
   const fracRaw=Math.round((Math.abs(num)-whole)*100);
-  let words=whole===2?"علامتان":whole===1?"علامة واحدة":`${wholeWords(whole)} علامة`;
+  let words=wholeWords(whole);
   if(fracRaw>0){
     if(fracRaw===25)words+=" وربع";
     else if(fracRaw===50)words+=" ونصف";
     else if(fracRaw===75)words+=" وثلاثة أرباع";
+    else if(fracRaw%10===0){
+      const tenth=fracRaw/10;
+      words+=tenth===1?" وعُشر":tenth===2?" وعُشران":` و${ones[tenth]} أعشار`;
+    }
     else words+=` و${upTo99(fracRaw)} من مئة`;
   }
   return num<0?`سالب ${words}`:words;
@@ -937,7 +949,7 @@ function associationCardHtml(participant){
     </table>
     <div class="assoc-result-row"><span>النتيجة :</span><label><span class="assoc-check ${passed?"checked":""}"></span> ناجح</label><label><span class="assoc-check ${hasScore&&!passed?"checked":""}"></span> غير ناجح</label></div>
     <div class="assoc-notes-row"><span>ملاحظات</span><b></b></div>
-    <div class="assoc-committee-row"><span>لجنة الاختبار</span><b>${escapeHtml(resultCommitteeName(participant)||"-")}</b></div>
+    <div class="assoc-committee-row"><span>${escapeHtml(resultCommitteeName(participant)||"لجنة الاختبار")}</span><div class="assoc-committee-members"><b>رئيس اللجنة: ${escapeHtml(resultCommitteeChairmanName(participant)||"-")}</b>${resultCommitteeMemberName(participant)?`<b>عضو اللجنة: ${escapeHtml(resultCommitteeMemberName(participant))}</b>`:""}</div></div>
   </div>`;
 }
 async function importCsv(event){
@@ -1049,6 +1061,8 @@ async function createVerification(draw){return (await hashText(JSON.stringify({i
 function playIndividualReveal(draw){return new Promise(resolve=>{openModal(`<div class="draw-reveal"><span class="eyebrow light">جمعية المحافظة على القرآن الكريم | فرع الكورة</span><h2>${escapeHtml(draw.name)}</h2><p>${draw.level} أجزاء · ${draw.positions.length} مواضع</p><div id="revealCountdown" class="reveal-countdown">3</div><small>جاري إجراء السحب</small></div>`,"reveal-modal");let count=3;const timer=setInterval(()=>{count--;if(count>0){$("#revealCountdown").textContent=count}else{clearInterval(timer);$("#revealCountdown").innerHTML=`<i data-lucide="check"></i>`;$(".draw-reveal small").textContent="تم تثبيت المواضع";lucide.createIcons();setTimeout(()=>{closeModal();resolve()},650)}},650)})}
 function showDrawError(message){$("#drawError").textContent=message;$("#drawError").classList.remove("hidden")}
 function resultCommitteeName(participant){return participant?.assessment?.committeeName||participant?.assessment?.committee?.name||""}
+function resultCommitteeChairmanName(participant){return participant?.assessment?.committeeChairmanName||""}
+function resultCommitteeMemberName(participant){return participant?.assessment?.committeeMemberName||""}
 function compactAssessmentSummary(participant,draw){const assessment=participant?.assessment;if(!assessment?.positions?.length)return "";const labels={memorization:"حفظ",language:"لغة",tajweed:"تجويد",hesitation:"تردد",positionChange:"تغيير"},failedAt=failurePositionIndex(assessment),drawById=new Map(draw.positions.map(position=>[position.id,position]));const rows=assessment.positions.map((item,index)=>{const result=calculateAssessment({positions:[item]}),errors=Object.keys(labels).filter(type=>(Number(item[type])||0)>0).map(type=>`${labels[type]} ${Number(item[type])} (−${formatAssessmentNumber(result.deductions[type])})`).join(" · ")||"دون أخطاء",position=drawById.get(item.positionId)||draw.positions[index],note=String(item.note||"").trim(),changed=item.changes?.length?` · تغيّر من ${positionTitle(item.changes[item.changes.length-1].oldPosition)}`:"";return `<div class="assessment-print-row ${failedAt===index?"failed-threshold":""}"><b>${index+1}</b><span>${escapeHtml(position?positionTitle(position):`الموضع ${index+1}`)}${escapeHtml(changed)}</span><strong>${escapeHtml(errors)} · مجموع الخصم ${formatAssessmentNumber(result.totalDeduction)}</strong>${failedAt===index?`<small>هنا وصلت العلامة إلى حد الرسوب</small>`:note?`<small>${escapeHtml(note)}</small>`:""}</div>`}).join("");return `<section class="assessment-print-summary"><div class="assessment-print-title"><b>ملخص التقييم الإلكتروني</b>${resultCommitteeName(participant)?`<span>اللجنة: ${escapeHtml(resultCommitteeName(participant))}</span>`:""}</div>${rows}</section>`}
 function showResult(draw){
   const participant=state.participants.find(p=>p.id===draw.participantId);

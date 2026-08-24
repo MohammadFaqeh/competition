@@ -329,6 +329,9 @@ main{padding:var(--sp-6) var(--sp-6) var(--sp-7);flex:1}
 .panel{background:var(--surface);border:1px solid var(--line);padding:var(--sp-5);border-radius:var(--radius)}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);margin-bottom:var(--sp-4)}
 .panel-head h3,.panel h3{margin:3px 0;font-size:16.5px;font-weight:800}
+.panel-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.activity-log-filter{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--green-800)}
+.activity-log-filter select{height:34px;padding:0 8px;font-size:11px;font-weight:700;min-width:150px}
 .status-pill{font-size:10.5px;color:var(--green-800);background:var(--green-50);padding:6px 10px;border-radius:20px;font-weight:700}
 
 .participant-list{min-height:210px}
@@ -856,7 +859,10 @@ img,svg{max-width:100%}
 .association-card-sheet .assoc-notes-row span,.association-card-sheet .assoc-committee-row span{color:#444;white-space:nowrap}
 .association-card-sheet .assoc-notes-row b{flex:1;min-height:14px;border-bottom:1px dotted #999}
 .level-select-all{border-bottom:1px dashed var(--line);padding-bottom:6px;margin-bottom:4px}
-.association-card-sheet .assoc-committee-row b{flex:1}
+.association-card-sheet .assoc-committee-row{align-items:flex-start}
+.association-card-sheet .assoc-committee-row span{font-weight:600;color:#111;padding-top:2px}
+.association-card-sheet .assoc-committee-members{flex:1;display:flex;flex-direction:column;gap:4px}
+.association-card-sheet .assoc-committee-members b{border-bottom:1px dotted #999;padding-bottom:2px}
 @page{size:A4 portrait;margin:11mm 13mm}
 @media print{
   html,body{background:#fff!important;width:100%;min-height:0}
