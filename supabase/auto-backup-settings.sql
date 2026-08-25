@@ -7,8 +7,8 @@
 -- هذا الملف السطر الأول فقط (الجدول + RLS)؛ كود الـ Edge Function نفسه بملف منفصل
 -- (supabase/functions/auto-backup/index.ts) يُنشر يدويًا من لوحة Supabase.
 --
--- notify_email هون هو نفسه "إيميل الإداري الرئيسي" العام المستخدم أيضاً لإشعارات "نسيت كلمة
--- السر" (راجع supabase/password-reset-requests.sql وsupabase/functions/password-reset-notifier) —
+-- notify_email هون هو نفسه "إيميل الإداري الرئيسي" العام المستخدم أيضاً لاستقبال رموز "نسيت
+-- كلمة السر" (راجع supabase/password-reset-codes.sql وsupabase/functions/password-reset) —
 -- مكان واحد فقط لتغييره لاحقاً إذا لزم.
 --
 -- نفّذ هذا الملف بعد كل ملفات supabase/*.sql الحالية.
