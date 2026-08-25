@@ -535,7 +535,20 @@ function stopAdminAutoRefresh(){if(adminAutoRefreshTimer)clearInterval(adminAuto
 function startAdminAutoRefresh(){stopAdminAutoRefresh();adminAutoRefreshTimer=setInterval(refreshAdminChanges,5000)}
 async function refreshAdminChanges(){const kind=window.CloudCompetition.context?.kind;if(adminRefreshBusy||!["admin","supervisor"].includes(kind)||!$("#modal")?.classList.contains("hidden"))return;adminRefreshBusy=true;try{const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listSessions(),window.CloudCompetition.listCommittees()]);if(remote.payload?.config){const previous=JSON.stringify({participants:state.participants,draws:state.draws});if(kind==="supervisor"){state={...defaultState(),config:remote.payload.config?.competitionName?{competitionName:remote.payload.config.competitionName,adminName:state.config?.adminName}:state.config,participants:remote.payload.participants||[],draws:remote.payload.draws||[]};window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws)}else{state={...defaultState(),...remote.payload};window.CloudCompetition.markAdminKnownIds(state.participants,state.draws);localStorage.setItem(CLOUD_STORAGE_KEY,JSON.stringify(state))}mergeFinalSessionsIntoState(sessions,committees);if(previous!==JSON.stringify({participants:state.participants,draws:state.draws}))renderAll()}}catch(error){console.warn("Admin auto refresh failed",error)}finally{adminRefreshBusy=false}}
 function participantCloudSignature(participant,draw){return JSON.stringify({level:Number(participant?.level)||0,parts:(participant?.parts||[]).map(Number).sort((a,b)=>a-b),drawId:draw?.id||null,eligibleParts:(draw?.eligibleParts||[]).map(Number).sort((a,b)=>a-b),positions:(draw?.positions||[]).map(item=>item.id)})}
-function committeeScopedState(payload){return {...defaultState(),...payload}}
+function committeeScopedState(payload){
+  const merged={...defaultState(),...payload};
+  const committee=window.CloudCompetition.context?.committee;
+  if(!committee)return merged;
+  const levelNames=committee.levelNames||[],levels=(committee.levels||[]).map(Number);
+  const participants=merged.participants.filter(participant=>{
+    if(committee.responsibleGender&&participant.gender&&participant.gender!==committee.responsibleGender)return false;
+    if(participant.transferCommitteeId)return participant.transferCommitteeId===committee.id;
+    if(participant.levelName)return levelNames.includes(participant.levelName);
+    return levels.includes(Number(participant.level));
+  });
+  const participantIds=new Set(participants.map(item=>item.id));
+  return {...merged,participants,draws:merged.draws.filter(draw=>participantIds.has(draw.participantId))};
+}
 function committeeStateKey(){return `competition-committee-state-${window.CloudCompetition.context?.committee?.id||"unknown"}`}
 function loadCommitteeSnapshot(){try{return {...defaultState(),...JSON.parse(localStorage.getItem(committeeStateKey())||"null")}}catch{return defaultState()}}
 function saveCommitteeSnapshot(value){localStorage.setItem(committeeStateKey(),JSON.stringify(value))}
