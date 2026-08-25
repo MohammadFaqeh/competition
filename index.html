@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260822-darkmode1">
+  <link rel="stylesheet" href="styles.css?v=20260826-examsplit1">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -135,6 +135,7 @@
       <section class="committee-statusbar"><div><span>بانتظار الاختبار</span><b id="committeePendingCount">0</b></div><div><span>قيد الاختبار</span><b id="committeeActiveCount">0</b></div><div><span>مكتمل</span><b id="committeeCompletedCount">0</b></div></section>
       <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="committeeSearch" placeholder="بحث باسم المتسابق أو رقم الجلوس"></div><select id="committeeStatusFilter" aria-label="فرز المتسابقين حسب الحالة"><option value="all">جميع الحالات</option><option value="no_draw">لم يتم السحب بعد</option><option value="pending">جاهز للاختبار</option><option value="in_progress">قيد الاختبار</option><option value="final">مكتمل الاختبار</option></select><select id="committeeCenterFilter" aria-label="فرز المتسابقين حسب المركز"><option value="all">المركز: الكل</option></select><button id="refreshCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
       <section id="committeeStudents" class="committee-students"></section>
+      <nav id="committeeStudentsPager" class="pager-tabs"></nav>
     </main>
   </section>
 
@@ -199,7 +200,7 @@
 
         <section id="participantsView" class="view">
           <div class="page-head"><div><span class="eyebrow">إدارة الدورة</span><h1>المتسابقون</h1><p>أضف الأسماء أو استورد ملف Excel الجاهز.</p></div><div class="page-actions"><label id="importParticipantsBtn" class="secondary-btn file-btn"><i data-lucide="file-up"></i> استيراد Excel<input id="csvInput" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></label><button id="bulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><details class="dropdown-menu page-actions-more"><summary class="secondary-btn"><i data-lucide="more-horizontal"></i> المزيد</summary><div class="page-actions-more-list"><button id="exportResultsBtn" class="secondary-btn"><i data-lucide="sheet"></i> النتائج والترتيب</button><button id="exportUnifiedResultsBtn" class="secondary-btn"><i data-lucide="table-2"></i> النتائج كاملة بشيت واحد</button><button id="bulkPdfBtn" class="secondary-btn"><i data-lucide="files"></i> PDF للطلاب</button><button id="bulkDrawPdfBtn" class="secondary-btn"><i data-lucide="file-stack"></i> حفظ السحب للطلاب PDF</button><button id="associationCardBtn" class="secondary-btn"><i data-lucide="badge-check"></i> حفظ للجمعية</button><button id="deleteAllParticipantsBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button></div></details><button id="addParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
-          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="participantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="participantFilter"><option value="all">جميع الحالات</option><option value="pending">بانتظار السحب</option><option value="drawn">تم السحب / بانتظار العلامة</option><option value="completed">تم الاختبار</option></select><select id="participantGenderFilter"><option value="all">الجنس: الكل</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select><select id="participantCenterFilter"><option value="all">المركز: الكل</option></select><select id="participantLevelFilter"><option value="all">المستوى: الكل</option></select><span id="participantFilterCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>العلامة / 100</th><th>الإجراءات</th></tr></thead><tbody id="participantsTable"></tbody></table></div></section>
+          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="participantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="participantFilter"><option value="all">جميع الحالات</option><option value="pending">بانتظار السحب</option><option value="drawn">تم السحب / بانتظار العلامة</option><option value="completed">تم الاختبار</option></select><select id="participantGenderFilter"><option value="all">الجنس: الكل</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select><select id="participantCenterFilter"><option value="all">المركز: الكل</option></select><select id="participantLevelFilter"><option value="all">المستوى: الكل</option></select><span id="participantFilterCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>العلامة / 100</th><th>الإجراءات</th></tr></thead><tbody id="participantsTable"></tbody></table></div><nav id="participantsPager" class="pager-tabs"></nav></section>
         </section>
 
         <section id="drawView" class="view">
@@ -274,7 +275,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260825-forgotpin1"></script>
-  <script src="app.js?v=20260825-forgotpin1"></script>
+  <script src="cloud.js?v=20260826-examsplit1"></script>
+  <script src="app.js?v=20260826-examsplit1"></script>
 </body>
 </html>
