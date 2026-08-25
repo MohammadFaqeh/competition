@@ -59,6 +59,13 @@ const QURAN_CACHE_NAME="competition-quran-assets-v2";
 function loadOptionalScript(src,ready){if(ready())return Promise.resolve();if(optionalScripts.has(src))return optionalScripts.get(src);const promise=new Promise((resolve,reject)=>{const script=document.createElement("script");script.src=src;script.onload=()=>ready()?resolve():reject(new Error(`تعذر تشغيل ${src}`));script.onerror=()=>reject(new Error(`تعذر تحميل ${src}`));document.head.appendChild(script)});optionalScripts.set(src,promise);promise.catch(()=>optionalScripts.delete(src));return promise}
 const ensureXlsx=()=>loadOptionalScript("vendor/xlsx.full.min.js",()=>Boolean(window.XLSX));
 const ensurePdfLibraries=()=>Promise.all([loadOptionalScript("vendor/html2canvas.min.js",()=>Boolean(window.html2canvas)),loadOptionalScript("vendor/jspdf.umd.min.js",()=>Boolean(window.jspdf?.jsPDF))]);
+const imageDataUrlCache=new Map();
+function preloadImageAsDataUrl(src){
+  if(imageDataUrlCache.has(src))return imageDataUrlCache.get(src);
+  const promise=fetch(src).then(response=>response.blob()).then(blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("تعذر تحميل الشعار"));reader.readAsDataURL(blob)})).catch(()=>src);
+  imageDataUrlCache.set(src,promise);
+  return promise;
+}
 async function fetchJsonWithDeviceCache(url,validator,label){
   let cachedResponse=null;
   if("caches" in window){try{const cache=await caches.open(QURAN_CACHE_NAME);cachedResponse=await cache.match(url);if(cachedResponse){const data=await cachedResponse.clone().json();if(validator(data))return data}}catch{cachedResponse=null}}
@@ -254,6 +261,7 @@ function bindEvents(){
   $("#newCycleBtn").addEventListener("click",confirmNewCycle);
   $("#modal").addEventListener("click",event=>{if(event.target.id==="modal")closeModal()});
   $("#cloudLoginForm").addEventListener("submit",cloudLogin);
+  $("#forgotPasswordBtn").addEventListener("click",requestForgotPassword);
   $("#committeeLoginForm").addEventListener("submit",committeeLogin);
   $("#subAdminLoginForm").addEventListener("submit",subAdminLogin);
   $("#showAdminLoginBtn").addEventListener("click",()=>showCloudLoginMode("admin"));
@@ -276,6 +284,7 @@ function bindEvents(){
   $("#refreshFinalEditAuditBtn").addEventListener("click",renderFinalEditAudit);
   $("#refreshActivityLogBtn").addEventListener("click",renderActivityLog);
   $("#activityLogFilter").addEventListener("change",renderActivityLogList);
+  $("#saveAutoBackupBtn").addEventListener("click",saveAutoBackupSettings);
   $("#approveAllDrBtn").addEventListener("click",approveAllDrRequests);
 }
 
@@ -324,6 +333,14 @@ function hasUnfinishedAssessment(){if(!activeCloudSession)return false;const par
 function initializeBrowserNavigation(){if(history.state?.marker!==HISTORY_MARKER)recordBrowserRoute({surface:"gateway"},{replace:true});window.addEventListener("popstate",event=>{const target=event.state;if(!target||target.marker!==HISTORY_MARKER){history.forward();return}if(hasUnfinishedAssessment()&&!confirm("التقييم الحالي غير معتمد بعد، لكنه محفوظ كمسودة. هل تريد مغادرة شاشة التقييم؟")){history.forward();return}applyingBrowserHistory=true;try{closeModal();restoreListControls(target.ui);operationMode=target.mode||operationMode;if(target.surface==="admin"){showScreen("");$("#app").classList.remove("hidden");dockColorModeToggle(true);navigate(target.view||"dashboard",{historyMode:"none",ui:target.ui})}else if(target.surface==="committee"){$("#app").classList.add("hidden");showScreen("committeeApp");renderCommitteeStudents();requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}else{$("#app").classList.add("hidden");showScreen(target.surface==="gateway"?"gatewayScreen":target.screen||"gatewayScreen");requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}}finally{applyingBrowserHistory=false}});let routeTimer;document.addEventListener("input",event=>{if(!["participantSearch","historySearch","committeeSearch"].includes(event.target.id))return;clearTimeout(routeTimer);routeTimer=setTimeout(()=>{if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})},150)});document.addEventListener("change",event=>{if(!["participantFilter","committeeStatusFilter"].includes(event.target.id))return;if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})})}
 function showApp(){showScreen("");$("#app").classList.remove("hidden");dockColorModeToggle(true);restoreSidebarState();$("#app").classList.toggle("local-branch-app",operationMode==="local");$("#localModeNotice").classList.toggle("hidden",operationMode!=="local");$("#topCompetitionName").textContent=state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric",numberingSystem:"latn"}).format(new Date());updateClock();if(!clockTimer)clockTimer=setInterval(updateClock,1000);hydrateSettings();restoreListControls();renderAll();const savedRoute=history.state?.marker===HISTORY_MARKER&&history.state.surface==="admin"?history.state:null;navigate(savedRoute?.view||localStorage.getItem(currentViewKey())||"dashboard",{historyMode:savedRoute?"replace":"push",ui:savedRoute?.ui});if(operationMode==="cloud"&&cloudEnabled&&["admin","supervisor"].includes(window.CloudCompetition.context?.profile.role)){setupCloudAdminPanel();startAdminAutoRefresh()}else stopAdminAutoRefresh();prewarmQuranData()}
 async function cloudLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#cloudLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInAdmin($("#cloudLoginEmail").value.trim(),$("#cloudLoginPassword").value);$("#cloudLoginPassword").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
+async function requestForgotPassword(){
+  const email=$("#cloudLoginEmail").value.trim();
+  if(!email)return toast("اكتب إيميلك بالخانة فوق أولاً، وبعدين اضغط نسيت كلمة السر");
+  const button=$("#forgotPasswordBtn");button.disabled=true;
+  try{await window.CloudCompetition.requestPasswordReset(email);toast("تم إرسال طلبك، رح تتواصل معك الإدارة قريباً لتصفير كلمة السر")}
+  catch(error){toast(`تعذر إرسال الطلب حالياً: ${error.message}`)}
+  finally{button.disabled=false}
+}
 async function committeeLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#committeeLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInCommittee($("#committeeLoginCode").value.trim(),$("#committeeLoginPin").value);$("#committeeLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
 function showCloudLoginMode(mode){const committee=mode==="committee",admin=mode==="admin",subAdmin=mode==="subAdmin";$("#committeeLoginForm").classList.toggle("hidden",!committee);$(".login-mode-links").classList.toggle("hidden",!committee);$("#cloudLoginForm").classList.toggle("hidden",!admin);$("#subAdminLoginForm").classList.toggle("hidden",!subAdmin);$("#cloudLoginTitle").textContent=admin?"دخول إدارة المسابقة":subAdmin?"دخول مسؤول فرعي":"دخول لجنة الاختبار";$(admin?"#cloudLoginEmail":subAdmin?"#subAdminLoginCode":"#committeeLoginCode").focus()}
 async function subAdminLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#subAdminLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInSubAdmin($("#subAdminLoginCode").value.trim(),$("#subAdminLoginPin").value);$("#subAdminLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
@@ -332,7 +349,7 @@ function setupIdleLogout(){const reset=()=>{clearTimeout(idleLogoutTimer);if(!wi
 function toggleCommitteeMemberFields(){const enabled=$("#enableCommitteeMember")?.checked,fields=$("#committeeMemberFields");if(!fields)return;fields.classList.toggle("hidden",!enabled);$("#newCommitteeMemberName").required=Boolean(enabled);$("#newCommitteeMemberCode").required=Boolean(enabled);$("#newCommitteeMemberPin").required=Boolean(enabled&&!$("#newCommitteeMemberCode").dataset.existing)}
 function ensureCommitteeMemberFields(){if($("#newCommitteeMemberCode"))return;const chairmanPin=$("#newCommitteePin")?.closest("label");if(!chairmanPin)return;chairmanPin.insertAdjacentHTML("afterend",`<label class="committee-member-toggle"><input id="enableCommitteeMember" type="checkbox"> تفعيل حساب عضو اللجنة ورصده المستقل</label><div id="committeeMemberFields" class="committee-member-fields hidden"><label>اسم عضو اللجنة<input id="newCommitteeMemberName" placeholder="الاسم الثلاثي"></label><label>رمز عضو اللجنة<input id="newCommitteeMemberCode" maxlength="20" placeholder="مثال: L01-M"></label><label>PIN عضو اللجنة<input id="newCommitteeMemberPin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label></div>`);$("#enableCommitteeMember").addEventListener("change",toggleCommitteeMemberFields);toggleCommitteeMemberFields()}
 function renderCommitteeLevelOptions(){const box=$("#committeeLevelOptions");if(!box||box.children.length)return;box.innerHTML=LEVEL_CATALOG.map(l=>`<label><input type="checkbox" name="committeeLevel" value="${l.id}"> ${escapeHtml(l.label)}</label>`).join("")}
-async function setupCloudAdminPanel(){ensureCommitteeMemberFields();renderCommitteeLevelOptions();const isMainAdmin=window.CloudCompetition.context?.profile.role==="admin";$("#cloudCommitteesPanel").classList.remove("hidden");$("#subAdminsPanel").classList.remove("hidden");$("#drRequestsPanel").classList.remove("hidden");$("#activityLogPanel").classList.toggle("hidden",!isMainAdmin);$("#syncCloudBtn").classList.remove("hidden");$("#supervisorsPanel").classList.toggle("hidden",!isMainAdmin);renderDrRequests();const tasks=[renderCloudCommittees(),renderFinalEditAudit(),renderSubAdmins()];if(isMainAdmin){tasks.push(renderSupervisors());tasks.push(renderActivityLog())}await Promise.all(tasks)}
+async function setupCloudAdminPanel(){ensureCommitteeMemberFields();renderCommitteeLevelOptions();const isMainAdmin=window.CloudCompetition.context?.profile.role==="admin";$("#cloudCommitteesPanel").classList.remove("hidden");$("#subAdminsPanel").classList.remove("hidden");$("#drRequestsPanel").classList.remove("hidden");$("#activityLogPanel").classList.toggle("hidden",!isMainAdmin);$("#autoBackupPanel")?.classList.toggle("hidden",!isMainAdmin);$("#syncCloudBtn").classList.remove("hidden");$("#supervisorsPanel").classList.toggle("hidden",!isMainAdmin);renderDrRequests();const tasks=[renderCloudCommittees(),renderFinalEditAudit(),renderSubAdmins()];if(isMainAdmin){tasks.push(renderSupervisors());tasks.push(renderActivityLog());tasks.push(renderAutoBackupSettings())}await Promise.all(tasks)}
 async function refreshAdminCloudResults(){const button=$("#syncCloudBtn");button.disabled=true;try{await syncFinalSessionsIntoState();renderAll();toast("تم تحديث نتائج جميع اللجان")}catch(error){toast(`تعذر تحديث النتائج: ${error.message}`)}finally{button.disabled=false}}
 let cloudCommittees=[];
 let subAdminCommittees=[];
@@ -419,6 +436,26 @@ function renderActivityLogList(){
     const subject=participant?` · ${participant.name}`:"";
     return `<article><div><b>${labels[entry.action]||entry.action}${escapeHtml(subject)}</b><span>${escapeHtml(who)}</span></div><small>${formatDate(entry.created_at)}</small></article>`;
   }).join(""):`<p class="committee-alerts-empty">لا يوجد نشاط مطابق للفلترة.</p>`;
+}
+async function renderAutoBackupSettings(){
+  try{
+    const settings=await window.CloudCompetition.getBackupSettings();
+    $("#autoBackupEnabled").checked=Boolean(settings.enabled);
+    $("#autoBackupInterval").value=settings.interval_minutes;
+    const lines=[];
+    lines.push(settings.enabled?"مفعّل حالياً.":"معطّل حالياً.");
+    lines.push(settings.last_success_at?`آخر نسخة أُرسلت بنجاح: ${formatDate(settings.last_success_at)}`:"لم تُرسل أي نسخة بعد.");
+    if(settings.last_error)lines.push(`آخر خطأ: ${settings.last_error}`);
+    $("#autoBackupStatus").innerHTML=lines.map(escapeHtml).join("<br>");
+  }catch(error){$("#autoBackupStatus").innerHTML=`<span class="form-error">تعذر تحميل حالة النسخ الاحتياطي: ${escapeHtml(error.message)}</span>`}
+}
+async function saveAutoBackupSettings(){
+  const button=$("#saveAutoBackupBtn"),enabled=$("#autoBackupEnabled").checked,interval=Number($("#autoBackupInterval").value);
+  if(!Number.isFinite(interval)||interval<5)return toast("أدخل فاصلاً زمنياً 5 دقائق على الأقل");
+  button.disabled=true;
+  try{await window.CloudCompetition.setBackupSettings({enabled,intervalMinutes:interval});await renderAutoBackupSettings();toast("تم حفظ إعداد النسخ الاحتياطي التلقائي")}
+  catch(error){toast(`تعذر حفظ الإعداد: ${error.message}`)}
+  finally{button.disabled=false}
 }
 async function saveSubAdminAccount(event){event.preventDefault();const id=$("#editingSubAdminId").value||null,name=$("#newSubAdminName").value.trim(),gender=$("#newSubAdminGender").value,code=$("#newSubAdminCode").value.trim(),pin=$("#newSubAdminPin").value,button=event.submitter;if(!gender)return toast("اختر جنس الحساب");if(!id&&pin.length<4)return toast("أدخل PIN من 4 خانات على الأقل");button.disabled=true;try{await window.CloudCompetition.saveSubAdmin({id,name,code,pin,gender});resetSubAdminForm();await renderSubAdmins();toast("تم حفظ حساب المسؤول الفرعي")}catch(error){toast(`تعذر حفظ الحساب: ${error.message}`)}finally{button.disabled=false}}
 function editCommittee(id){const committee=cloudCommittees.find(item=>item.id===id);if(!committee)return;ensureCommitteeMemberFields();renderCommitteeLevelOptions();$("#editingCommitteeId").value=committee.id;$("#newCommitteeName").value=committee.name;$("#newCommitteeGender").value=committee.responsible_gender||"";$("#newCommitteeChairmanName").value=committee.chairman_name||"";$("#newCommitteeCode").value=committee.login_code||"";$("#newCommitteePin").value="";$("#newCommitteePin").required=false;$("#enableCommitteeMember").checked=Boolean(committee.member_login_code);$("#newCommitteeMemberName").value=committee.member_name||"";$("#newCommitteeMemberCode").value=committee.member_login_code||`${committee.login_code||"L"}-M`;$("#newCommitteeMemberCode").dataset.existing=committee.member_login_code||"";$("#newCommitteeMemberPin").value="";const hasLevelNames=(committee.level_names||[]).length>0;$$(`[name="committeeLevel"]`).forEach(input=>{const entry=levelCatalogById(input.value);input.checked=hasLevelNames?(committee.level_names||[]).includes(entry?.label):(committee.levels||[]).includes(entry?.parts)});if(!hasLevelNames&&(committee.levels||[]).length)toast("هذه لجنة قديمة بلا أسماء مستويات محددة؛ راجع الاختيار أدناه ثم احفظ لتحديثها للنظام الجديد");toggleCommitteeMemberFields();$("#committeeSubmitLabel").textContent="حفظ التعديل";$("#cancelCommitteeEdit").classList.remove("hidden");$("#newCommitteeName").focus()}
@@ -831,7 +868,7 @@ async function createBulkResultsPdf(filters,options){
       clone.remove();
       await new Promise(resolve=>setTimeout(resolve,0));
       if(cancelled)break;
-      if(produced)pdf.addPage();addCanvasAsSinglePdfPage(pdf,canvas,"JPEG",.82);produced++;
+      if(produced)pdf.addPage();await addCanvasAsSinglePdfPage(pdf,canvas,"JPEG",.82);produced++;
     }
     if(!produced)return toast(cancelled?"تم إلغاء التصدير":"تعذر إنشاء أي صفحة");
     const blob=pdf.output("blob"),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${options.filenamePrefix}-${dateStamp()}.pdf`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);closeModal();
@@ -840,7 +877,8 @@ async function createBulkResultsPdf(filters,options){
   finally{cancelBtn.remove();button.disabled=false;button.innerHTML=originalHtml}
 }
 function preparePdfClone(clone,draw){clone.classList.add("pdf-export-sheet");if(draw.positions.length>=8)clone.classList.add("pdf-dense");if(draw.positions.length>=11)clone.classList.add("pdf-ultra-dense")}
-function addCanvasAsSinglePdfPage(pdf,canvas,format="JPEG",quality=.88){const margin=7,pageWidth=pdf.internal.pageSize.getWidth(),pageHeight=pdf.internal.pageSize.getHeight(),availableWidth=pageWidth-margin*2,availableHeight=pageHeight-margin*2,scale=Math.min(availableWidth/canvas.width,availableHeight/canvas.height),width=canvas.width*scale,height=canvas.height*scale,x=(pageWidth-width)/2,y=margin;pdf.addImage(canvas.toDataURL(`image/${format.toLowerCase()}`,quality),format,x,y,width,height,undefined,"FAST")}
+function canvasToDataUrlAsync(canvas,format,quality){return new Promise((resolve,reject)=>{if(!canvas.toBlob)return resolve(canvas.toDataURL(`image/${format.toLowerCase()}`,quality));canvas.toBlob(blob=>{if(!blob)return reject(new Error("تعذر إنشاء صورة الصفحة"));const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("تعذر قراءة صورة الصفحة"));reader.readAsDataURL(blob)},`image/${format.toLowerCase()}`,quality)})}
+async function addCanvasAsSinglePdfPage(pdf,canvas,format="JPEG",quality=.88){const margin=7,pageWidth=pdf.internal.pageSize.getWidth(),pageHeight=pdf.internal.pageSize.getHeight(),availableWidth=pageWidth-margin*2,availableHeight=pageHeight-margin*2,scale=Math.min(availableWidth/canvas.width,availableHeight/canvas.height),width=canvas.width*scale,height=canvas.height*scale,x=(pageWidth-width)/2,y=margin;const dataUrl=await canvasToDataUrlAsync(canvas,format,quality);pdf.addImage(dataUrl,format,x,y,width,height,undefined,"FAST")}
 function openAssociationCardDialog(){const centers=[...new Set(state.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));openModal(`<div class="modal-head"><div><span class="eyebrow">نموذج جمعية المحافظة على القرآن الكريم</span><h2>حفظ بطاقات الاختبار للجمعية</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid"><label>الحالة<select id="assocCardStatus"><option value="all">الكل</option><option value="drawn">تم السحب فقط ولم يُختبر بعد</option><option value="completed">المكتملون فقط (تم اختبارهم)</option></select></label>${genderCenterFieldsHtml("assocCard",centers)}</div><fieldset><legend>المستوى (اختياري، يمكن اختيار أكثر من مستوى)</legend><div class="committee-level-options">${levelCheckboxesHtml("assocCardLevel")}</div></fieldset><p>ملف واحد يجمع بطاقة اختبار بصيغة الجمعية لكل متسابق مطابق للفلترة، بصفحة مستقلة لكل متسابق.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="createAssociationCards" class="primary-btn"><i data-lucide="badge-check"></i> إنشاء الملف</button></div>`,"bulk-pdf-modal");$("#createAssociationCards").onclick=()=>createAssociationCardsPdf({status:$("#assocCardStatus").value,gender:$("#assocCardGender").value,center:$("#assocCardCenter").value,levels:$$(`[name="assocCardLevel"]`).filter(i=>i.checked).map(i=>i.value)},{buttonId:"createAssociationCards",filenamePrefix:"بطاقات-الجمعية"});wireLevelSelectAll("assocCardLevel");lucide.createIcons()}
 async function createAssociationCardsPdf(filters,options){
   const button=$(`#${options.buttonId}`);
@@ -858,20 +896,22 @@ async function createAssociationCardsPdf(filters,options){
   let cancelled=false;const cancelBtn=document.createElement("button");cancelBtn.type="button";cancelBtn.className="secondary-btn";cancelBtn.textContent="إلغاء التصدير";cancelBtn.onclick=()=>{cancelled=true;cancelBtn.disabled=true;cancelBtn.textContent="جارٍ الإلغاء..."};button.insertAdjacentElement("afterend",cancelBtn);
   try{
     await ensurePdfLibraries();
+    const logoSrc=await preloadImageAsDataUrl("assets/association-logo.png");
     const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
     let produced=0;
     for(let index=0;index<list.length&&!cancelled;index++){
       const participant=list[index];
-      toast(`جاري تجهيز ${index+1} من ${list.length}`);button.textContent=`جاري تجهيز ${index+1} من ${list.length}`;
-      const wrapper=document.createElement("div");wrapper.innerHTML=associationCardHtml(participant);
+      const progressPct=Math.round((index/list.length)*100);
+      toast(`جاري تجهيز ${index+1} من ${list.length} (${progressPct}%)`);button.textContent=`جاري تجهيز ${index+1} من ${list.length} (${progressPct}%)`;
+      const wrapper=document.createElement("div");wrapper.innerHTML=associationCardHtml(participant,logoSrc);
       const clone=wrapper.firstElementChild;document.body.appendChild(clone);
-      await new Promise(resolve=>requestAnimationFrame(resolve));
-      const canvas=await window.html2canvas(clone,{scale:1.4,useCORS:false,allowTaint:false,backgroundColor:"#ffffff",logging:false});
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const canvas=await window.html2canvas(clone,{scale:1.2,useCORS:false,allowTaint:false,backgroundColor:"#ffffff",logging:false});
       clone.remove();
       await new Promise(resolve=>setTimeout(resolve,0));
       if(cancelled)break;
       if(produced)pdf.addPage();
-      addCanvasAsSinglePdfPage(pdf,canvas,"JPEG",.85);produced++;
+      await addCanvasAsSinglePdfPage(pdf,canvas,"JPEG",.85);produced++;
     }
     if(!produced)return toast(cancelled?"تم إلغاء التصدير":"تعذر إنشاء أي بطاقة");
     const blob=pdf.output("blob"),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${options.filenamePrefix}-${dateStamp()}.pdf`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);closeModal();
@@ -908,7 +948,7 @@ function numberToArabicWords(value){
   }
   return num<0?`سالب ${words}`:words;
 }
-function associationCardHtml(participant){
+function associationCardHtml(participant,logoSrc="assets/association-logo.png"){
   const final=participant?.assessment?.positions?.length?calculateFinalAssessment(participant.assessment):null;
   const totals=final?.totals||{},deductions=final?.deductions||{};
   const score=Number.isFinite(participant?.score)?participant.score:(final?final.score:null);
@@ -921,7 +961,7 @@ function associationCardHtml(participant){
   const infoField=(label,value)=>`<td><span>${escapeHtml(label)}</span><b>${escapeHtml(String(value??"")||"-")}</b></td>`;
   return `<div class="pdf-export-sheet association-card-sheet">
     <div class="assoc-header">
-      <img class="assoc-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+      <img class="assoc-logo" src="${escapeAttr(logoSrc)}" alt="شعار جمعية المحافظة على القرآن الكريم">
       <div class="assoc-header-text"><b>جمعية المحافظة على القرآن الكريم</b><span>بسم الله الرحمن الرحيم</span></div>
       <div class="assoc-year">1448هـ – 2026م</div>
     </div>
@@ -1096,7 +1136,7 @@ async function saveResultAsPdf(draw){
     if(!canvas.width||!canvas.height)throw new Error("تعذر تصوير ورقة المواضع");
     clearInterval(progressTimer);button.textContent="جاري إنشاء PDF... 100%";
     const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
-    addCanvasAsSinglePdfPage(pdf,canvas,"JPEG",.9);
+    await addCanvasAsSinglePdfPage(pdf,canvas,"JPEG",.9);
     const blob=pdf.output("blob");if(!blob.size)throw new Error("تم إنشاء ملف PDF فارغ");
     const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`مواضع-${safeName}-${String(draw.sequence).padStart(4,"0")}.pdf`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
     toast("تم تنزيل ملف PDF بصفحة واحدة")

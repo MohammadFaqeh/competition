@@ -31,6 +31,10 @@ window.CloudCompetition=(()=>{
     return context={kind:profile.role,user,profile,committee:null};
   }
   async function signInAdmin(email,password){const {data,error}=await client.auth.signInWithPassword({email,password});if(error)throw new Error("بيانات الدخول غير صحيحة");return loadAdminContext(data.user)}
+  // طلب "نسيت كلمة السر" لحسابات الإدارة/المشرف — لا يصفّر شيئاً برمجياً (لا يوجد service_role
+  // بالمشروع)، فقط يسجّل الطلب؛ Edge Function مجدولة (password-reset-notifier) تبعت إشعاراً
+  // بريدياً للإداري الرئيسي كل ما تلاقي طلبات جديدة، وهو يصفّر كلمة السر يدوياً من لوحة Supabase.
+  async function requestPasswordReset(identifier){const {error}=await client.rpc("request_password_reset",{p_identifier:identifier});if(error)throw rpcError(error)}
   async function signInCommittee(code,pin){const {data,error}=await client.rpc("committee_login",{p_login_code:code,p_pin:pin});if(error)throw rpcError(error);localStorage.setItem(TOKEN_KEY,data.token);return context={kind:"committee",token:data.token,committee:data.committee,profile:{role:"committee",display_name:data.committee.name}}}
   async function resumeCommittee(token){const {data,error}=await client.rpc("committee_resume",{p_token:token});if(error)throw rpcError(error);return context={kind:"committee",token,committee:data,profile:{role:"committee",display_name:data.name}}}
   async function refreshCommitteeAccess(force=false){if(context?.kind!=="committee")return null;if(!force&&Date.now()-lastAccessRefresh<15000)return context.committee;const resumed=await resumeCommittee(context.token);lastAccessRefresh=Date.now();return resumed.committee}
@@ -100,6 +104,11 @@ window.CloudCompetition=(()=>{
   async function createSubAdminDraw(draw){const {data,error}=await client.rpc("sub_admin_create_draw",{p_token:context.token,p_draw:draw});if(error)throw rpcError(error);return data}
   async function listActivityLog(limit=200){const {data,error}=await client.from("audit_log").select("id,actor_id,action,entity_type,entity_id,details,created_at").order("created_at",{ascending:false}).limit(limit);if(error)throw error;return data}
 
+  // النسخ الاحتياطي التلقائي الدوري — يُرسله فعليًا Edge Function خارجية على جدولة Cron
+  // (راجع supabase/functions/auto-backup)؛ هذا فقط تفعيل/تعطيل الفاصل الزمني من هنا.
+  async function getBackupSettings(){const {data,error}=await client.from("backup_settings").select("*").eq("id",1).single();if(error)throw error;return data}
+  async function setBackupSettings({enabled,intervalMinutes}){const patch={};if(enabled!==undefined)patch.enabled=enabled;if(intervalMinutes!==undefined)patch.interval_minutes=intervalMinutes;const {data,error}=await client.from("backup_settings").update(patch).eq("id",1).select().single();if(error)throw error;return data}
+
   // إدارة حسابات المشرفين — للإداري الرئيسي فقط. لا يوجد service_role بالمشروع، فلا يمكن
   // إنشاء مستخدم Supabase Auth جديد من هنا؛ الإداري يُنشئه يدويًا من لوحة Supabase أولاً،
   // وهذه الدوال تربط الـ UID الناتج بدور supervisor داخل profiles فقط.
@@ -107,5 +116,5 @@ window.CloudCompetition=(()=>{
   async function linkSupervisor(values){const {data,error}=await client.rpc("admin_link_supervisor",{p_user_id:values.userId,p_name:values.name,p_can_edit_final:Boolean(values.canEditFinal),p_can_delete_data:Boolean(values.canDeleteData)});if(error)throw rpcError(error);return data}
   async function unlinkSupervisor(id){const {data,error}=await client.rpc("admin_delete_supervisor",{p_id:id});if(error)throw rpcError(error);return data}
 
-  return {enabled,init,signInAdmin,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,listFinalEditAudit,deleteParticipantSession,listSessions,claimStudent,createCommitteeDraw,listCommitteeUsedPositionIds,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,saveSession,queueSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listSupervisors,linkSupervisor,unlinkSupervisor,get context(){return context},get client(){return client}};
+  return {enabled,init,signInAdmin,requestPasswordReset,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,listFinalEditAudit,deleteParticipantSession,listSessions,claimStudent,createCommitteeDraw,listCommitteeUsedPositionIds,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,saveSession,queueSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,getBackupSettings,setBackupSettings,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listSupervisors,linkSupervisor,unlinkSupervisor,get context(){return context},get client(){return client}};
 })();
