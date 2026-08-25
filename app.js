@@ -464,6 +464,7 @@ async function renderAutoBackupSettings(){
     const settings=await window.CloudCompetition.getBackupSettings();
     $("#autoBackupEnabled").checked=Boolean(settings.enabled);
     $("#autoBackupInterval").value=settings.interval_minutes;
+    $("#autoBackupEmail").value=settings.notify_email||"";
     const lines=[];
     lines.push(settings.enabled?"مفعّل حالياً.":"معطّل حالياً.");
     lines.push(settings.last_success_at?`آخر نسخة أُرسلت بنجاح: ${formatDate(settings.last_success_at)}`:"لم تُرسل أي نسخة بعد.");
@@ -472,10 +473,11 @@ async function renderAutoBackupSettings(){
   }catch(error){$("#autoBackupStatus").innerHTML=`<span class="form-error">تعذر تحميل حالة النسخ الاحتياطي: ${escapeHtml(error.message)}</span>`}
 }
 async function saveAutoBackupSettings(){
-  const button=$("#saveAutoBackupBtn"),enabled=$("#autoBackupEnabled").checked,interval=Number($("#autoBackupInterval").value);
+  const button=$("#saveAutoBackupBtn"),enabled=$("#autoBackupEnabled").checked,interval=Number($("#autoBackupInterval").value),email=$("#autoBackupEmail").value.trim();
   if(!Number.isFinite(interval)||interval<5)return toast("أدخل فاصلاً زمنياً 5 دقائق على الأقل");
+  if(!email||!email.includes("@"))return toast("أدخل إيميلاً صحيحاً");
   button.disabled=true;
-  try{await window.CloudCompetition.setBackupSettings({enabled,intervalMinutes:interval});await renderAutoBackupSettings();toast("تم حفظ إعداد النسخ الاحتياطي التلقائي")}
+  try{await window.CloudCompetition.setBackupSettings({enabled,intervalMinutes:interval,notifyEmail:email});await renderAutoBackupSettings();toast("تم حفظ إعداد النسخ الاحتياطي التلقائي")}
   catch(error){toast(`تعذر حفظ الإعداد: ${error.message}`)}
   finally{button.disabled=false}
 }

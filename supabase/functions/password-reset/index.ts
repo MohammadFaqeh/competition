@@ -16,7 +16,7 @@ import {createClient} from "https://esm.sh/@supabase/supabase-js@2";
 const RESEND_API_KEY=Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const FALLBACK_OWNER_EMAIL="mohammadalfaqeeh73@gmail.com";
+const FALLBACK_OWNER_EMAIL="loordmohammad79@gmail.com";
 const CODE_TTL_MS=10*60*1000;
 const MAX_ATTEMPTS=5;
 

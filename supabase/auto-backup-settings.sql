@@ -17,7 +17,7 @@ create table if not exists public.backup_settings (
   id smallint primary key default 1,
   enabled boolean not null default false,
   interval_minutes int not null default 30,
-  notify_email text not null default 'mohammadalfaqeeh73@gmail.com',
+  notify_email text not null default 'loordmohammad79@gmail.com',
   last_sent_at timestamptz,
   last_success_at timestamptz,
   last_error text,

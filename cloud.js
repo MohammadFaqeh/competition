@@ -108,7 +108,7 @@ window.CloudCompetition=(()=>{
   // النسخ الاحتياطي التلقائي الدوري — يُرسله فعليًا Edge Function خارجية على جدولة Cron
   // (راجع supabase/functions/auto-backup)؛ هذا فقط تفعيل/تعطيل الفاصل الزمني من هنا.
   async function getBackupSettings(){const {data,error}=await client.from("backup_settings").select("*").eq("id",1).single();if(error)throw error;return data}
-  async function setBackupSettings({enabled,intervalMinutes}){const patch={};if(enabled!==undefined)patch.enabled=enabled;if(intervalMinutes!==undefined)patch.interval_minutes=intervalMinutes;const {data,error}=await client.from("backup_settings").update(patch).eq("id",1).select().single();if(error)throw error;return data}
+  async function setBackupSettings({enabled,intervalMinutes,notifyEmail}){const patch={};if(enabled!==undefined)patch.enabled=enabled;if(intervalMinutes!==undefined)patch.interval_minutes=intervalMinutes;if(notifyEmail!==undefined)patch.notify_email=notifyEmail;const {data,error}=await client.from("backup_settings").update(patch).eq("id",1).select().single();if(error)throw error;return data}
 
   // إدارة حسابات المشرفين — للإداري الرئيسي فقط. لا يوجد service_role بالمشروع، فلا يمكن
   // إنشاء مستخدم Supabase Auth جديد من هنا؛ الإداري يُنشئه يدويًا من لوحة Supabase أولاً،

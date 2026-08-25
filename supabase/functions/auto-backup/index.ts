@@ -66,7 +66,7 @@ Deno.serve(async ()=>{
       headers:{"Authorization":`Bearer ${RESEND_API_KEY}`,"Content-Type":"application/json"},
       body:JSON.stringify({
         from:"نسخ احتياطي المسابقة <onboarding@resend.dev>",
-        to:[settings.notify_email||"mohammadalfaqeeh73@gmail.com"],
+        to:[settings.notify_email||"loordmohammad79@gmail.com"],
         subject:`نسخة احتياطية تلقائية — المسابقة القرآنية — ${new Date().toLocaleString("ar-JO")}`,
         text:`نسخة احتياطية تلقائية بحالة المسابقة الحالية.\nعدد المتسابقين: ${backup.competitionState?.participants?.length||0}\nعدد اللجان: ${backup.committees.length}\nعدد جلسات الاختبار: ${backup.examSessions.length}`,
         attachments:[{filename:`نسخة-احتياطية-${stamp}.json`,content:base64Content}],
