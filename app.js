@@ -261,7 +261,9 @@ function bindEvents(){
   $("#newCycleBtn").addEventListener("click",confirmNewCycle);
   $("#modal").addEventListener("click",event=>{if(event.target.id==="modal")closeModal()});
   $("#cloudLoginForm").addEventListener("submit",cloudLogin);
-  $("#forgotPasswordBtn").addEventListener("click",openForgotPasswordModal);
+  $("#forgotPasswordBtn").addEventListener("click",()=>openLoginRecoveryModal("admin"));
+  $("#committeeForgotPinBtn").addEventListener("click",()=>openLoginRecoveryModal("committee"));
+  $("#subAdminForgotPinBtn").addEventListener("click",()=>openLoginRecoveryModal("subAdmin"));
   $("#committeeLoginForm").addEventListener("submit",committeeLogin);
   $("#subAdminLoginForm").addEventListener("submit",subAdminLogin);
   $("#showAdminLoginBtn").addEventListener("click",()=>showCloudLoginMode("admin"));
@@ -333,34 +335,43 @@ function hasUnfinishedAssessment(){if(!activeCloudSession)return false;const par
 function initializeBrowserNavigation(){if(history.state?.marker!==HISTORY_MARKER)recordBrowserRoute({surface:"gateway"},{replace:true});window.addEventListener("popstate",event=>{const target=event.state;if(!target||target.marker!==HISTORY_MARKER){history.forward();return}if(hasUnfinishedAssessment()&&!confirm("التقييم الحالي غير معتمد بعد، لكنه محفوظ كمسودة. هل تريد مغادرة شاشة التقييم؟")){history.forward();return}applyingBrowserHistory=true;try{closeModal();restoreListControls(target.ui);operationMode=target.mode||operationMode;if(target.surface==="admin"){showScreen("");$("#app").classList.remove("hidden");dockColorModeToggle(true);navigate(target.view||"dashboard",{historyMode:"none",ui:target.ui})}else if(target.surface==="committee"){$("#app").classList.add("hidden");showScreen("committeeApp");renderCommitteeStudents();requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}else{$("#app").classList.add("hidden");showScreen(target.surface==="gateway"?"gatewayScreen":target.screen||"gatewayScreen");requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}}finally{applyingBrowserHistory=false}});let routeTimer;document.addEventListener("input",event=>{if(!["participantSearch","historySearch","committeeSearch"].includes(event.target.id))return;clearTimeout(routeTimer);routeTimer=setTimeout(()=>{if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})},150)});document.addEventListener("change",event=>{if(!["participantFilter","committeeStatusFilter"].includes(event.target.id))return;if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})})}
 function showApp(){showScreen("");$("#app").classList.remove("hidden");dockColorModeToggle(true);restoreSidebarState();$("#app").classList.toggle("local-branch-app",operationMode==="local");$("#localModeNotice").classList.toggle("hidden",operationMode!=="local");$("#topCompetitionName").textContent=state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric",numberingSystem:"latn"}).format(new Date());updateClock();if(!clockTimer)clockTimer=setInterval(updateClock,1000);hydrateSettings();restoreListControls();renderAll();const savedRoute=history.state?.marker===HISTORY_MARKER&&history.state.surface==="admin"?history.state:null;navigate(savedRoute?.view||localStorage.getItem(currentViewKey())||"dashboard",{historyMode:savedRoute?"replace":"push",ui:savedRoute?.ui});if(operationMode==="cloud"&&cloudEnabled&&["admin","supervisor"].includes(window.CloudCompetition.context?.profile.role)){setupCloudAdminPanel();startAdminAutoRefresh()}else stopAdminAutoRefresh();prewarmQuranData()}
 async function cloudLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#cloudLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInAdmin($("#cloudLoginEmail").value.trim(),$("#cloudLoginPassword").value);$("#cloudLoginPassword").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}
-function openForgotPasswordModal(){
-  const prefill=$("#cloudLoginEmail").value.trim();
-  openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة كلمة السر</span><h2>نسيت كلمة السر</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">اكتب إيميلك — بيوصل رمز تحقق للإدارة، اطلبه منها هاتفياً وأدخله بالخطوة التالية.</p><form id="forgotPasswordStep1" class="form-grid"><label>الإيميل<input id="forgotEmail" type="email" required value="${escapeAttr(prefill)}"></label><p id="forgotStep1Error" class="form-error hidden"></p><button class="primary-btn wide" type="submit">إرسال الرمز</button></form></div>`,"bulk-pdf-modal");
-  $("#forgotPasswordStep1").addEventListener("submit",requestForgotPasswordCode);
-  $("#forgotEmail").focus();
+const LOGIN_RECOVERY_KINDS={
+  admin:{prefillId:"cloudLoginEmail",passwordId:"cloudLoginPassword",fieldLabel:"الإيميل",fieldType:"email",fieldPlaceholder:"",newLabel:"كلمة السر الجديدة",newType:"password",newMin:6,title:"نسيت كلمة السر"},
+  committee:{prefillId:"committeeLoginCode",passwordId:"committeeLoginPin",fieldLabel:"رمز الدخول (رمزك الشخصي)",fieldType:"text",fieldPlaceholder:"مثال: L01",newLabel:"PIN جديد",newType:"password",newMin:4,title:"نسيت الرمز السري (PIN)"},
+  subAdmin:{prefillId:"subAdminLoginCode",passwordId:"subAdminLoginPin",fieldLabel:"رمز الدخول",fieldType:"text",fieldPlaceholder:"مثال: SA-M",newLabel:"PIN جديد",newType:"password",newMin:4,title:"نسيت الرمز السري (PIN)"},
+};
+function openLoginRecoveryModal(kind){
+  const cfg=LOGIN_RECOVERY_KINDS[kind];
+  const prefill=$(`#${cfg.prefillId}`)?.value.trim()||"";
+  openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة الدخول</span><h2>${cfg.title}</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">اكتب ${cfg.fieldLabel} — بيوصل رمز تحقق للإدارة، اطلبه منها هاتفياً وأدخله بالخطوة التالية.</p><form id="loginRecoveryStep1" class="form-grid"><label>${cfg.fieldLabel}<input id="recoveryIdentifier" type="${cfg.fieldType}" required value="${escapeAttr(prefill)}" placeholder="${cfg.fieldPlaceholder}"></label><p id="recoveryStep1Error" class="form-error hidden"></p><button class="primary-btn wide" type="submit">إرسال الرمز</button></form></div>`,"bulk-pdf-modal");
+  $("#loginRecoveryStep1").addEventListener("submit",event=>submitLoginRecoveryRequest(event,kind));
+  $("#recoveryIdentifier").focus();
 }
-async function requestForgotPasswordCode(event){
+async function submitLoginRecoveryRequest(event,kind){
   event.preventDefault();
-  const button=event.submitter,errorBox=$("#forgotStep1Error"),email=$("#forgotEmail").value.trim();
+  const button=event.submitter,errorBox=$("#recoveryStep1Error"),identifier=$("#recoveryIdentifier").value.trim();
   button.disabled=true;errorBox.classList.add("hidden");
-  try{await window.CloudCompetition.requestPasswordResetCode(email);openForgotPasswordStep2(email)}
+  try{await window.CloudCompetition.requestLoginRecoveryCode(identifier);openLoginRecoveryStep2(kind,identifier)}
   catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden");button.disabled=false}
 }
-function openForgotPasswordStep2(email){
-  openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة كلمة السر</span><h2>أدخل الرمز</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">اطلب الرمز من الإدارة هاتفياً، وحطه هون مع كلمة السر الجديدة.</p><form id="forgotPasswordStep2" class="form-grid"><label>الرمز<input id="forgotCode" required inputmode="numeric" maxlength="6" placeholder="123456"></label><label>كلمة السر الجديدة<input id="forgotNewPassword" required type="password" minlength="6" autocomplete="new-password"></label><p id="forgotStep2Error" class="form-error hidden"></p><button class="primary-btn wide" type="submit">تحديث كلمة السر</button><button id="forgotResendBtn" class="text-login-btn" type="button">لم يصلك الرمز؟ أعد الإرسال</button></form></div>`,"bulk-pdf-modal");
-  $("#forgotPasswordStep2").addEventListener("submit",event=>confirmForgotPasswordReset(event,email));
-  $("#forgotResendBtn").onclick=async()=>{const btn=$("#forgotResendBtn");btn.disabled=true;try{await window.CloudCompetition.requestPasswordResetCode(email);toast("تم إرسال رمز جديد")}catch(error){toast(error.message)}finally{btn.disabled=false}};
-  $("#forgotCode").focus();
+function openLoginRecoveryStep2(kind,identifier){
+  const cfg=LOGIN_RECOVERY_KINDS[kind];
+  openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة الدخول</span><h2>أدخل الرمز</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">اطلب الرمز من الإدارة هاتفياً، وحطه هون مع ${cfg.newLabel}.</p><form id="loginRecoveryStep2" class="form-grid"><label>الرمز<input id="recoveryCode" required inputmode="numeric" maxlength="6" placeholder="123456"></label><label>${cfg.newLabel}<input id="recoveryNewValue" required type="${cfg.newType}" minlength="${cfg.newMin}" autocomplete="new-password"></label><p id="recoveryStep2Error" class="form-error hidden"></p><button class="primary-btn wide" type="submit">تحديث</button><button id="recoveryResendBtn" class="text-login-btn" type="button">لم يصلك الرمز؟ أعد الإرسال</button></form></div>`,"bulk-pdf-modal");
+  $("#loginRecoveryStep2").addEventListener("submit",event=>submitLoginRecoveryReset(event,kind,identifier));
+  $("#recoveryResendBtn").onclick=async()=>{const btn=$("#recoveryResendBtn");btn.disabled=true;try{await window.CloudCompetition.requestLoginRecoveryCode(identifier);toast("تم إرسال رمز جديد")}catch(error){toast(error.message)}finally{btn.disabled=false}};
+  $("#recoveryCode").focus();
 }
-async function confirmForgotPasswordReset(event,email){
+async function submitLoginRecoveryReset(event,kind,identifier){
   event.preventDefault();
-  const button=event.submitter,errorBox=$("#forgotStep2Error"),code=$("#forgotCode").value.trim(),newPassword=$("#forgotNewPassword").value;
+  const cfg=LOGIN_RECOVERY_KINDS[kind];
+  const button=event.submitter,errorBox=$("#recoveryStep2Error"),code=$("#recoveryCode").value.trim(),newValue=$("#recoveryNewValue").value;
   button.disabled=true;errorBox.classList.add("hidden");
   try{
-    await window.CloudCompetition.confirmPasswordReset(email,code,newPassword);
+    await window.CloudCompetition.confirmLoginRecovery(identifier,code,newValue);
     closeModal();
-    $("#cloudLoginEmail").value=email;$("#cloudLoginPassword").value="";
-    toast("تم تحديث كلمة السر بنجاح، سجّل دخولك الآن بكلمة السر الجديدة");
+    const identifierInput=$(`#${cfg.prefillId}`);if(identifierInput)identifierInput.value=identifier;
+    const passwordInput=$(`#${cfg.passwordId}`);if(passwordInput)passwordInput.value="";
+    toast(kind==="admin"?"تم تحديث كلمة السر بنجاح، سجّل دخولك الآن بكلمة السر الجديدة":"تم تحديث الرمز السري بنجاح، سجّل دخولك الآن به");
   }catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden");button.disabled=false}
 }
 async function committeeLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#committeeLoginError");button.disabled=true;errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInCommittee($("#committeeLoginCode").value.trim(),$("#committeeLoginPin").value);$("#committeeLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false}}

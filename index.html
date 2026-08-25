@@ -98,6 +98,7 @@
         <label>الرقم السري PIN<input id="committeeLoginPin" required type="password" inputmode="numeric" minlength="4" autocomplete="current-password"></label>
         <p id="committeeLoginError" class="form-error hidden"></p>
         <button class="primary-btn wide" type="submit">دخول اللجنة</button>
+        <button id="committeeForgotPinBtn" class="text-login-btn" type="button">نسيت الرمز السري (PIN)؟</button>
       </form>
       <div class="login-mode-links"><button id="showAdminLoginBtn" class="text-login-btn" type="button">دخول إدارة المسابقة</button><button id="showSubAdminLoginBtn" class="text-login-btn" type="button">دخول مسؤول فرعي</button></div>
       <form id="cloudLoginForm" class="admin-login-form hidden">
@@ -113,6 +114,7 @@
         <label>الرقم السري PIN<input id="subAdminLoginPin" required type="password" inputmode="numeric" minlength="4" autocomplete="current-password"></label>
         <p id="subAdminLoginError" class="form-error hidden"></p>
         <button class="primary-btn wide" type="submit">دخول</button>
+        <button id="subAdminForgotPinBtn" class="text-login-btn" type="button">نسيت الرمز السري (PIN)؟</button>
         <button class="secondary-btn wide" type="button" data-back-committee-login>العودة لدخول اللجان</button>
       </form>
       <small>يُحفظ كل امتحان مباشرة في قاعدة بيانات الفرع</small>
@@ -272,7 +274,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260825-notifyemail1"></script>
-  <script src="app.js?v=20260825-notifyemail1"></script>
+  <script src="cloud.js?v=20260825-forgotpin1"></script>
+  <script src="app.js?v=20260825-forgotpin1"></script>
 </body>
 </html>
