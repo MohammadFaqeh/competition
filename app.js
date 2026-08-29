@@ -240,8 +240,6 @@ function bindEvents(){
   $("#participantCenterFilter").addEventListener("change",renderParticipants);
   $("#participantLevelFilter").addEventListener("change",renderParticipants);
   $("#participantCommitteeFilter").addEventListener("change",renderParticipants);
-  $("#participantAgeMin").addEventListener("input",renderParticipants);
-  $("#participantAgeMax").addEventListener("input",renderParticipants);
   $("#csvInput").addEventListener("change",importCsv);
   $("#addOtherParticipantBtn").addEventListener("click",()=>openOtherParticipantModal());
   $("#otherParticipantSearch").addEventListener("input",renderOtherParticipants);
@@ -808,13 +806,13 @@ function renderParticipants(){
   populateParticipantFilterOptions();
   const isSubAdmin=window.CloudCompetition?.context?.kind==="subAdmin",isSupervisor=window.CloudCompetition?.context?.kind==="supervisor",isMainAdmin=operationMode==="cloud"?window.CloudCompetition?.context?.kind==="admin":true;
   const participantCommittees=operationMode==="cloud"?(isSubAdmin?subAdminCommittees:cloudCommittees):[];
-  const query=$("#participantSearch").value.trim().toLowerCase(),filter=$("#participantFilter").value,genderFilter=$("#participantGenderFilter").value,centerFilter=$("#participantCenterFilter").value,levelFilter=$("#participantLevelFilter").value,committeeFilter=$("#participantCommitteeFilter")?.value||"all",ageMinRaw=$("#participantAgeMin")?.value,ageMaxRaw=$("#participantAgeMax")?.value,ageMin=ageMinRaw?Number(ageMinRaw):null,ageMax=ageMaxRaw?Number(ageMaxRaw):null,drawByParticipant=new Map(state.draws.filter(d=>d.participantId).map(d=>[d.participantId,d]));
+  const query=$("#participantSearch").value.trim().toLowerCase(),filter=$("#participantFilter").value,genderFilter=$("#participantGenderFilter").value,centerFilter=$("#participantCenterFilter").value,levelFilter=$("#participantLevelFilter").value,committeeFilter=$("#participantCommitteeFilter")?.value||"all",drawByParticipant=new Map(state.draws.filter(d=>d.participantId).map(d=>[d.participantId,d]));
   const statusOf=p=>Number.isFinite(p.score)?"completed":drawByParticipant.has(p.id)?"drawn":"pending";
-  const list=state.participants.filter(p=>[p.name,p.seat,p.center].some(x=>String(x).toLowerCase().includes(query))).filter(p=>filter==="all"||statusOf(p)===filter).filter(p=>genderFilter==="all"||p.gender===genderFilter).filter(p=>centerFilter==="all"||p.center===centerFilter).filter(p=>levelFilter==="all"||resolveParticipantLevelId(p)===levelFilter).filter(p=>committeeFilter==="all"||resolveParticipantCommittee(p,participantCommittees).currentCommittee?.id===committeeFilter).filter(p=>ageMin==null||(Number.isFinite(p.age)&&p.age>=ageMin)).filter(p=>ageMax==null||(Number.isFinite(p.age)&&p.age<=ageMax));
+  const list=state.participants.filter(p=>[p.name,p.seat,p.center].some(x=>String(x).toLowerCase().includes(query))).filter(p=>filter==="all"||statusOf(p)===filter).filter(p=>genderFilter==="all"||p.gender===genderFilter).filter(p=>centerFilter==="all"||p.center===centerFilter).filter(p=>levelFilter==="all"||resolveParticipantLevelId(p)===levelFilter).filter(p=>committeeFilter==="all"||resolveParticipantCommittee(p,participantCommittees).currentCommittee?.id===committeeFilter);
   $("#participantFilterCount").textContent=list.length===state.participants.length?`${formatNumber(list.length)} متسابق`:`${formatNumber(list.length)} من ${formatNumber(state.participants.length)} متسابق`;
   $("#participantsTable").closest(".table-wrap").classList.toggle("is-empty",!list.length);
   const PARTICIPANTS_PAGE_SIZE=50;
-  const pageSignature=JSON.stringify([query,filter,genderFilter,centerFilter,levelFilter,committeeFilter,ageMin,ageMax]);
+  const pageSignature=JSON.stringify([query,filter,genderFilter,centerFilter,levelFilter,committeeFilter]);
   if(pageSignature!==participantsPageSignature){participantsPage=1;participantsPageSignature=pageSignature}
   const participantsTotalPages=Math.max(1,Math.ceil(list.length/PARTICIPANTS_PAGE_SIZE));
   participantsPage=Math.min(Math.max(1,participantsPage),participantsTotalPages);
