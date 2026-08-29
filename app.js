@@ -784,23 +784,35 @@ function openParticipantModal(participant=null){
 }
 function nextSeat(){return String(state.participants.length+1).padStart(3,"0")}
 function nextDrawSequence(){return Math.max(0,...state.draws.map(draw=>Number(draw.sequence)||0))+1}
+function levelsForCommittee(committee){
+  if(!committee)return LEVEL_CATALOG;
+  const hasLevelNames=(committee.level_names||[]).length>0;
+  return LEVEL_CATALOG.filter(l=>hasLevelNames?(committee.level_names||[]).includes(l.label):(committee.levels||[]).map(Number).includes(l.parts));
+}
 function populateParticipantFilterOptions(){
-  const centerSelect=$("#participantCenterFilter"),levelSelect=$("#participantLevelFilter");
+  const centerSelect=$("#participantCenterFilter"),levelSelect=$("#participantLevelFilter"),genderSelect=$("#participantGenderFilter"),committeeSelect=$("#participantCommitteeFilter");
   const centers=[...new Set(state.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),"ar"));
-  const currentCenter=centerSelect.value,currentLevel=levelSelect.value;
+  const currentCenter=centerSelect.value;
   centerSelect.innerHTML=`<option value="all">المركز: الكل</option>`+centers.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("");
-  // قائمة ثابتة من LEVEL_CATALOG دائماً — لا تُشتق من بيانات المتسابقين، حتى لا تظهر مسميات قديمة أو أرقام أجزاء خام.
-  levelSelect.innerHTML=`<option value="all">المستوى: الكل</option>`+LEVEL_CATALOG.map(l=>`<option value="${l.id}">${escapeHtml(l.label)}</option>`).join("");
   centerSelect.value=centers.includes(currentCenter)?currentCenter:"all";
-  levelSelect.value=LEVEL_CATALOG.some(l=>l.id===currentLevel)?currentLevel:"all";
-  const committeeSelect=$("#participantCommitteeFilter");
+  // فلتر اللجنة يعتمد على فلتر الجنس (يعرض فقط اللجان المطابقة للجنس المختار)، وفلتر المستوى
+  // يعتمد على اللجنة المختارة (يعرض فقط مستوياتها) — سلسلة متصلة: الجنس يضيّق اللجنة، واللجنة تضيّق المستوى.
+  let selectedCommittee=null;
   if(committeeSelect){
     const isSubAdmin=window.CloudCompetition?.context?.kind==="subAdmin";
-    const committees=(operationMode==="cloud"?(isSubAdmin?subAdminCommittees:cloudCommittees):[]).filter(c=>c.active!==false);
+    const genderFilter=genderSelect?.value||"all";
+    const allCommittees=(operationMode==="cloud"?(isSubAdmin?subAdminCommittees:cloudCommittees):[]).filter(c=>c.active!==false);
+    const committees=allCommittees.filter(c=>genderFilter==="all"||!c.responsible_gender||c.responsible_gender===genderFilter);
     const currentCommittee=committeeSelect.value;
     committeeSelect.innerHTML=`<option value="all">اللجنة: الكل</option>`+committees.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
     committeeSelect.value=committees.some(c=>c.id===currentCommittee)?currentCommittee:"all";
+    selectedCommittee=committees.find(c=>c.id===committeeSelect.value)||null;
   }
+  const currentLevel=levelSelect.value;
+  // قائمة ثابتة من LEVEL_CATALOG دائماً كأساس — لا تُشتق من بيانات المتسابقين، حتى لا تظهر مسميات قديمة أو أرقام أجزاء خام.
+  const levelOptions=levelsForCommittee(selectedCommittee);
+  levelSelect.innerHTML=`<option value="all">المستوى: الكل</option>`+levelOptions.map(l=>`<option value="${l.id}">${escapeHtml(l.label)}</option>`).join("");
+  levelSelect.value=levelOptions.some(l=>l.id===currentLevel)?currentLevel:"all";
 }
 function renderParticipants(){
   populateParticipantFilterOptions();
