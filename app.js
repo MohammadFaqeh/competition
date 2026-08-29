@@ -1148,7 +1148,7 @@ async function importCsv(event){
     const sources=[];
     if(/\.csv$/i.test(file.name)){const text=await file.text();sources.push({matrix:text.replace(/^\uFEFF/,"").split(/\r?\n/).filter(Boolean).map(parseCsvLine)})}
     else{const workbook=XLSX.read(await file.arrayBuffer(),{type:"array"});for(const sheetName of workbook.SheetNames){if(String(sheetName).trim()==="تعليمات")continue;sources.push({matrix:XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{header:1,defval:"",raw:false})})}}
-    let added=0,updated=0,empty=0,invalidLevel=0,awaitingParts=0,excludedSpecial=0,ignoredSheets=0,missingCenter=0,duplicateSeat=0;const importedCenters=new Set(),rejectedNames=[],levelKeptNames=[];
+    let added=0,updated=0,empty=0,invalidLevel=0,awaitingParts=0,excludedSpecial=0,ignoredSheets=0,missingCenter=0,duplicateSeat=0,withdrawnFromImport=0;const importedCenters=new Set(),rejectedNames=[],levelKeptNames=[];
     for(const source of sources){
       const parsed=rowsFromMatrix(source.matrix);if(!parsed.hasNameColumn){ignoredSheets++;continue}
       for(const row of parsed.rows){
@@ -1159,9 +1159,11 @@ async function importCsv(event){
         const level=levelInfo.parts,levelName=levelInfo.label;
         const recitation=String(pickColumn(row,["الرواية","القراءة","نوعالرواية","recitation"])).trim(),otherRecitation=Boolean(recitation)&&!/حفص|عاصم/i.test(recitation);
         if(!includeSpecial&&(level===30||otherRecitation)){excludedSpecial++;rejectedNames.push(`${name}: ${level===30?"مستوى كامل القرآن":"رواية أخرى"}`);continue}
-        const parsedParts=parsePartSpec(pickColumn(row,["الاجزاءالمشاركة","الأجزاءالمشاركة","ارقامالاجزاء","أرقامالأجزاء","الاجزاء","الأجزاء","parts"]));
+        const rawParts=pickColumn(row,["الاجزاءالمشاركة","الأجزاءالمشاركة","ارقامالاجزاء","أرقامالأجزاء","الاجزاء","الأجزاء","parts"]);
+        const withdrawnFromCell=/منسحب|انسحاب|انسحب/.test(String(rawParts||""));
+        const parsedParts=withdrawnFromCell?[]:parsePartSpec(rawParts);
         const parts=parsedParts.length===level?parsedParts:[];
-        if(!parts.length)awaitingParts++;
+        if(!parts.length&&!withdrawnFromCell)awaitingParts++;
         const gender=normalizeGender(pickColumn(row,["الجنس","النوع","ذكرانثى","gender","sex"]));
         const rowCenter=String(pickColumn(row,["المركز","اسمالمركز","المسجد","الدار","الجمعية","center"])||"").trim();
         const center=rowCenter;if(!center)missingCenter++;
@@ -1178,16 +1180,19 @@ async function importCsv(event){
           const hasDraw=state.draws.some(d=>d.participantId===existing.id);
           if(!hasDraw){existing.level=level;existing.levelName=levelName;existing.parts=parts}
           else if(existing.level!==level)levelKeptNames.push(existing.name);
+          if(withdrawnFromCell&&!hasDraw){existing.withdrawn=true;existing.score=0;existing.gradedAt=new Date().toISOString();existing.scoreSource="withdrawn";existing.manualEntryBy="استيراد Excel";existing.assessment=null;delete existing.drRequest;withdrawnFromImport++}
           updated++;if(center)importedCenters.add(center)
         }else{
-          state.participants.push({id:uid("P"),name:String(name).trim(),seat:seat||nextSeat(),gender,center,phone:phone||null,branch:BRANCH_NAME,age,level,levelName,parts,recitation:recitation||"حفص عن عاصم",createdAt:new Date().toISOString()});
+          const item={id:uid("P"),name:String(name).trim(),seat:seat||nextSeat(),gender,center,phone:phone||null,branch:BRANCH_NAME,age,level,levelName,parts,recitation:recitation||"حفص عن عاصم",createdAt:new Date().toISOString()};
+          if(withdrawnFromCell){item.withdrawn=true;item.score=0;item.gradedAt=item.createdAt;item.scoreSource="withdrawn";item.manualEntryBy="استيراد Excel";withdrawnFromImport++}
+          state.participants.push(item);
           added++;if(center)importedCenters.add(center)
         }
       }
     }
     if(importedCenters.size){state.config.centers=state.config.centers||[];importedCenters.forEach(c=>{if(!state.config.centers.includes(c))state.config.centers.push(c)})}
     if(!added&&!updated)throw new Error(invalidLevel?"لم أتمكن من تحديد مستوى أي متسابق. تحقق من عمود المستوى ومطابقته لأسماء المستويات المعتمدة.":"لم أجد شيتاً يحتوي على عمود لأسماء المتسابقين.");
-    saveState();renderAll();openModal(`<div class="modal-head"><h2>اكتمل استيراد ملف Excel</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="bulk-summary"><div><b>${added}</b><span>متسابقاً تمت إضافتهم</span></div><div><b>${updated}</b><span>تم تحديث بياناتهم من الملف</span></div><div><b>${importedCenters.size}</b><span>مركزاً</span></div></div>${missingCenter?`<p class="form-error"><b>${missingCenter} متسابقاً بلا مركز محدد</b> — لم يُعثر على عمود المركز أو كان فارغاً لهذه الصفوف، لم يُخمَّن أي اسم مركز. عدّل مركزهم يدوياً من قائمة المتسابقين.</p>`:""}${levelKeptNames.length?`<p class="form-error"><b>${levelKeptNames.length} متسابقاً</b> — مستواهم بالملف يختلف عمّا هو محفوظ، لكن تُرك كما هو لأن لديهم سحباً قائماً بالفعل (لتجنّب إلغاء مواضعه). لتغيير المستوى فعلياً، عدّله يدوياً من زر «تعديل» بعد مراجعة السحب: ${levelKeptNames.map(escapeHtml).join("، ")}</p>`:""}${awaitingParts?`<p>${awaitingParts} من المتسابقين المضافين بانتظار إدخال أرقام أجزائهم يدوياً قبل إمكانية سحبهم.</p>`:""}${excludedSpecial?`<p>استُبعد ${excludedSpecial} من كامل القرآن أو الروايات الأخرى حسب اختيارك.</p>`:""}${invalidLevel?`<p class="form-error">تم تجاوز ${invalidLevel} صفاً لأن المستوى غير معروف أو غير مطابق لأسماء المستويات المعتمدة.</p>`:""}${duplicateSeat?`<p class="form-error"><b>${duplicateSeat} متسابقاً لم يُسجَّلوا</b> — رقم جلوسهم مكرر مع متسابق آخر مختلف الاسم مسجَّل مسبقًا. يكفي تسجيل واحد فقط لكل رقم جلوس؛ راجع القائمة أدناه وصحّح رقم الجلوس ثم أعد الاستيراد.</p>`:""}${rejectedNames.length?`<details><summary>عرض الأسماء المستبعدة وأسبابها</summary><p>${rejectedNames.map(escapeHtml).join("<br>")}</p></details>`:""}${ignoredSheets?`<p class="form-error">تم تجاهل ${ignoredSheets} شيت لعدم العثور على عمود الاسم.</p>`:""}${empty?`<p>تم تجاوز ${empty} صفوف فارغة.</p>`:""}</div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`);
+    saveState();renderAll();openModal(`<div class="modal-head"><h2>اكتمل استيراد ملف Excel</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="bulk-summary"><div><b>${added}</b><span>متسابقاً تمت إضافتهم</span></div><div><b>${updated}</b><span>تم تحديث بياناتهم من الملف</span></div><div><b>${importedCenters.size}</b><span>مركزاً</span></div></div>${missingCenter?`<p class="form-error"><b>${missingCenter} متسابقاً بلا مركز محدد</b> — لم يُعثر على عمود المركز أو كان فارغاً لهذه الصفوف، لم يُخمَّن أي اسم مركز. عدّل مركزهم يدوياً من قائمة المتسابقين.</p>`:""}${levelKeptNames.length?`<p class="form-error"><b>${levelKeptNames.length} متسابقاً</b> — مستواهم بالملف يختلف عمّا هو محفوظ، لكن تُرك كما هو لأن لديهم سحباً قائماً بالفعل (لتجنّب إلغاء مواضعه). لتغيير المستوى فعلياً، عدّله يدوياً من زر «تعديل» بعد مراجعة السحب: ${levelKeptNames.map(escapeHtml).join("، ")}</p>`:""}${awaitingParts?`<p>${awaitingParts} من المتسابقين المضافين بانتظار إدخال أرقام أجزائهم يدوياً قبل إمكانية سحبهم.</p>`:""}${withdrawnFromImport?`<p>${withdrawnFromImport} من المتسابقين سُجّلوا منسحبين تلقائياً (وردت كلمة انسحاب في خانة أجزائهم بالملف) وعلامتهم صفر.</p>`:""}${excludedSpecial?`<p>استُبعد ${excludedSpecial} من كامل القرآن أو الروايات الأخرى حسب اختيارك.</p>`:""}${invalidLevel?`<p class="form-error">تم تجاوز ${invalidLevel} صفاً لأن المستوى غير معروف أو غير مطابق لأسماء المستويات المعتمدة.</p>`:""}${duplicateSeat?`<p class="form-error"><b>${duplicateSeat} متسابقاً لم يُسجَّلوا</b> — رقم جلوسهم مكرر مع متسابق آخر مختلف الاسم مسجَّل مسبقًا. يكفي تسجيل واحد فقط لكل رقم جلوس؛ راجع القائمة أدناه وصحّح رقم الجلوس ثم أعد الاستيراد.</p>`:""}${rejectedNames.length?`<details><summary>عرض الأسماء المستبعدة وأسبابها</summary><p>${rejectedNames.map(escapeHtml).join("<br>")}</p></details>`:""}${ignoredSheets?`<p class="form-error">تم تجاهل ${ignoredSheets} شيت لعدم العثور على عمود الاسم.</p>`:""}${empty?`<p>تم تجاوز ${empty} صفوف فارغة.</p>`:""}</div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`);
   }catch(error){openModal(`<div class="modal-head"><h2>تعذر استيراد الملف</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>${escapeHtml(error.message||"تعذر قراءة ملف Excel")}</p><p class="form-error">يجب أن يحتوي الملف على عمود لاسم المتسابق، ويفضل عمود للمستوى أو عدد الأجزاء.</p></div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`)}
   event.target.value="";
 }
@@ -1216,7 +1221,7 @@ function canonicalHeader(value){const header=normalizeHeader(value);if(header===
 function pickColumn(row,names){for(const name of names){const key=normalizeHeader(name);if(row[key]!==undefined&&row[key]!=="")return row[key]}return ""}
 function normalizeDigits(value){return String(value??"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d))}
 function normalizeGender(value){const gender=normalizeHeader(value);if(["ذكر","ذكور","male","m"].includes(gender))return "ذكر";if(["انثى","اناث","female","f"].includes(gender))return "أنثى";return "غير محدد"}
-function parsePartSpec(value){const text=normalizeDigits(value);const parts=new Set();for(const token of text.split(/[,،;\s]+/).filter(Boolean)){const range=token.match(/^(\d+)\s*-\s*(\d+)$/);if(range){const a=Number(range[1]),b=Number(range[2]);for(let n=Math.min(a,b);n<=Math.max(a,b);n++)if(n>=1&&n<=30)parts.add(n)}else{const n=Number(token);if(n>=1&&n<=30)parts.add(n)}}return [...parts].sort((a,b)=>a-b)}
+function parsePartSpec(value){const text=normalizeDigits(value);const parts=new Set();for(const token of text.split(/[,،;\s\/.]+/).filter(Boolean)){const range=token.match(/^(\d+)\s*[-_]\s*(\d+)$/);if(range){const a=Number(range[1]),b=Number(range[2]);for(let n=Math.min(a,b);n<=Math.max(a,b);n++)if(n>=1&&n<=30)parts.add(n)}else{const n=Number(token);if(n>=1&&n<=30)parts.add(n)}}return [...parts].sort((a,b)=>a-b)}
 function parseCsvLine(line){const result=[];let value="",quoted=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'&&line[i+1]==='"'){value+='"';i++}else if(c==='"')quoted=!quoted;else if(c===","&&!quoted){result.push(value);value=""}else value+=c}result.push(value);return result}
 
 function buildPartsGrid(){updateAvailability()}
