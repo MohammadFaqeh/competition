@@ -795,13 +795,20 @@ function populateParticipantFilterOptions(){
   const currentCenter=centerSelect.value;
   centerSelect.innerHTML=`<option value="all">المركز: الكل</option>`+centers.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("");
   centerSelect.value=centers.includes(currentCenter)?currentCenter:"all";
-  // فلتر اللجنة يعتمد على فلتر الجنس (يعرض فقط اللجان المطابقة للجنس المختار)، وفلتر المستوى
-  // يعتمد على اللجنة المختارة (يعرض فقط مستوياتها) — سلسلة متصلة: الجنس يضيّق اللجنة، واللجنة تضيّق المستوى.
+  // الجنس واللجنة يضيّقان بعض بشكل متبادل: اللجنة المختارة حالياً (إن كانت مقصورة على جنس واحد)
+  // تُخفي الجنس الآخر من قائمة الجنس، ثم الجنس الناتج (بعد أي تصحيح) يضيّق قائمة اللجان —
+  // فلا يبقى ممكناً إطلاقاً اختيار جنس يتعارض مع لجنة مختارة أصلاً. وفلتر المستوى يعتمد على
+  // اللجنة المختارة أخيراً (يعرض فقط مستوياتها).
   let selectedCommittee=null;
-  if(committeeSelect){
+  if(committeeSelect&&genderSelect){
     const isSubAdmin=window.CloudCompetition?.context?.kind==="subAdmin";
-    const genderFilter=genderSelect?.value||"all";
     const allCommittees=(operationMode==="cloud"?(isSubAdmin?subAdminCommittees:cloudCommittees):[]).filter(c=>c.active!==false);
+    const rawCommittee=allCommittees.find(c=>c.id===committeeSelect.value)||null;
+    const rawGender=genderSelect.value;
+    const allowedGenders=rawCommittee?.responsible_gender?["ذكر","أنثى"].filter(g=>g===rawCommittee.responsible_gender):["ذكر","أنثى"];
+    genderSelect.innerHTML=`<option value="all">الجنس: الكل</option>`+allowedGenders.map(g=>`<option value="${g}">${g==="أنثى"?"إناث":"ذكور"}</option>`).join("");
+    genderSelect.value=allowedGenders.includes(rawGender)?rawGender:"all";
+    const genderFilter=genderSelect.value;
     const committees=allCommittees.filter(c=>genderFilter==="all"||!c.responsible_gender||c.responsible_gender===genderFilter);
     const currentCommittee=committeeSelect.value;
     committeeSelect.innerHTML=`<option value="all">اللجنة: الكل</option>`+committees.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
