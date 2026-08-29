@@ -626,7 +626,8 @@ function renderCommitteeStudents(){
   const eligible=allEligible.filter(participant=>filter==="all"||statusOf(participant)===filter).sort((a,b)=>(statusOrder[statusOf(a)]-statusOrder[statusOf(b)])||String(a.name).localeCompare(String(b.name),"ar"));
   $("#committeePendingCount").textContent=formatNumber(allEligible.filter(participant=>["no_draw","pending"].includes(statusOf(participant))).length);
   $("#committeeActiveCount").textContent=formatNumber(allEligible.filter(participant=>statusOf(participant)==="in_progress").length);
-  $("#committeeCompletedCount").textContent=formatNumber(allEligible.filter(participant=>["final","manual_dr"].includes(statusOf(participant))).length);
+  $("#committeeCompletedCount").textContent=formatNumber(allEligible.filter(participant=>!participant.withdrawn&&["final","manual_dr"].includes(statusOf(participant))).length);
+  $("#committeeWithdrawnCount").textContent=formatNumber(allEligible.filter(participant=>participant.withdrawn).length);
   const COMMITTEE_STUDENTS_PAGE_SIZE=15;
   const committeePageSignature=JSON.stringify([query,filter,centerFilter]);
   if(committeePageSignature!==committeeStudentsPageSignature){committeeStudentsPage=1;committeeStudentsPageSignature=committeePageSignature}
@@ -690,13 +691,14 @@ async function startCommitteeExam(participantId){const participant=state.partici
 function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View"))view="dashboard";localStorage.setItem(currentViewKey(),view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants")renderParticipants();if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="settings")populateRenameCenterOptions();if(view==="other")renderOtherParticipants();if(view==="monitor")renderMonitorView();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
 function renderAll(){renderDashboard();renderParticipants();renderHistory();refreshDrawParticipants();renderAnalytics();lucide.createIcons()}
 
-function passRateOf(list){const examined=list.filter(p=>Number.isFinite(p.score));return examined.length?examined.filter(p=>p.score>=PASS_SCORE).length/examined.length*100:null}
+function passRateOf(list){const examined=list.filter(p=>Number.isFinite(p.score)&&!p.withdrawn);return examined.length?examined.filter(p=>p.score>=PASS_SCORE).length/examined.length*100:null}
 function formatPct(n){return n==null?"—":`${new Intl.NumberFormat("ar-JO",{maximumFractionDigits:1,numberingSystem:"latn"}).format(n)}%`}
 function renderPassRateRing(ringId,valueId,pct){const ring=$(`#${ringId}`),value=$(`#${valueId}`);if(!ring||!value)return;const empty=pct==null;ring.classList.toggle("is-empty",empty);ring.style.setProperty("--pct",empty?0:Math.max(0,Math.min(100,pct)));value.textContent=empty?"لا يوجد بيانات":formatPct(pct)}
 function renderDashboard(){
   const byGender=(list,g)=>list.filter(p=>p.gender===g);
   const total=state.participants;
-  const examined=total.filter(p=>Number.isFinite(p.score));
+  const withdrawn=total.filter(p=>p.withdrawn);
+  const examined=total.filter(p=>Number.isFinite(p.score)&&!p.withdrawn);
   const passed=examined.filter(p=>p.score>=PASS_SCORE);
   const failed=examined.filter(p=>p.score<PASS_SCORE);
   $("#statTotal").textContent=formatNumber(total.length);
@@ -705,6 +707,9 @@ function renderDashboard(){
   $("#statExamined").textContent=formatNumber(examined.length);
   $("#statExaminedM").textContent=formatNumber(byGender(examined,"ذكر").length);
   $("#statExaminedF").textContent=formatNumber(byGender(examined,"أنثى").length);
+  $("#statWithdrawn").textContent=formatNumber(withdrawn.length);
+  $("#statWithdrawnM").textContent=formatNumber(byGender(withdrawn,"ذكر").length);
+  $("#statWithdrawnF").textContent=formatNumber(byGender(withdrawn,"أنثى").length);
   $("#statPassed").textContent=formatNumber(passed.length);
   $("#statPassedM").textContent=formatNumber(byGender(passed,"ذكر").length);
   $("#statPassedF").textContent=formatNumber(byGender(passed,"أنثى").length);

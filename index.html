@@ -132,7 +132,7 @@
         <div class="committee-alerts-head"><div><span class="eyebrow">آخر التحديثات</span><h2 id="committeeAlertsTitle">تنبيهات اللجنة</h2></div><button id="clearCommitteeAlertsBtn" class="text-login-btn" type="button">تحديد الكل كمقروء</button></div>
         <div id="committeeAlertsList" class="committee-alerts-list"><p class="committee-alerts-empty">لا توجد تنبيهات جديدة.</p></div>
       </section>
-      <section class="committee-statusbar"><div><span>بانتظار الاختبار</span><b id="committeePendingCount">0</b></div><div><span>قيد الاختبار</span><b id="committeeActiveCount">0</b></div><div><span>مكتمل</span><b id="committeeCompletedCount">0</b></div></section>
+      <section class="committee-statusbar"><div><span>بانتظار الاختبار</span><b id="committeePendingCount">0</b></div><div><span>قيد الاختبار</span><b id="committeeActiveCount">0</b></div><div><span>مكتمل</span><b id="committeeCompletedCount">0</b></div><div><span>منسحب</span><b id="committeeWithdrawnCount">0</b></div></section>
       <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="committeeSearch" placeholder="بحث باسم المتسابق أو رقم الجلوس"></div><select id="committeeStatusFilter" aria-label="فرز المتسابقين حسب الحالة"><option value="all">جميع الحالات</option><option value="no_draw">لم يتم السحب بعد</option><option value="pending">جاهز للاختبار</option><option value="in_progress">قيد الاختبار</option><option value="final">مكتمل الاختبار</option></select><select id="committeeCenterFilter" aria-label="فرز المتسابقين حسب المركز"><option value="all">المركز: الكل</option></select><button id="refreshCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
       <section id="committeeStudents" class="committee-students"></section>
       <nav id="committeeStudentsPager" class="pager-tabs"></nav>
@@ -181,6 +181,7 @@
           <div class="stats-grid">
             <article class="stat"><div class="stat-icon green"><i data-lucide="users"></i></div><div><span>إجمالي المتسابقين</span><b id="statTotal">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statTotalM">0</b></span><span class="split-f">إناث <b id="statTotalF">0</b></span></div></div></article>
             <article class="stat"><div class="stat-icon gold"><i data-lucide="clipboard-check"></i></div><div><span>تم امتحانهم</span><b id="statExamined">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statExaminedM">0</b></span><span class="split-f">إناث <b id="statExaminedF">0</b></span></div></div></article>
+            <article class="stat"><div class="stat-icon slate"><i data-lucide="user-x"></i></div><div><span>منسحبون</span><b id="statWithdrawn">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statWithdrawnM">0</b></span><span class="split-f">إناث <b id="statWithdrawnF">0</b></span></div></div></article>
             <article class="stat"><div class="stat-icon blue"><i data-lucide="badge-check"></i></div><div><span>الناجحون</span><b id="statPassed">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statPassedM">0</b></span><span class="split-f">إناث <b id="statPassedF">0</b></span></div></div></article>
             <article class="stat"><div class="stat-icon red"><i data-lucide="x-circle"></i></div><div><span>الراسبون</span><b id="statFailed">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statFailedM">0</b></span><span class="split-f">إناث <b id="statFailedF">0</b></span></div></div></article>
           </div>
@@ -276,7 +277,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260830-mutualgenderfilter1"></script>
-  <script src="app.js?v=20260830-mutualgenderfilter1"></script>
+  <script src="cloud.js?v=20260830-withdrawnstats1"></script>
+  <script src="app.js?v=20260830-withdrawnstats1"></script>
 </body>
 </html>
