@@ -252,6 +252,7 @@ function bindEvents(){
   $("#drawPartsCancelBtn").addEventListener("click",closeDrawPartsEditor);
   $("#scoreComparisonSearch").addEventListener("input",renderScoreComparisonTable);
   $("#refreshScoreComparisonBtn").addEventListener("click",renderScoreComparison);
+  $("#exportScoreComparisonBtn").addEventListener("click",exportScoreComparison);
   $("#historySearch").addEventListener("input",renderHistory);
   $("#exportHistoryBtn").addEventListener("click",exportHistory);
   $("#examDurationSearch").addEventListener("input",renderExamDurations);
@@ -474,6 +475,16 @@ function renderScoreComparisonTable(){
   const query=($("#scoreComparisonSearch")?.value||"").trim().toLowerCase();
   const rows=query?scoreComparisonRows.filter(row=>row.name.toLowerCase().includes(query)):scoreComparisonRows;
   box.innerHTML=rows.length?rows.map(row=>`<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.committeeName)}</td><td>${row.chairmanScore!=null?formatAssessmentNumber(row.chairmanScore):"—"}</td><td>${row.memberScore!=null?formatAssessmentNumber(row.memberScore):"—"}</td><td>${row.finalScore!=null?formatAssessmentNumber(row.finalScore):"—"}</td></tr>`).join(""):`<tr><td colspan="5" class="table-empty">لا توجد بيانات مطابقة</td></tr>`;
+}
+async function exportScoreComparison(){
+  if(!scoreComparisonRows.length)return toast("لا توجد بيانات مقارنة لتصديرها");
+  try{await ensureXlsx()}catch(error){return toast(error.message)}
+  const data=scoreComparisonRows.map(row=>({"المتسابق":row.name,"اللجنة":row.committeeName,"علامة الرئيس":row.chairmanScore!=null?row.chairmanScore:"—","علامة العضو":row.memberScore!=null?row.memberScore:"—","العلامة المعتمدة":row.finalScore!=null?row.finalScore:"—"}));
+  const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(data);
+  sheet["!cols"]=[{wch:32},{wch:38},{wch:14},{wch:14},{wch:16}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
+  XLSX.utils.book_append_sheet(workbook,sheet,"مقارنة علامات اللجان");
+  XLSX.writeFile(workbook,`مقارنة-علامات-اللجان-${dateStamp()}.xlsx`);
+  toast("تم تنزيل ملف مقارنة العلامات");
 }
 function resetCommitteeForm(){$("#committeeAccountForm").reset();$("#editingCommitteeId").value="";$("#newCommitteePin").required=true;if($("#newCommitteeMemberCode"))delete $("#newCommitteeMemberCode").dataset.existing;toggleCommitteeMemberFields();$("#committeeSubmitLabel").textContent="إضافة اللجنة";$("#cancelCommitteeEdit").classList.add("hidden")}
 let cloudSubAdmins=[];
