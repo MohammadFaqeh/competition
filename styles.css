@@ -347,7 +347,8 @@ main{padding:var(--sp-6) var(--sp-6) var(--sp-7);flex:1}
 .committee-breakdown-card-summary{display:flex;align-items:center;gap:14px;font-size:11px;color:var(--muted);white-space:nowrap}
 .committee-breakdown-card-summary b{font-size:13.5px;color:var(--green-800)}
 .committee-breakdown-card-body{padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 22px}
-.committee-breakdown-card-body .level-card-row{margin-top:0}
+.committee-breakdown-card-body .level-card-row{margin-top:0;justify-content:flex-start;gap:8px}
+.committee-breakdown-card-body .level-card-row span{white-space:nowrap}
 .committee-breakdown-note{margin:0 16px 14px;padding-top:10px;border-top:1px dashed var(--line);font-size:10.5px;color:var(--muted);line-height:1.6}
 
 .dashboard-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:var(--sp-4)}
