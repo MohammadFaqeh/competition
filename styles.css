@@ -750,7 +750,11 @@ body.exam-fullscreen .examiner-mode-modal{width:100%;max-width:none;height:100dv
 .exam-position-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-sm)}.exam-position-label{display:flex;justify-content:space-between;gap:10px;color:var(--green-700);font-size:11px;font-weight:800}.exam-position-label b{color:var(--red)}.exam-position-card>h2{font-size:23px;margin:7px 0 2px}.exam-position-card>p{color:var(--muted);font-size:11px}
 .exam-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
 .exam-split-quran{position:sticky;top:66px;align-self:start;min-width:0}
-.exam-split-panel{min-width:0}
+/* يثبّت عمود الأزرار جنب صورة المصحف بنفس الآلية تمامًا (sticky أصلية بالمتصفح، بلا أي
+   جافاسكربت يحسب المكان أثناء السكرول)، فيضل في متناول اليد دومًا أثناء متابعة القراءة بلا
+   حاجة للطلوع لأعلى الشاشة لتسجيل خطأ ثم النزول للعودة لمكان المتابعة. سكرول داخلي خاص فيه
+   لو طال محتواه عن المساحة المتاحة، بدل ما يدفع الصفحة كلها للسكرول. */
+.exam-split-panel{position:sticky;top:66px;align-self:start;min-width:0;max-height:calc(100vh - 160px);overflow-y:auto}
 .quran-split-viewer{border:1px solid var(--line);border-radius:9px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow-sm)}
 .quran-split-image{position:relative;background:var(--surface)}
 .quran-split-image img{display:block;width:100%;height:auto}
@@ -760,7 +764,7 @@ body.exam-fullscreen .examiner-mode-modal{width:100%;max-width:none;height:100dv
 .quran-split-pager .icon-btn{width:30px;height:30px}
 .quran-split-pager small{font-size:10px;font-weight:800;color:var(--green-800)}
 .quran-split-empty{padding:24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:9px}
-@media(max-width:900px){.exam-split{grid-template-columns:1fr}.exam-split-quran{position:static}}
+@media(max-width:900px){.exam-split{grid-template-columns:1fr}.exam-split-quran{position:static}.exam-split-panel{position:static;max-height:none;overflow-y:visible}}
 .pager-tabs{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;margin:16px 0 4px}
 .pager-tabs:empty{display:none;margin:0}
 .pager-tabs button{min-width:36px;height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-weight:800;font-size:13px}
