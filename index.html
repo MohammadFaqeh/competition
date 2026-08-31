@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260830-realchangetime1">
+  <link rel="stylesheet" href="styles.css?v=20260831-committeebreakdown1">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -252,6 +252,7 @@
         <section id="analyticsView" class="view">
           <div class="page-head"><div><span class="eyebrow">شفافية الخوارزمية</span><h1>العدالة والإحصاءات</h1><p>مراقبة توزيع المواضع المستخدمة على أجزاء القرآن أثناء الدورة.</p></div><button id="runAuditBtn" class="secondary-btn"><i data-lucide="activity"></i> تشغيل فحص العشوائية</button></div>
           <div class="analytics-grid"><section class="panel"><div class="panel-head"><h3>الاستخدام حسب الجزء</h3><span id="fairnessLabel" class="status-pill">لا توجد بيانات كافية</span></div><div id="distributionChart" class="distribution-chart"></div></section><section class="panel audit-panel"><div class="audit-score"><span>نتيجة الفحص</span><b id="auditScore">--</b><small id="auditDetail">شغّل الفحص لمحاكاة 100,000 سحب</small></div><div class="audit-notes"><p><i data-lucide="shield-check"></i> يستخدم النظام Web Crypto بدلاً من Math.random.</p><p><i data-lucide="database"></i> سلامة قاعدة الآيات تُفحص عند كل تشغيل.</p><p><i data-lucide="scale"></i> لا توجد أفضلية رقمية لأي جزء داخل المجموعة المختارة.</p></div></section></div>
+          <section id="committeeBreakdownPanel" class="panel hidden"><div class="panel-head"><div><span class="eyebrow">أداء كل لجنة اختبار</span><h3>التوزيع حسب اللجان</h3></div><div class="panel-head-actions"><label id="committeeBreakdownGenderLabel" class="committee-breakdown-gender-label hidden">عرض<select id="committeeBreakdownGender" class="committee-breakdown-gender-select"></select></label><details id="committeeBreakdownCentersDropdown" class="committee-breakdown-centers"><summary id="committeeBreakdownCentersSummary">المركز: الكل</summary><div id="committeeBreakdownCentersList" class="committee-breakdown-centers-list"></div></details></div></div><div id="committeeBreakdownList" class="committee-breakdown-list"></div></section>
           <section id="scoreComparisonPanel" class="panel hidden"><div class="panel-head"><div><span class="eyebrow">للإدارة الرئيسية ومشرف المسابقة فقط</span><h3>مقارنة علامات اللجان</h3></div><div class="panel-head-actions"><button id="exportScoreComparisonBtn" class="secondary-btn" type="button"><i data-lucide="file-spreadsheet"></i> تنزيل Excel</button><button id="refreshScoreComparisonBtn" class="secondary-btn" type="button"><i data-lucide="refresh-cw"></i> تحديث</button></div></div><label class="search-box"><i data-lucide="search"></i><input id="scoreComparisonSearch" placeholder="ابحث باسم المتسابق"></label><div class="table-wrap"><table><thead><tr><th>المتسابق</th><th>اللجنة</th><th>علامة الرئيس</th><th>علامة العضو</th><th>العلامة المعتمدة</th></tr></thead><tbody id="scoreComparisonTable"><tr><td class="table-empty" colspan="5">افتح هذه الشاشة لتحميل المقارنة</td></tr></tbody></table></div></section>
         </section>
 
@@ -279,7 +280,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260831-monitorfix1"></script>
-  <script src="app.js?v=20260831-monitorfix1"></script>
+  <script src="cloud.js?v=20260831-committeebreakdown1"></script>
+  <script src="app.js?v=20260831-committeebreakdown1"></script>
 </body>
 </html>

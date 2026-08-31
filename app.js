@@ -264,6 +264,7 @@ function bindEvents(){
   $("#drawPartsCancelBtn").addEventListener("click",closeDrawPartsEditor);
   $("#scoreComparisonSearch").addEventListener("input",renderScoreComparisonTable);
   $("#refreshScoreComparisonBtn").addEventListener("click",renderScoreComparison);
+  $("#committeeBreakdownGender").addEventListener("change",()=>{committeeBreakdownGender=$("#committeeBreakdownGender").value;renderCommitteeBreakdownBody()});
   $("#exportScoreComparisonBtn").addEventListener("click",exportScoreComparison);
   $("#historySearch").addEventListener("input",renderHistory);
   $("#exportHistoryBtn").addEventListener("click",exportHistory);
@@ -777,7 +778,7 @@ function openCommitteeSelfDrawModal(participantId){
   };
 }
 async function startCommitteeExam(participantId){const participant=state.participants.find(item=>item.id===participantId);let draw=state.draws.find(item=>item.participantId===participantId);if(!participant)return toast("المتسابق غير موجود");if(participant.scoreSource==="manual"&&participant.manualEntryBy)return toast("عُلامة هذا المتسابق مسجّلة يدويًا من الإدارة؛ لا يمكن فتح تقييم إلكتروني له إلا بعد إلغاء التسجيل اليدوي من الإدارة");const role=currentExaminerRole();const unfinished=state.participants.find(p=>p.id!==participantId&&p.assessment?.examinerRole===role&&p.assessment?.status==="draft"&&!(role==="member"&&p.assessment?.memberSubmittedAt));if(unfinished)return toast(`أنهِ اختبار «${unfinished.name}» أولاً (لا يزال قيد الاختبار) قبل بدء اختبار متسابق آخر`);if(!draw)return toast("بانتظار قيام الإدارة بإجراء السحب لهذا المتسابق");let session=committeeSessions.find(item=>item.participant_id===participantId);try{await ensureQuranReady();if(!session){session=await window.CloudCompetition.claimStudent(participant.id,draw.id,participant.level);committeeSessions.unshift(session);await window.CloudCompetition.log("claim","participant",participant.id,{drawId:draw.id,level:participant.level})}activeCloudSession=session;const cloudDraft=session.assessment&&Object.keys(session.assessment).length?session.assessment:null,localDraft=loadLocalAssessmentDraft(participant.id),newestDraft=localDraft?.drawId===draw.id&&new Date(localDraft.updatedAt||0)>new Date(cloudDraft?.updatedAt||0)?localDraft:cloudDraft;if(newestDraft)participant.assessment=newestDraft;if(session.status==="final"){localStorage.removeItem(ASSESSMENT_DRAFT_PREFIX+participant.id);return openCompletedAssessment(draw,participant,session)}openElectronicAssessment(draw,session)}catch(error){toast(error.message);await renderCommitteeWorkspace()}}
-function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View"))view="dashboard";localStorage.setItem(currentViewKey(),view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants")renderParticipants();if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="settings")populateRenameCenterOptions();if(view==="other")renderOtherParticipants();if(view==="monitor")renderMonitorView();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
+function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View"))view="dashboard";localStorage.setItem(currentViewKey(),view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants")renderParticipants();if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();renderCommitteeBreakdown();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="settings")populateRenameCenterOptions();if(view==="other")renderOtherParticipants();if(view==="monitor")renderMonitorView();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
 function renderAll(){renderDashboard();renderParticipants();renderHistory();refreshDrawParticipants();renderAnalytics();lucide.createIcons()}
 
 function passRateOf(list){const examined=list.filter(p=>Number.isFinite(p.score)&&!p.withdrawn);return examined.length?examined.filter(p=>p.score>=PASS_SCORE).length/examined.length*100:null}
@@ -1633,6 +1634,76 @@ async function exportExamDurations(){
 
 function partUsage(){const counts=Array(30).fill(0);state.draws.forEach(d=>d.positions.forEach(p=>counts[p.juz-1]++));return counts}
 function renderAnalytics(){const counts=partUsage(),max=Math.max(1,...counts);$("#distributionChart").innerHTML=counts.map((count,i)=>`<div class="chart-column ${count?"used":""}" style="height:${Math.max(2,count/max*100)}%"><b>${count||""}</b><span>${i+1}</span></div>`).join("");const active=counts.filter(Boolean);if(active.length>1){const avg=active.reduce((a,b)=>a+b,0)/active.length;const spread=Math.max(...active)-Math.min(...active);$("#fairnessLabel").textContent=spread<=Math.max(1,avg*.5)?"توزيع متوازن":"قيد التكوّن"}else $("#fairnessLabel").textContent="لا توجد بيانات كافية"}
+
+let committeeBreakdownCommittees=[],committeeBreakdownGender=null,committeeBreakdownCenters=new Set(),committeeBreakdownCentersSignature=null;
+async function renderCommitteeBreakdown(){
+  const panel=$("#committeeBreakdownPanel");if(!panel)return;
+  const kind=window.CloudCompetition?.context?.kind;
+  if(operationMode!=="cloud"||!["admin","supervisor","subAdmin"].includes(kind)){panel.classList.add("hidden");return}
+  try{
+    if(kind==="subAdmin")committeeBreakdownCommittees=subAdminCommittees.filter(c=>c.active!==false);
+    else{cloudCommittees=await window.CloudCompetition.listCommittees();committeeBreakdownCommittees=cloudCommittees.filter(c=>c.active!==false)}
+  }catch(error){console.warn("تعذر تحميل بيانات اللجان للتوزيع",error);panel.classList.add("hidden");return}
+  if(!committeeBreakdownCommittees.length){panel.classList.add("hidden");return}
+  panel.classList.remove("hidden");
+  renderCommitteeBreakdownBody();
+}
+function renderCommitteeBreakdownBody(){
+  if(!$("#committeeBreakdownPanel")||$("#committeeBreakdownPanel").classList.contains("hidden"))return;
+  const genders=[...new Set(committeeBreakdownCommittees.map(c=>c.responsible_gender).filter(Boolean))].sort((a,b)=>a==="ذكر"?-1:1);
+  const genderLabel=$("#committeeBreakdownGenderLabel"),genderSelect=$("#committeeBreakdownGender");
+  if(genders.length<2){genderLabel?.classList.add("hidden");committeeBreakdownGender=genders[0]||null}
+  else{
+    genderLabel?.classList.remove("hidden");
+    if(!genders.includes(committeeBreakdownGender))committeeBreakdownGender=genders[0];
+    const optionsHtml=genders.map(g=>`<option value="${escapeAttr(g)}" ${g===committeeBreakdownGender?"selected":""}>${g==="أنثى"?"لجان إناث":"لجان ذكور"}</option>`).join("");
+    if(genderSelect.innerHTML!==optionsHtml)genderSelect.innerHTML=optionsHtml;
+  }
+  const centers=[...new Set(state.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),"ar"));
+  renderCommitteeBreakdownCenterOptions(centers);
+  const committees=committeeBreakdownCommittees.filter(c=>!committeeBreakdownGender||c.responsible_gender===committeeBreakdownGender).sort((a,b)=>a.name.localeCompare(b.name,"ar"));
+  const list=$("#committeeBreakdownList");
+  if(!committees.length){list.innerHTML=`<p class="committee-alerts-empty">لا توجد لجان مسجّلة لهذا الجنس بعد.</p>`;return}
+  const centerFilterActive=committeeBreakdownCenters.size>0;
+  const membersByCommittee=new Map();
+  state.participants.forEach(p=>{
+    if(centerFilterActive&&!committeeBreakdownCenters.has(p.center))return;
+    const committee=resolveParticipantCommittee(p,committeeBreakdownCommittees).currentCommittee;
+    if(!committee)return;
+    if(!membersByCommittee.has(committee.id))membersByCommittee.set(committee.id,[]);
+    membersByCommittee.get(committee.id).push(p);
+  });
+  list.innerHTML=committees.map(c=>{
+    const members=membersByCommittee.get(c.id)||[];
+    const examined=members.filter(p=>Number.isFinite(p.score)&&!p.withdrawn);
+    const passed=examined.filter(p=>p.score>=PASS_SCORE);
+    const failed=examined.filter(p=>p.score<PASS_SCORE);
+    const rate=passRateOf(members);
+    const roles=[c.chairman_name,c.member_name].filter(Boolean).join(" - ");
+    return `<details class="committee-breakdown-card"><summary><div class="committee-breakdown-card-name"><b>${escapeHtml(c.name)}</b>${roles?`<small>${escapeHtml(roles)}</small>`:""}</div><div class="committee-breakdown-card-summary"><span>${formatNumber(members.length)} طالب</span><b>${formatPct(rate)}</b></div></summary><div class="committee-breakdown-card-body"><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(members.length)}</b></div><div class="level-card-row"><span>عدد الناجحين</span><b>${formatNumber(passed.length)}</b></div><div class="level-card-row"><span>عدد الراسبين</span><b>${formatNumber(failed.length)}</b></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(rate)}</b></div></div></details>`;
+  }).join("");
+}
+function renderCommitteeBreakdownCenterOptions(centers){
+  const list=$("#committeeBreakdownCentersList");if(!list)return;
+  const signature=centers.join("|");
+  if(signature!==committeeBreakdownCentersSignature){
+    committeeBreakdownCentersSignature=signature;
+    committeeBreakdownCenters=new Set([...committeeBreakdownCenters].filter(c=>centers.includes(c)));
+    list.innerHTML=(centers.length?`<button type="button" class="committee-breakdown-centers-reset">مسح التحديد (عرض الكل)</button>`:"")+
+      (centers.length?centers.map(c=>`<label><input type="checkbox" data-breakdown-center="${escapeAttr(c)}" ${committeeBreakdownCenters.has(c)?"checked":""}> ${escapeHtml(c)}</label>`).join(""):`<p class="committee-alerts-empty">لا توجد مراكز مسجّلة بعد.</p>`);
+    $$(`[data-breakdown-center]`,list).forEach(input=>input.onchange=()=>{
+      if(input.checked)committeeBreakdownCenters.add(input.dataset.breakdownCenter);else committeeBreakdownCenters.delete(input.dataset.breakdownCenter);
+      renderCommitteeBreakdownBody();
+    });
+    const resetBtn=list.querySelector(".committee-breakdown-centers-reset");
+    if(resetBtn)resetBtn.onclick=()=>{committeeBreakdownCenters.clear();renderCommitteeBreakdownBody()};
+  }
+  const summary=$("#committeeBreakdownCentersSummary");
+  if(summary){
+    const n=committeeBreakdownCenters.size;
+    summary.textContent=n===0?"المركز: الكل":n===1?`المركز: ${[...committeeBreakdownCenters][0]}`:`المركز: ${n} مراكز محددة`;
+  }
+}
 function runAudit(){const button=$("#runAuditBtn");button.disabled=true;button.textContent="جاري تنفيذ 100,000 سحب...";setTimeout(()=>{const counts=Array(30).fill(0);for(let i=0;i<100000;i++)counts[randomIndex(30)]++;const expected=100000/30;const maxDeviation=Math.max(...counts.map(n=>Math.abs(n-expected)/expected*100));const score=Math.max(0,100-maxDeviation).toFixed(1);$("#auditScore").textContent=`${score}%`;$("#auditDetail").textContent=`أقصى انحراف عن المتوسط ${maxDeviation.toFixed(2)}%`;button.disabled=false;button.innerHTML=`<i data-lucide="activity"></i> إعادة الفحص`;lucide.createIcons();toast("اكتمل اختبار العشوائية")},50)}
 
 function hydrateSettings(){$("#settingsCompetitionName").value=state.config.competitionName;$("#settingsAdminName").value=state.config.adminName;$("#settingsShowFullQuran").checked=Boolean(state.config.showFullQuranStats);$("#settingsShowDraws").checked=state.config.showDrawsToCommittees!==false;populateRenameCenterOptions();renderManagedCenters()}
