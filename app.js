@@ -421,7 +421,7 @@ async function renderMonitorCommittees(){
   try{
     const monitorKind=window.CloudCompetition.context?.kind;
     if(monitorKind==="subAdmin")cloudCommittees=subAdminCommittees;
-    const [sessions]=await Promise.all([window.CloudCompetition.listSessions(),monitorKind==="subAdmin"||cloudCommittees.length?null:window.CloudCompetition.listCommittees().then(list=>{cloudCommittees=list})]);
+    const [sessions]=await Promise.all([window.CloudCompetition.listActiveSessions(),monitorKind==="subAdmin"||cloudCommittees.length?null:window.CloudCompetition.listCommittees().then(list=>{cloudCommittees=list})]);
     monitorSessions=sessions;
     const activeByCommittee=new Map();
     monitorSessions.filter(s=>s.status==="in_progress").forEach(s=>{const list=activeByCommittee.get(s.committee_id)||[];list.push(s);activeByCommittee.set(s.committee_id,list)});
@@ -444,7 +444,7 @@ function renderMonitorDetail(){
   const session=activeSessions.find(s=>s.id===monitorSelectedSessionId);
   const participant=state.participants.find(p=>p.id===session.participant_id);
   const draw=state.draws.find(d=>d.participantId===session.participant_id);
-  if(!participant||!draw){panel.innerHTML=`<div class="monitor-empty">تعذر إيجاد بيانات هذا الاختبار — قد تكون بيانات المتسابقين قيد التحديث، حاول لاحقًا.</div>`;return}
+  if(!participant||!draw){panel.innerHTML=`<div class="monitor-empty"><p>تعذر إيجاد بيانات هذا الاختبار — قد تكون بيانات المتسابقين قيد التحديث، حاول لاحقًا.</p><p class="field-help">إذا استمرت المشكلة بعد الانتظار وإعادة فتح الصفحة، غالبًا هذه جلسة معلّقة لمتسابق لم يعد موجودًا (حُذف أو عُدّلت بياناته من مكان آخر). بدأت هذه الجلسة: ${formatDate(session.started_at)}.</p><button type="button" class="secondary-btn danger-compact" id="closeStaleMonitorSession"><i data-lucide="trash-2"></i> إغلاق هذه الجلسة المعلّقة نهائيًا</button></div>`;$("#closeStaleMonitorSession").onclick=async()=>{if(!confirm("إغلاق هذه الجلسة المعلّقة نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه."))return;try{await window.CloudCompetition.deleteParticipantSession(session.participant_id);monitorSessions=monitorSessions.filter(s=>s.id!==session.id);monitorSelectedSessionId=null;renderMonitorDetail();toast("تم إغلاق الجلسة المعلّقة")}catch(error){toast(error.message)}};lucide.createIcons();return}
   const hasMember=Boolean(committee?.member_name);
   if(!hasMember)monitorSelectedRole="chairman";
   const draft=session.assessment?.examinerDrafts?.[monitorSelectedRole]||null;
