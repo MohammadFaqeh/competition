@@ -675,24 +675,34 @@ function openCommitteeStartConfirm(participantId){
   const participant=state.participants.find(p=>p.id===participantId);
   if(!participant)return toast("المتسابق غير موجود");
   const partsText=participant.parts?.length?participant.parts.join("، "):"غير مسجّلة";
-  openModal(`<div class="modal-head"><h2>تأكيد بيانات المتسابق قبل البدء</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">تأكدوا من مطابقة هذه البيانات مع الطالب الحاضر أمامكم قبل بدء تسجيل الأخطاء.</p><p class="field-help">الاسم: <b>${escapeHtml(participant.name)}</b></p><p class="field-help">المركز: <b>${escapeHtml(participant.center||"—")}</b></p><p class="field-help">المستوى: <b>${escapeHtml(participant.levelName||`${participant.level} أجزاء`)}</b></p><p class="field-help committee-confirm-parts">الأجزاء المشارك فيها: <b>${escapeHtml(partsText)}</b></p><div id="committeeConfirmIssueBox" class="hidden"><label>ايش المشكلة بالضبط؟<textarea id="committeeConfirmIssueText" rows="3" placeholder="مثال: الأجزاء المسجّلة غير التي حفظها الطالب فعليًا"></textarea></label><p id="committeeConfirmIssueError" class="form-error hidden"></p></div></div><div class="modal-actions"><button type="button" class="secondary-btn" id="committeeConfirmIssueBtn">إبلاغ عن خطأ</button><button type="button" class="primary-btn" id="committeeConfirmStartBtn">تأكيد والبدء</button></div>`);
+  openModal(`<div class="modal-head"><h2>تأكيد بيانات المتسابق قبل البدء</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">تأكدوا من مطابقة هذه البيانات مع الطالب الحاضر أمامكم قبل بدء تسجيل الأخطاء.</p><p class="field-help">الاسم: <b>${escapeHtml(participant.name)}</b></p><p class="field-help">المركز: <b>${escapeHtml(participant.center||"—")}</b></p><p class="field-help">المستوى: <b>${escapeHtml(participant.levelName||`${participant.level} أجزاء`)}</b></p><p class="field-help committee-confirm-parts">الأجزاء المشارك فيها: <b>${escapeHtml(partsText)}</b></p><div id="committeeConfirmIssueBox" class="hidden"><label>ايش المشكلة بالضبط؟<textarea id="committeeConfirmIssueText" rows="3" placeholder="مثال: اسم المركز مسجّل خطأ"></textarea></label><p id="committeeConfirmIssueError" class="form-error hidden"></p><p class="field-help">إذا كان الخطأ لا يمنع اختبار الطالب الآن (مثل خطأ بسيط باسم المركز)، اختاروا "إرسال البلاغ ومتابعة الاختبار". أما إذا كان الخطأ يمنع اختباره الآن (مثل خطأ بالأجزاء المسجّلة)، اختاروا "إرسال البلاغ وإيقاف الاختبار".</p><div class="modal-actions"><button type="button" class="secondary-btn" id="committeeConfirmIssueStopBtn">إرسال البلاغ وإيقاف الاختبار</button><button type="button" class="primary-btn" id="committeeConfirmIssueContinueBtn">إرسال البلاغ ومتابعة الاختبار</button></div></div></div><div class="modal-actions"><button type="button" class="secondary-btn" id="committeeConfirmIssueBtn">إبلاغ عن خطأ</button><button type="button" class="primary-btn" id="committeeConfirmStartBtn">تأكيد والبدء</button></div>`);
   $("#committeeConfirmStartBtn").onclick=()=>{closeModal();startCommitteeExam(participantId)};
   $("#committeeConfirmIssueBtn").onclick=()=>{
-    const box=$("#committeeConfirmIssueBox");
-    if(box.classList.contains("hidden")){box.classList.remove("hidden");$("#committeeConfirmIssueText").focus();$("#committeeConfirmIssueBtn").textContent="إرسال البلاغ";return}
-    submitCommitteeIssueReport(participantId);
+    $("#committeeConfirmIssueBox").classList.remove("hidden");
+    $("#committeeConfirmIssueBtn").classList.add("hidden");
+    $("#committeeConfirmIssueText").focus();
   };
+  $("#committeeConfirmIssueStopBtn").onclick=()=>submitCommitteeIssueReport(participantId,false);
+  $("#committeeConfirmIssueContinueBtn").onclick=()=>submitCommitteeIssueReport(participantId,true);
 }
-async function submitCommitteeIssueReport(participantId){
+async function submitCommitteeIssueReport(participantId,continueExam){
   const message=$("#committeeConfirmIssueText").value.trim(),errorBox=$("#committeeConfirmIssueError");
   if(!message){errorBox.textContent="اكتب وصف المشكلة أولاً";errorBox.classList.remove("hidden");return}
   errorBox.classList.add("hidden");
-  const button=$("#committeeConfirmIssueBtn");button.disabled=true;button.textContent="جاري الإرسال...";
+  const buttons=[$("#committeeConfirmIssueStopBtn"),$("#committeeConfirmIssueContinueBtn")];
+  buttons.forEach(button=>button.disabled=true);
+  (continueExam?$("#committeeConfirmIssueContinueBtn"):$("#committeeConfirmIssueStopBtn")).textContent="جاري الإرسال...";
   try{
     await window.CloudCompetition.reportCommitteeIssue(participantId,message);
     closeModal();
-    toast("تم إرسال البلاغ للإدارة، لن يبدأ الاختبار الآن");
-  }catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden");button.disabled=false;button.textContent="إرسال البلاغ"}
+    if(continueExam){toast("تم إرسال البلاغ للإدارة، سيتم بدء الاختبار الآن");startCommitteeExam(participantId)}
+    else toast("تم إرسال البلاغ للإدارة، لن يبدأ الاختبار الآن");
+  }catch(error){
+    errorBox.textContent=error.message;errorBox.classList.remove("hidden");
+    buttons.forEach(button=>button.disabled=false);
+    $("#committeeConfirmIssueStopBtn").textContent="إرسال البلاغ وإيقاف الاختبار";
+    $("#committeeConfirmIssueContinueBtn").textContent="إرسال البلاغ ومتابعة الاختبار";
+  }
 }
 function showCommitteeSelfDrawError(message){const box=$("#committeeSelfDrawError");if(!box)return;box.textContent=message;box.classList.remove("hidden")}
 function openCommitteeSelfDrawModal(participantId){
