@@ -943,12 +943,17 @@ function renderParticipants(){
   $$(`[data-cancel-dr]`).forEach(button=>button.onclick=()=>cancelManualDrScore(button.dataset.cancelDr));
   $$(`[data-toggle-withdrawn]`).forEach(button=>button.onclick=()=>toggleParticipantWithdrawn(button.dataset.toggleWithdrawn,button.dataset.withdrawn==="true"));
 }
-function toggleParticipantWithdrawn(participantId,currentlyWithdrawn){
+async function toggleParticipantWithdrawn(participantId,currentlyWithdrawn){
   const participant=state.participants.find(p=>p.id===participantId);if(!participant)return;
   if(!currentlyWithdrawn){
     if(!confirm(`تسجيل ${participant.name} منسحبًا؟ سيتم تصفير علامته تلقائيًا وإظهاره مكتملاً عند لجنته.`))return;
     participant.withdrawn=true;participant.score=0;participant.gradedAt=new Date().toISOString();participant.scoreSource="withdrawn";participant.manualEntryBy=currentActorLabel();participant.assessment=null;delete participant.drRequest;
-    saveState();renderAll();toast(`تم تسجيل ${participant.name} منسحبًا`);
+    saveState();
+    committeeSessions=committeeSessions.filter(session=>session.participant_id!==participantId);
+    let sessionCloseError=null;
+    if(operationMode==="cloud"&&cloudEnabled){try{await window.CloudCompetition.deleteParticipantSession(participantId)}catch(error){sessionCloseError=error.message}}
+    renderAll();
+    toast(sessionCloseError?`تم تسجيل ${participant.name} منسحبًا، لكن تعذر إنهاء جلسة اختباره الجارية على السيرفر: ${sessionCloseError}`:`تم تسجيل ${participant.name} منسحبًا`);
   }else{
     if(!confirm(`إلغاء انسحاب ${participant.name}؟ سيعود لحالة بانتظار العلامة.`))return;
     participant.withdrawn=false;delete participant.score;delete participant.gradedAt;delete participant.scoreSource;delete participant.manualEntryBy;participant.assessment=null;
