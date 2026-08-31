@@ -1675,12 +1675,15 @@ function renderCommitteeBreakdownBody(){
   });
   list.innerHTML=committees.map(c=>{
     const members=membersByCommittee.get(c.id)||[];
+    const withdrawn=members.filter(p=>p.withdrawn);
     const examined=members.filter(p=>Number.isFinite(p.score)&&!p.withdrawn);
     const passed=examined.filter(p=>p.score>=PASS_SCORE);
     const failed=examined.filter(p=>p.score<PASS_SCORE);
+    const pending=members.length-examined.length-withdrawn.length;
     const rate=passRateOf(members);
     const roles=[c.chairman_name,c.member_name].filter(Boolean).join(" - ");
-    return `<details class="committee-breakdown-card"><summary><div class="committee-breakdown-card-name"><b>${escapeHtml(c.name)}</b>${roles?`<small>${escapeHtml(roles)}</small>`:""}</div><div class="committee-breakdown-card-summary"><span>${formatNumber(members.length)} طالب</span><b>${formatPct(rate)}</b></div></summary><div class="committee-breakdown-card-body"><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(members.length)}</b></div><div class="level-card-row"><span>عدد الناجحين</span><b>${formatNumber(passed.length)}</b></div><div class="level-card-row"><span>عدد الراسبين</span><b>${formatNumber(failed.length)}</b></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(rate)}</b></div></div></details>`;
+    const extraRows=(pending>0?`<div class="level-card-row"><span>بانتظار العلامة</span><b>${formatNumber(pending)}</b></div>`:"")+(withdrawn.length>0?`<div class="level-card-row"><span>منسحبون</span><b>${formatNumber(withdrawn.length)}</b></div>`:"");
+    return `<details class="committee-breakdown-card"><summary><div class="committee-breakdown-card-name"><b>${escapeHtml(c.name)}</b>${roles?`<small>${escapeHtml(roles)}</small>`:""}</div><div class="committee-breakdown-card-summary"><span>${formatNumber(members.length)} طالب</span><b>${formatPct(rate)}</b></div></summary><div class="committee-breakdown-card-body"><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(members.length)}</b></div><div class="level-card-row"><span>عدد الناجحين</span><b>${formatNumber(passed.length)}</b></div><div class="level-card-row"><span>عدد الراسبين</span><b>${formatNumber(failed.length)}</b></div>${extraRows}<div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(rate)}</b></div></div><p class="committee-breakdown-note">النسبة والناجحون والراسبون تُحسب فقط من الطلاب الذين أُدخلت علاماتهم حتى الآن (${formatNumber(examined.length)} من ${formatNumber(members.length)}).</p></details>`;
   }).join("");
 }
 function renderCommitteeBreakdownCenterOptions(centers){
