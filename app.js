@@ -94,13 +94,25 @@ async function loadQuranDataResilient(){
     catch{throw primaryError}
   }
 }
+const validateQuranLines=value=>Boolean(value?.verses)&&Object.keys(value.verses).length===6236;
+async function loadQuranLinesResilient(){
+  if(validateQuranLines(window.QURAN_LINES_DATA))return window.QURAN_LINES_DATA;
+  try{
+    const data=await fetchJsonWithDeviceCache("data/quran-lines.json",validateQuranLines,"تعذر تحميل بيانات أسطر المصحف");
+    window.QURAN_LINES_DATA=data;
+    return data;
+  }catch(primaryError){
+    try{await loadOptionalScript("data/quran-lines-data.js",()=>validateQuranLines(window.QURAN_LINES_DATA));return window.QURAN_LINES_DATA}
+    catch{throw primaryError}
+  }
+}
 function ensureQuranReady(){
   if(integrity.valid&&candidates.length)return Promise.resolve(candidates);
   if(quranReadyPromise)return quranReadyPromise;
   quranReadyPromise=(async()=>{
     const [quranData,loadedLines]=await Promise.all([
       loadQuranDataResilient(),
-      fetchJsonWithDeviceCache("data/quran-lines.json",value=>Boolean(value?.verses)&&Object.keys(value.verses).length===6236,"تعذر تحميل بيانات أسطر المصحف")
+      loadQuranLinesResilient()
     ]);
     const checked=validateQuranData(quranData);
     if(!checked.valid)throw new Error(checked.errors.join("، "));
