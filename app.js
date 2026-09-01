@@ -70,8 +70,11 @@ async function fetchJsonWithDeviceCache(url,validator,label){
   let cachedResponse=null;
   if("caches" in window){try{const cache=await caches.open(QURAN_CACHE_NAME);cachedResponse=await cache.match(url);if(cachedResponse){const data=await cachedResponse.clone().json();if(validator(data))return data}}catch{cachedResponse=null}}
   let lastError=null;
-  for(let attempt=1;attempt<=2;attempt++){
-    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),8000);
+  // 4 محاولات بدل 2 و15 ثانية بدل 8 لكل محاولة: ملفات القرآن كبيرة نسبيًا (حتى 2 ميجا)،
+  // وعلى شبكة ضعيفة أيام الامتحان الفعلية كانت المهلة القصيرة تقطع التحميل قبل ما يكتمل رغم
+  // إنه كان ممكن ينجح لو صبرنا شوي أكتر، فيضطر الفاحص يعيد الضغط يدويًا مرات كثيرة.
+  for(let attempt=1;attempt<=4;attempt++){
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
     try{
       const response=await fetch(url,{cache:"no-cache",signal:controller.signal});
       if(!response.ok)throw new Error(`HTTP ${response.status}`);
@@ -125,16 +128,19 @@ function ensureQuranReady(){
   })().catch(error=>{quranReadyPromise=null;throw error});
   return quranReadyPromise;
 }
-let quranPrewarmTimer=null,quranPrewarmActive=false;
+let quranPrewarmTimer=null,quranPrewarmActive=false,quranPrewarmDelay=20000;
+const QURAN_PREWARM_MIN_DELAY=20000,QURAN_PREWARM_MAX_DELAY=180000;
 // محاولة واحدة صامتة كانت كافية لو الإنترنت جيد وقت الدخول، بس عند شبكة ضعيفة/متقطعة
 // (حالة تكررت عند أكثر من لجنة) كانت تفشل بصمت ولا تُعاد المحاولة أبدًا حتى يضغطوا "بدء
-// الاختبار" فعليًا فتظهر لهم رسالة الخطأ بلحظة الحاجة الفعلية. هلق تعيد المحاولة كل 20 ثانية
-// بالخلفية دون إزعاج، لتلتقط أول لحظة اتصال متاحة قبل ما يحتاجوا البيانات فعليًا.
+// الاختبار" فعليًا فتظهر لهم رسالة الخطأ بلحظة الحاجة الفعلية. هلق تعيد المحاولة بالخلفية
+// دون إزعاج، لتلتقط أول لحظة اتصال متاحة قبل ما يحتاجوا البيانات فعليًا — بفاصل يتضاعف
+// تدريجيًا (20 ثانية إلى 3 دقائق كحد أقصى) بدل فاصل ثابت، حتى لا تضيف عدة لجان تحاول بنفس
+// اللحظة أثناء انقطاع فعلي حملاً إضافيًا على شبكة أصلاً ضعيفة أو مزدحمة.
 function prewarmQuranData(){
-  if(integrity.valid&&candidates.length){clearTimeout(quranPrewarmTimer);quranPrewarmTimer=null;quranPrewarmActive=false;return}
+  if(integrity.valid&&candidates.length){clearTimeout(quranPrewarmTimer);quranPrewarmTimer=null;quranPrewarmActive=false;quranPrewarmDelay=QURAN_PREWARM_MIN_DELAY;return}
   if(quranPrewarmActive)return;
   quranPrewarmActive=true;
-  const attempt=()=>{ensureQuranReady().then(()=>{quranPrewarmActive=false}).catch(error=>{console.warn("Quran data preloading failed, retrying in background",error);quranPrewarmTimer=setTimeout(attempt,20000)})};
+  const attempt=()=>{ensureQuranReady().then(()=>{quranPrewarmActive=false;quranPrewarmDelay=QURAN_PREWARM_MIN_DELAY}).catch(error=>{console.warn("Quran data preloading failed, retrying in background",error);quranPrewarmTimer=setTimeout(attempt,quranPrewarmDelay);quranPrewarmDelay=Math.min(quranPrewarmDelay*2,QURAN_PREWARM_MAX_DELAY)})};
   attempt();
 }
 
