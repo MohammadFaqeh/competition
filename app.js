@@ -37,7 +37,7 @@ let cloudEnabled=false;
 let committeeSessions=[];
 let activeCloudSession=null;
 let committeeAutoRefreshTimer=null,committeeRefreshBusy=false,committeeSessionsSignature=null;
-let adminAutoRefreshTimer=null,adminRefreshBusy=false;
+let adminAutoRefreshTimer=null,adminRefreshBusy=false,lastAdminStateUpdatedAt=null;
 let memberPositionSyncTimer=null;
 function stopMemberPositionSync(){if(memberPositionSyncTimer)clearInterval(memberPositionSyncTimer);memberPositionSyncTimer=null}
 let idleLogoutTimer=null;
@@ -247,6 +247,16 @@ function dedupeCandidates(list){const seen=new Set();return list.filter(item=>{c
 
 function bindEvents(){
   document.addEventListener("click",event=>{$$(".dropdown-menu[open]").forEach(menu=>{if(!menu.contains(event.target)||event.target.closest("button"))menu.open=false})});
+  // الاستطلاعات الدورية (مراقبة حية/تحديث لجنة/تحديث إدارة/بلاغات) تتوقف عن التنفيذ طالما
+  // التبويب بالخلفية (document.hidden) لتوفير النت والموارد؛ هذا يعيد تحديثها فورًا بدل
+  // الانتظار لدورة الاستطلاع التالية بمجرد ما يرجع المستخدم للتبويب.
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden)return;
+    if(monitorPollTimer)renderMonitorCommittees();
+    if(committeeAutoRefreshTimer)refreshCommitteeChanges();
+    if(adminAutoRefreshTimer)refreshAdminChanges();
+    if(issueReportsPollTimer)renderIssueReports();
+  });
   $$('[data-back-gateway]').forEach(button=>button.addEventListener("click",returnToGateway));
   $("#localBackupShortcut").addEventListener("click",downloadBackup);
   $("#setupForm").addEventListener("submit",setupApp);
@@ -440,7 +450,7 @@ async function renderMonitorView(){
   if(!(operationMode==="cloud"&&["admin","supervisor","subAdmin"].includes(window.CloudCompetition.context?.kind))){$("#monitorDetailPanel").innerHTML=`<div class="monitor-empty">المراقبة الحية متاحة فقط لحساب الإدارة الرئيسي أو مشرف المسابقة أو المسؤول الفرعي في وضع فرع الكورة.</div>`;$("#monitorCommitteeList").innerHTML="";return}
   stopMonitorPoll();
   await renderMonitorCommittees();
-  monitorPollTimer=setInterval(renderMonitorCommittees,4000);
+  monitorPollTimer=setInterval(()=>{if(!document.hidden)renderMonitorCommittees()},4000);
 }
 async function renderMonitorCommittees(){
   try{
@@ -608,8 +618,8 @@ async function enterCloudContext(context){try{operationMode="cloud";stopCommitte
   if(!["admin","supervisor"].includes(context.profile.role)){setAdminTheme(context.committee?.responsibleGender==="أنثى"?"rose":"green");$("#app").classList.add("hidden");showScreen("committeeApp");await renderCommitteeWorkspace();startCommitteeAutoRefresh();return}
   const isSupervisor=context.profile.role==="supervisor";
   setAdminTheme("green");
-  const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listSessions(),window.CloudCompetition.listCommittees()]);
-  if(remote.payload?.config){state={...defaultState(),...remote.payload};if(!isSupervisor)localStorage.setItem(CLOUD_STORAGE_KEY,JSON.stringify(state))}
+  const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listFinalSessions(),window.CloudCompetition.listCommittees()]);
+  if(remote.payload?.config){state={...defaultState(),...remote.payload};if(!isSupervisor){localStorage.setItem(CLOUD_STORAGE_KEY,JSON.stringify(state));lastAdminStateUpdatedAt=remote.updated_at||null}}
   else if(!isSupervisor&&state.config){await window.CloudCompetition.saveCompetitionState(state)}
   if(!isSupervisor&&!state.config){showScreen("setupScreen");return}
   if(isSupervisor){window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws);applySupervisorRestrictions()}
@@ -618,13 +628,17 @@ async function enterCloudContext(context){try{operationMode="cloud";stopCommitte
   const greeting=$("#topAdminGreeting");if(greeting)greeting.textContent=context.profile.display_name?`أهلاً، ${context.profile.display_name}`:"الدورة الحالية";
   showApp()}catch(error){toast(`تعذر فتح البيانات المشتركة: ${error.message}`);showScreen("cloudLoginScreen")}}
 function mergeFinalSessionsIntoState(sessions,committees){committeeSessions=sessions;const committeeById=new Map(committees.map(item=>[item.id,item]));let changed=false;committeeSessions.filter(session=>session.status==="final").forEach(session=>{const participant=state.participants.find(item=>item.id===session.participant_id);if(!participant)return;const assessment={...(session.assessment||{})};const committee=committeeById.get(session.committee_id);if(committee){if(!assessment.committeeName)assessment.committeeName=committee.name;if(!assessment.committeeChairmanName&&committee.chairman_name)assessment.committeeChairmanName=committee.chairman_name;if(!assessment.committeeMemberName&&committee.member_name)assessment.committeeMemberName=committee.member_name}if(participant.score!==Number(session.score)||participant.assessment?.updatedAt!==assessment.updatedAt||participant.assessment?.committeeName!==assessment.committeeName||participant.assessment?.committeeChairmanName!==assessment.committeeChairmanName||participant.assessment?.committeeMemberName!==assessment.committeeMemberName){participant.score=Number(session.score);participant.gradedAt=session.finalized_at;participant.scoreSource="electronic";participant.assessment=assessment;changed=true}});if(changed)saveState();return changed}
-async function syncFinalSessionsIntoState(){const [sessions,committees]=await Promise.all([window.CloudCompetition.listSessions(),window.CloudCompetition.listCommittees()]);return mergeFinalSessionsIntoState(sessions,committees)}
+async function syncFinalSessionsIntoState(){const [sessions,committees]=await Promise.all([window.CloudCompetition.listFinalSessions(),window.CloudCompetition.listCommittees()]);return mergeFinalSessionsIntoState(sessions,committees)}
 async function renderCommitteeWorkspace(){let context=window.CloudCompetition.context;if(!context?.committee)return;try{await window.CloudCompetition.refreshCommitteeAccess(true);context=window.CloudCompetition.context;const examinerName=context.committee.examiner_role==="member"?context.committee.memberName:context.committee.chairmanName;$("#committeeExaminerGreeting").textContent=examinerName?`أهلاً، ${examinerName}`:context.committee.name;$("#committeeName").textContent=`لجنة: ${context.committee.name}`;const levelNamesLabel=(context.committee.levelNames||[]).join("، ")||`${(context.committee.levels||[]).sort((a,b)=>a-b).join("، ")} أجزاء`,genderLabel=context.committee.responsibleGender==="أنثى"?"إناث":context.committee.responsibleGender==="ذكر"?"ذكور":"";$("#committeeLevels").textContent=`${genderLabel?genderLabel+" · ":""}${levelNamesLabel}`;const [remote,sessions]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listSessions()]);if(remote.payload?.config){const previous=loadCommitteeSnapshot(),next=committeeScopedState(remote.payload),previousById=new Map(previous.participants.map(item=>[item.id,item])),nextById=new Map(next.participants.map(item=>[item.id,item])),previousDraws=new Map(previous.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw])),nextDraws=new Map(next.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw]));if(previous.config){const updates=[];for(const participant of next.participants){const old=previousById.get(participant.id);if(!old||participantCloudSignature(old,previousDraws.get(participant.id))!==participantCloudSignature(participant,nextDraws.get(participant.id)))updates.push({text:describeCommitteeChange(participant,old),participantId:participant.id})}for(const old of previous.participants)if(!nextById.has(old.id))updates.push({text:describeCommitteeChange(null,old),participantId:old.id});if(updates.length)addCommitteeAlerts(await withRealChangeTimes(updates))}state=next;saveCommitteeSnapshot(state)}committeeSessions=sessions;await syncServerCommitteeNotifications();renderCommitteeAlerts();renderCommitteeStudents();lucide.createIcons();prewarmQuranData()}catch(error){toast(`تعذر تحديث قائمة اللجنة: ${error.message}`)}}
 function stopCommitteeAutoRefresh(){if(committeeAutoRefreshTimer)clearInterval(committeeAutoRefreshTimer);committeeAutoRefreshTimer=null;committeeRefreshBusy=false}
-function startCommitteeAutoRefresh(){stopAdminAutoRefresh();stopCommitteeAutoRefresh();committeeAutoRefreshTimer=setInterval(refreshCommitteeChanges,5000)}
+function startCommitteeAutoRefresh(){stopAdminAutoRefresh();stopCommitteeAutoRefresh();committeeAutoRefreshTimer=setInterval(()=>{if(!document.hidden)refreshCommitteeChanges()},9000)}
 function stopAdminAutoRefresh(){if(adminAutoRefreshTimer)clearInterval(adminAutoRefreshTimer);adminAutoRefreshTimer=null;adminRefreshBusy=false}
-function startAdminAutoRefresh(){stopAdminAutoRefresh();adminAutoRefreshTimer=setInterval(refreshAdminChanges,5000)}
-async function refreshAdminChanges(){const kind=window.CloudCompetition.context?.kind;if(adminRefreshBusy||!["admin","supervisor"].includes(kind)||!$("#modal")?.classList.contains("hidden"))return;adminRefreshBusy=true;try{const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listSessions(),window.CloudCompetition.listCommittees()]);if(remote.payload?.config){const previous=JSON.stringify({participants:state.participants,draws:state.draws});if(kind==="supervisor"){state={...defaultState(),config:remote.payload.config?.competitionName?{competitionName:remote.payload.config.competitionName,adminName:state.config?.adminName}:state.config,participants:remote.payload.participants||[],draws:remote.payload.draws||[]};window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws)}else{state={...defaultState(),...remote.payload};window.CloudCompetition.markAdminKnownIds(state.participants,state.draws);localStorage.setItem(CLOUD_STORAGE_KEY,JSON.stringify(state))}mergeFinalSessionsIntoState(sessions,committees);if(previous!==JSON.stringify({participants:state.participants,draws:state.draws}))renderAll()}}catch(error){console.warn("Admin auto refresh failed",error)}finally{adminRefreshBusy=false}}
+function startAdminAutoRefresh(){stopAdminAutoRefresh();adminAutoRefreshTimer=setInterval(()=>{if(!document.hidden)refreshAdminChanges()},9000)}
+// حساب الإدارة الحقيقي (kind==="admin") وحده يرجّع updated_at مع competition_state، فنقارنه
+// أول شي: لو ما تغيّر إطلاقًا منذ آخر استطلاع نتجنب كليًا استبدال/تحليل/كتابة كامل الحالة
+// (participants+draws) بالمتصفح — وهذا هو الجزء الأثقل يلي كان يتكرر كل 5 ثوان بلا داعٍ. لسا
+// لازم ندمج أي نتيجة نهائية اعتمدتها لجنة للتو (mergeFinalSessionsIntoState) حتى بهاي الحالة.
+async function refreshAdminChanges(){const kind=window.CloudCompetition.context?.kind;if(adminRefreshBusy||!["admin","supervisor"].includes(kind)||!$("#modal")?.classList.contains("hidden"))return;adminRefreshBusy=true;try{const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listFinalSessions(),window.CloudCompetition.listCommittees()]);if(!remote.payload?.config)return;let stateChanged;if(kind==="admin"&&remote.updated_at&&remote.updated_at===lastAdminStateUpdatedAt){stateChanged=mergeFinalSessionsIntoState(sessions,committees)}else{const previous=JSON.stringify({participants:state.participants,draws:state.draws});if(kind==="supervisor"){state={...defaultState(),config:remote.payload.config?.competitionName?{competitionName:remote.payload.config.competitionName,adminName:state.config?.adminName}:state.config,participants:remote.payload.participants||[],draws:remote.payload.draws||[]};window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws)}else{state={...defaultState(),...remote.payload};window.CloudCompetition.markAdminKnownIds(state.participants,state.draws);localStorage.setItem(CLOUD_STORAGE_KEY,JSON.stringify(state));lastAdminStateUpdatedAt=remote.updated_at||null}mergeFinalSessionsIntoState(sessions,committees);stateChanged=previous!==JSON.stringify({participants:state.participants,draws:state.draws})}if(stateChanged)renderAll()}catch(error){console.warn("Admin auto refresh failed",error)}finally{adminRefreshBusy=false}}
 function participantCloudSignature(participant,draw){return JSON.stringify({level:Number(participant?.level)||0,parts:(participant?.parts||[]).map(Number).sort((a,b)=>a-b),drawId:draw?.id||null,eligibleParts:(draw?.eligibleParts||[]).map(Number).sort((a,b)=>a-b),positions:(draw?.positions||[]).map(item=>item.id)})}
 function committeeScopedState(payload){
   const merged={...defaultState(),...payload};
@@ -1063,7 +1077,7 @@ function rejectDrRequest(participantId){const participant=state.participants.fin
 function approveAllDrRequests(){const pending=state.participants.filter(p=>p.drRequest?.status==="pending");if(!pending.length)return toast("لا توجد طلبات بانتظار الموافقة");pending.forEach(p=>approveDrRequest(p.id));renderDrRequests();renderParticipants();toast(`تمت الموافقة على ${pending.length} طلباً`)}
 let issueReportsPollTimer=null,knownIssueReportIds=null;
 function stopIssueReportsPoll(){if(issueReportsPollTimer)clearInterval(issueReportsPollTimer);issueReportsPollTimer=null;knownIssueReportIds=null}
-function startIssueReportsPoll(){stopIssueReportsPoll();issueReportsPollTimer=setInterval(renderIssueReports,6000)}
+function startIssueReportsPoll(){stopIssueReportsPoll();issueReportsPollTimer=setInterval(()=>{if(!document.hidden)renderIssueReports()},6000)}
 async function renderIssueReports(){
   const panel=$("#issueReportsPanel");if(!panel)return;
   panel.classList.remove("hidden");
