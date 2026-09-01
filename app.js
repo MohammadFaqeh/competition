@@ -850,8 +850,10 @@ function formatPct(n){return n==null?"—":`${new Intl.NumberFormat("ar-JO",{max
 function renderPassRateRing(ringId,valueId,pct){const ring=$(`#${ringId}`),value=$(`#${valueId}`);if(!ring||!value)return;const empty=pct==null;ring.classList.toggle("is-empty",empty);ring.style.setProperty("--pct",empty?0:Math.max(0,Math.min(100,pct)));value.textContent=empty?"لا يوجد بيانات":formatPct(pct)}
 let dashboardDateFilter=null;
 // "إجمالي المتسابقين" رقم تسجيل مسبق (استيراد Excel) ولا معنى لتاريخ امتحان له، فيبقى
-// تراكمياً دائماً بغض النظر عن اليوم المحدد. أما امتُحن/نجح/رسب/انسحب فهي أحداث فعلية لها
-// لحظة زمنية حقيقية (gradedAt) فتُفلتَر حسب اليوم المختار عند تفعيله.
+// تراكمياً دائماً بغض النظر عن اليوم المحدد. كذلك "منسحبون": غالبيتهم يُستوردون كذلك من
+// ملف Excel فيُختم gradedAt بتاريخ رفع الملف لا بتاريخ انسحاب حقيقي حصل ذاك اليوم، فلا
+// معنى لفلترتها حسب يوم محدد — تظهر فقط في العرض التراكمي (الكل) وتُستبدل بشرطة "-" غير ذلك.
+// أما امتُحن/نجح/رسب فهي أحداث فعلية لها لحظة زمنية حقيقية (gradedAt) فتُفلتَر حسب اليوم المختار عند تفعيله.
 function isParticipantGradedOn(participant,dateStr){
   const iso=participant?.gradedAt;if(!iso)return false;
   const d=new Date(iso);if(Number.isNaN(d.getTime()))return false;
@@ -862,13 +864,13 @@ function renderDashboardDateFilterUi(){
   const hint=$("#dashboardDateHint");if(!hint)return;
   $("#dashboardDateAllBtn")?.classList.toggle("is-active",!dashboardDateFilter);
   const dayLabel=dashboardDateFilter?new Intl.DateTimeFormat("ar-JO",{dateStyle:"long",numberingSystem:"latn"}).format(new Date(`${dashboardDateFilter}T00:00:00`)):"";
-  hint.textContent=dashboardDateFilter?`بيانات يوم ${dayLabel} فقط (باستثناء إجمالي المتسابقين المسجَّلين، يبقى تراكمياً دائماً)`:"الأرقام أدناه تراكمية لكامل الدورة (باستثناء إجمالي المتسابقين المسجَّلين الثابت دائماً)";
+  hint.textContent=dashboardDateFilter?`بيانات يوم ${dayLabel} فقط (باستثناء إجمالي المتسابقين المسجَّلين الثابت دائماً؛ وعدد المنسحبين لا يظهر إلا بالعرض التراكمي)`:"الأرقام أدناه تراكمية لكامل الدورة (باستثناء إجمالي المتسابقين المسجَّلين الثابت دائماً)";
 }
 function renderDashboard(){
   const byGender=(list,g)=>list.filter(p=>p.gender===g);
   const total=state.participants;
   const scoped=dashboardScopedParticipants();
-  const withdrawn=scoped.filter(p=>p.withdrawn);
+  const withdrawnAll=total.filter(p=>p.withdrawn);
   const examined=scoped.filter(p=>Number.isFinite(p.score)&&!p.withdrawn);
   const passed=examined.filter(p=>p.score>=PASS_SCORE);
   const failed=examined.filter(p=>p.score<PASS_SCORE);
@@ -878,9 +880,9 @@ function renderDashboard(){
   $("#statExamined").textContent=formatNumber(examined.length);
   $("#statExaminedM").textContent=formatNumber(byGender(examined,"ذكر").length);
   $("#statExaminedF").textContent=formatNumber(byGender(examined,"أنثى").length);
-  $("#statWithdrawn").textContent=formatNumber(withdrawn.length);
-  $("#statWithdrawnM").textContent=formatNumber(byGender(withdrawn,"ذكر").length);
-  $("#statWithdrawnF").textContent=formatNumber(byGender(withdrawn,"أنثى").length);
+  $("#statWithdrawn").textContent=dashboardDateFilter?"-":formatNumber(withdrawnAll.length);
+  $("#statWithdrawnM").textContent=dashboardDateFilter?"-":formatNumber(byGender(withdrawnAll,"ذكر").length);
+  $("#statWithdrawnF").textContent=dashboardDateFilter?"-":formatNumber(byGender(withdrawnAll,"أنثى").length);
   $("#statPassed").textContent=formatNumber(passed.length);
   $("#statPassedM").textContent=formatNumber(byGender(passed,"ذكر").length);
   $("#statPassedF").textContent=formatNumber(byGender(passed,"أنثى").length);
