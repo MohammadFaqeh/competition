@@ -1637,24 +1637,8 @@ async function openAssessmentReview(draw,participant){
   let latest=activeCloudSession;
   try{const sessions=await window.CloudCompetition.listSessions();latest=sessions.find(item=>item.id===activeCloudSession?.id)||latest;if(latest)activeCloudSession=latest}catch(error){console.warn("Could not refresh examiner drafts",error)}
   const memberDraft=latest?.assessment?.examinerDrafts?.member||null;
-  const diffIndexes=memberDraft?.positions?.length?assessment.positions.map((own,index)=>positionsDiffer(own,memberDraft.positions[index])?index:-1).filter(index=>index>=0):[];
-  // عند اختلاف الرصد بين الرئيس والعضو بموضع ما: إذا كان أحدهما فقط سجّل شيئًا فعليًا لهذا
-  // النوع من الأخطاء (والآخر صفر — أي لم يسجّله إطلاقًا، وليس تعارضًا حقيقيًا)، نعتمد رقم من
-  // سجّله فعلاً تلقائيًا كافتراض معقول يظهر جاهزًا بخانة "المعتمد" (وللرئيس تعديله متى شاء).
-  // بدون هذا، كان اعتماد الرئيس للنتيجة دون إعادة كتابة كل رقم سجّله العضو بنفسه يدويًا يُسقط
-  // تلك الأخطاء المسجَّلة فعلاً بصمت وتُظهر العلامة 100. أما لو سجّل الاثنان رقمين حقيقيين
-  // مختلفين لنفس النوع (تعارض فعلي)، تبقى الخانة فارغة كما كانت — القرار هون للرئيس فقط.
-  diffIndexes.forEach(index=>{
-    const own=assessment.positions[index],member=memberDraft.positions[index];
-    Object.keys(ASSESSMENT_RULES).forEach(type=>{
-      if(own.adopted&&Number.isFinite(own.adopted[type]))return;
-      const ownCount=Number(own[type])||0,memberCount=Number(member[type])||0;
-      if(ownCount===memberCount)return;
-      if(ownCount===0||memberCount===0){own.adopted=own.adopted||{};own.adopted[type]=Math.max(ownCount,memberCount)}
-    });
-  });
-  if(diffIndexes.length)saveAssessmentDraft(participant);
   const finalResult=calculateFinalAssessment(assessment);
+  const diffIndexes=memberDraft?.positions?.length?assessment.positions.map((own,index)=>positionsDiffer(own,memberDraft.positions[index])?index:-1).filter(index=>index>=0):[];
   const diffTable=!memberDraft?.positions?.length?`<p class="committee-alerts-empty">لم يصل رصد عضو اللجنة بعد. يمكن للرئيس الاعتماد الآن أو انتظار العضو.</p>`
     :!diffIndexes.length?`<p class="committee-alerts-empty">لا يوجد أي اختلاف بين رصد الرئيس ورصد العضو — كل المواضع متطابقة.</p>`
     :`<p class="field-help">${diffIndexes.length} من ${assessment.positions.length} مواضع فيها اختلاف بالرصد. أدخل عدد الأخطاء المعتمد لكل نوع مختلَف عليه فقط؛ والنظام يحسب الخصم تلقائيًا. أنواع الأخطاء غير الظاهرة هنا متطابقة أصلًا وتُحسب من رصدك مباشرة.</p>${diffIndexes.map(index=>{const own=assessment.positions[index],member=memberDraft.positions[index];const typeRows=Object.entries(ASSESSMENT_RULES).filter(([type])=>(Number(own[type])||0)!==(Number(member[type])||0)).map(([type,rule])=>{const ownCount=Number(own[type])||0,memberCount=Number(member[type])||0,adoptedVal=own.adopted&&Number.isFinite(own.adopted[type])?own.adopted[type]:"";return `<div class="examiner-diff-type-row"><span>${rule.label}</span><b>${ownCount}</b><b>${memberCount}</b><input type="number" min="0" step="1" data-adopted-count="${index}|${type}" value="${adoptedVal}" placeholder="العدد المعتمد"></div>`}).join("");return `<div class="examiner-diff-position"><div class="examiner-diff-position-head">الموضع ${index+1}</div><div class="examiner-diff-type-head"><span>نوع الخطأ</span><span>الرئيس</span><span>العضو</span><span>المعتمد</span></div>${typeRows}</div>`}).join("")}`;
