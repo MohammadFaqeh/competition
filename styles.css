@@ -279,6 +279,13 @@ main{padding:var(--sp-6) var(--sp-6) var(--sp-7);flex:1}
 .welcome-band button{position:relative;z-index:1}
 .welcome-logo{position:relative;z-index:1;width:220px;height:198px;object-fit:contain;background:var(--surface);padding:12px;border-radius:8px;border-bottom:4px solid var(--gold);box-shadow:0 14px 34px rgba(0,0,0,.2)}
 
+.dashboard-date-filter{display:flex;align-items:center;flex-wrap:wrap;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 16px;margin-top:var(--sp-4)}
+.dashboard-date-filter label{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--green-800);white-space:nowrap}
+.dashboard-date-filter label svg{width:15px;height:15px}
+.dashboard-date-filter input[type="date"]{height:34px;border:1px solid #cfd9d4;border-radius:var(--radius-sm);padding:0 8px;font-size:12.5px;background:var(--surface);color:inherit}
+.dashboard-date-filter small{color:var(--muted);font-size:11.5px;flex-basis:100%}
+@media(max-width:640px){.dashboard-date-filter small{order:1}}
+
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:var(--sp-4);margin:var(--sp-5) 0}
 .stat{
   background:var(--surface);border:1px solid var(--line);padding:var(--sp-5);display:flex;gap:var(--sp-4);

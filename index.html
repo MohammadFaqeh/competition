@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260901-stickypanel1">
+  <link rel="stylesheet" href="styles.css?v=20260901-dashboarddate1">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -179,6 +179,12 @@
             <div><span class="eyebrow light">جمعية المحافظة على القرآن الكريم | فرع الكورة</span><h1>إدارة اختبارات المسابقة السنوية</h1><p>المتسابقون، السحب، والنتائج في مكان واحد.</p></div>
             <img class="welcome-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
           </div>
+          <div class="dashboard-date-filter">
+            <label for="dashboardDateInput"><i data-lucide="calendar-days"></i> عرض بيانات يوم محدد</label>
+            <input type="date" id="dashboardDateInput">
+            <button type="button" id="dashboardDateAllBtn" class="compact-btn is-active">الكل (تراكمي)</button>
+            <small id="dashboardDateHint">الأرقام أدناه تراكمية لكامل الدورة (باستثناء إجمالي المتسابقين المسجَّلين الثابت دائماً)</small>
+          </div>
           <section id="issueReportsPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">من لجان الاختبار قبل بدء الاختبار</span><h3>بلاغات أخطاء بيانات المتسابقين</h3></div><button id="refreshIssueReportsBtn" class="compact-btn" type="button">تحديث</button></div><div id="issueReportsList" class="committees-list"><p class="committee-alerts-empty">لا توجد بلاغات حالياً.</p></div></section>
           <div class="stats-grid">
             <article class="stat"><div class="stat-icon green"><i data-lucide="users"></i></div><div><span>إجمالي المتسابقين</span><b id="statTotal">0</b><div class="stat-split"><span class="split-m">ذكور <b id="statTotalM">0</b></span><span class="split-f">إناث <b id="statTotalF">0</b></span></div></div></article>
@@ -281,6 +287,6 @@
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20260901-quranretryfix2"></script>
-  <script src="app.js?v=20260901-resultsfiltermulti1"></script>
+  <script src="app.js?v=20260901-dashboarddate1"></script>
 </body>
 </html>

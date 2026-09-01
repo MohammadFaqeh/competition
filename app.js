@@ -275,6 +275,12 @@ function bindEvents(){
   $("#drawParticipant").addEventListener("change",loadParticipantIntoDraw);
   $("#drawLevel").addEventListener("change",levelChanged);
   $("#drawQuestionCount").addEventListener("input",updateAvailability);
+  const dashboardDateInput=$("#dashboardDateInput");
+  if(dashboardDateInput){
+    dashboardDateInput.max=dateStamp();
+    dashboardDateInput.addEventListener("change",()=>{dashboardDateFilter=dashboardDateInput.value||null;renderDashboard()});
+    $("#dashboardDateAllBtn").addEventListener("click",()=>{dashboardDateFilter=null;dashboardDateInput.value="";renderDashboard()});
+  }
   $("#drawForm").addEventListener("submit",performDraw);
   $("#drawPartsEditBtn").addEventListener("click",openDrawPartsEditor);
   $("#drawPartsSaveBtn").addEventListener("click",saveDrawParticipantParts);
@@ -842,11 +848,28 @@ function renderAll(){renderDashboard();renderParticipants();renderHistory();refr
 function passRateOf(list){const examined=list.filter(p=>Number.isFinite(p.score)&&!p.withdrawn);return examined.length?examined.filter(p=>p.score>=PASS_SCORE).length/examined.length*100:null}
 function formatPct(n){return n==null?"—":`${new Intl.NumberFormat("ar-JO",{maximumFractionDigits:1,numberingSystem:"latn"}).format(n)}%`}
 function renderPassRateRing(ringId,valueId,pct){const ring=$(`#${ringId}`),value=$(`#${valueId}`);if(!ring||!value)return;const empty=pct==null;ring.classList.toggle("is-empty",empty);ring.style.setProperty("--pct",empty?0:Math.max(0,Math.min(100,pct)));value.textContent=empty?"لا يوجد بيانات":formatPct(pct)}
+let dashboardDateFilter=null;
+// "إجمالي المتسابقين" رقم تسجيل مسبق (استيراد Excel) ولا معنى لتاريخ امتحان له، فيبقى
+// تراكمياً دائماً بغض النظر عن اليوم المحدد. أما امتُحن/نجح/رسب/انسحب فهي أحداث فعلية لها
+// لحظة زمنية حقيقية (gradedAt) فتُفلتَر حسب اليوم المختار عند تفعيله.
+function isParticipantGradedOn(participant,dateStr){
+  const iso=participant?.gradedAt;if(!iso)return false;
+  const d=new Date(iso);if(Number.isNaN(d.getTime()))return false;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`===dateStr;
+}
+function dashboardScopedParticipants(){return dashboardDateFilter?state.participants.filter(p=>isParticipantGradedOn(p,dashboardDateFilter)):state.participants}
+function renderDashboardDateFilterUi(){
+  const hint=$("#dashboardDateHint");if(!hint)return;
+  $("#dashboardDateAllBtn")?.classList.toggle("is-active",!dashboardDateFilter);
+  const dayLabel=dashboardDateFilter?new Intl.DateTimeFormat("ar-JO",{dateStyle:"long",numberingSystem:"latn"}).format(new Date(`${dashboardDateFilter}T00:00:00`)):"";
+  hint.textContent=dashboardDateFilter?`بيانات يوم ${dayLabel} فقط (باستثناء إجمالي المتسابقين المسجَّلين، يبقى تراكمياً دائماً)`:"الأرقام أدناه تراكمية لكامل الدورة (باستثناء إجمالي المتسابقين المسجَّلين الثابت دائماً)";
+}
 function renderDashboard(){
   const byGender=(list,g)=>list.filter(p=>p.gender===g);
   const total=state.participants;
-  const withdrawn=total.filter(p=>p.withdrawn);
-  const examined=total.filter(p=>Number.isFinite(p.score)&&!p.withdrawn);
+  const scoped=dashboardScopedParticipants();
+  const withdrawn=scoped.filter(p=>p.withdrawn);
+  const examined=scoped.filter(p=>Number.isFinite(p.score)&&!p.withdrawn);
   const passed=examined.filter(p=>p.score>=PASS_SCORE);
   const failed=examined.filter(p=>p.score<PASS_SCORE);
   $("#statTotal").textContent=formatNumber(total.length);
@@ -864,10 +887,11 @@ function renderDashboard(){
   $("#statFailed").textContent=formatNumber(failed.length);
   $("#statFailedM").textContent=formatNumber(byGender(failed,"ذكر").length);
   $("#statFailedF").textContent=formatNumber(byGender(failed,"أنثى").length);
-  renderPassRateRing("passRateAllRing","passRateAll",passRateOf(total));
-  renderPassRateRing("passRateMRing","passRateM",passRateOf(byGender(total,"ذكر")));
-  renderPassRateRing("passRateFRing","passRateF",passRateOf(byGender(total,"أنثى")));
+  renderPassRateRing("passRateAllRing","passRateAll",passRateOf(scoped));
+  renderPassRateRing("passRateMRing","passRateM",passRateOf(byGender(scoped,"ذكر")));
+  renderPassRateRing("passRateFRing","passRateF",passRateOf(byGender(scoped,"أنثى")));
   renderLevelBreakdown(total);
+  renderDashboardDateFilterUi();
 }
 function renderLevelBreakdown(total){
   const UNRESOLVED="__unresolved__";
@@ -882,9 +906,14 @@ function renderLevelBreakdown(total){
   // بطاقة "غير محدد" لا تظهر هنا عمداً بناءً على طلب صريح — لا تفيد بشكل تلخيصي، وتصحيح هؤلاء المتسابقين
   // يبقى متاحاً من زر "إصلاح تسميات المستويات القديمة" بالإعدادات، أو تعديل كل واحد يدوياً.
   const orderedKeys=[...groups.keys()].filter(key=>key!==UNRESOLVED&&(showFull||partsFor(key)<30)).sort((a,b)=>partsFor(a)-partsFor(b)||labelFor(a).localeCompare(labelFor(b),"ar"));
+  // "عدد الطلاب" هون هو تسجيل مسبق (استيراد Excel) فيبقى تراكمياً دائماً كباقي بطاقة الإجمالي
+  // بالأعلى؛ أما "نسبة النجاح" فتُحسب من نفس المجموعة الزمنية المختارة أعلى الصفحة (يوم محدد
+  // أو تراكمي) لتطابق أرقام حلقات النجاح بالأعلى تماماً.
   const cards=orderedKeys.map(key=>{
     const list=groups.get(key),m=byGenderList(list,"ذكر"),f=byGenderList(list,"أنثى");
-    return `<article class="level-card${key===UNRESOLVED?" level-card-unresolved":""}"><h4>${escapeHtml(labelFor(key))}</h4><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(list.length)}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatNumber(m.length)}</b></span><span class="split-f">إناث <b>${formatNumber(f.length)}</b></span></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(passRateOf(list))}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatPct(passRateOf(m))}</b></span><span class="split-f">إناث <b>${formatPct(passRateOf(f))}</b></span></div></article>`;
+    const scopedList=dashboardDateFilter?list.filter(p=>isParticipantGradedOn(p,dashboardDateFilter)):list;
+    const scopedM=byGenderList(scopedList,"ذكر"),scopedF=byGenderList(scopedList,"أنثى");
+    return `<article class="level-card${key===UNRESOLVED?" level-card-unresolved":""}"><h4>${escapeHtml(labelFor(key))}</h4><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(list.length)}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatNumber(m.length)}</b></span><span class="split-f">إناث <b>${formatNumber(f.length)}</b></span></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(passRateOf(scopedList))}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatPct(passRateOf(scopedM))}</b></span><span class="split-f">إناث <b>${formatPct(passRateOf(scopedF))}</b></span></div></article>`;
   }).join("");
   $("#levelBreakdownGrid").innerHTML=cards||`<p class="committee-alerts-empty">لا يوجد متسابقون بعد.</p>`;
 }
