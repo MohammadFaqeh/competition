@@ -769,11 +769,19 @@ function renderCommitteePassRate(committee){
   // ما تسرّب معلومة ناجح/راسب بشكل مجمَّع رغم إخفاء الأرقام الفردية.
   if(committee.show_score===false){panel.classList.add("hidden");return}
   panel.classList.remove("hidden");
-  const examined=state.participants.filter(p=>p.assessment?.committee?.id===committee.id&&Number.isFinite(p.score)&&!p.withdrawn);
-  const passed=examined.filter(p=>p.score>=PASS_SCORE);
-  const failed=examined.filter(p=>p.score<PASS_SCORE);
-  renderPassRateRing("committeePassRateRing","committeePassRateValue",examined.length?passed.length/examined.length*100:null);
-  $("#committeeExaminedCount").textContent=formatNumber(examined.length);
+  // نحسب من committeeSessions (جلسات هذه اللجنة تحديداً — تُحدَّث فورًا محلياً عند كل اعتماد،
+  // ولا تُفقد بين نبضات الاستطلاع، راجع الدمج بـrefreshCommitteeChanges) لا من state.participants
+  // مباشرة: تلك تُستبدَل بالكامل من بيانات الإدارة المشتركة (competition_state.payload) بكل
+  // نبضة استطلاع (9 ثوانٍ)، وتلك البيانات المشتركة لا تعرف بنتيجة اعتمدتها اللجنة للتو محلياً
+  // إلا بعد ما جهاز إدارة يكون مفتوحاً ويدمجها ويرفعها لاحقاً — فكانت الدائرة والأعداد "تظهر
+  // وتختفي" (تتذبذب بين القيمة الصحيحة والفارغة) كل ما تمر نبضة استطلاع قبل ما تلحق بيانات
+  // الإدارة. committeeSessions لا تعاني من هذا لأنها محفوظة محلياً باستقلالية تامة (تُدمَج/تُحدَّث
+  // فقط، لا تُستبدَل)، وهي نفس المصدر الذي تعتمده قائمة المتسابقين أصلاً لعرض "مكتمل · العلامة".
+  const finalSessions=committeeSessions.filter(s=>s.status==="final"&&Number.isFinite(s.score));
+  const passed=finalSessions.filter(s=>s.score>=PASS_SCORE);
+  const failed=finalSessions.filter(s=>s.score<PASS_SCORE);
+  renderPassRateRing("committeePassRateRing","committeePassRateValue",finalSessions.length?passed.length/finalSessions.length*100:null);
+  $("#committeeExaminedCount").textContent=formatNumber(finalSessions.length);
   $("#committeePassedCount").textContent=formatNumber(passed.length);
   $("#committeeFailedCount").textContent=formatNumber(failed.length);
 }
@@ -1006,12 +1014,17 @@ function renderCommitteeDashboardGrid(total){
     if(!membersByCommittee.has(committee.id))membersByCommittee.set(committee.id,[]);
     membersByCommittee.get(committee.id).push(p);
   });
+  // بخلاف "حسب المستوى" (يلي "عدد الطلاب" فيه تسجيل مسبق ثابت لا علاقة له بالاختبار): هون
+  // "عدد الطلاب" هو من امتُحن فعلياً عند هذه اللجنة (ناجح+راسب) — رقم متغيّر يكبر مع تقدم
+  // الاختبارات ويتبع فلتر اليوم المحدد أعلى الصفحة تمامًا متل نسبة النجاح، بدل رقم التسجيل
+  // المسبق الثابت الذي لا يعكس نشاط اللجنة الفعلي وقد يشمل من لم يُمتحَن بعد.
   const cards=[...committees].sort((a,b)=>a.name.localeCompare(b.name,"ar")).map(c=>{
-    const list=membersByCommittee.get(c.id)||[],m=byGenderList(list,"ذكر"),f=byGenderList(list,"أنثى");
+    const list=membersByCommittee.get(c.id)||[];
     const scopedList=dashboardDateFilter?list.filter(p=>isParticipantGradedOn(p,dashboardDateFilter)):list;
+    const examined=scopedList.filter(p=>Number.isFinite(p.score)&&!p.withdrawn),examinedM=byGenderList(examined,"ذكر"),examinedF=byGenderList(examined,"أنثى");
     const scopedM=byGenderList(scopedList,"ذكر"),scopedF=byGenderList(scopedList,"أنثى");
     const roles=[c.chairman_name,c.member_name].filter(Boolean).join(" - ");
-    return `<article class="level-card"><h4>${escapeHtml(c.name)}</h4>${roles?`<small class="level-card-committee-roles">${escapeHtml(roles)}</small>`:""}<div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(list.length)}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatNumber(m.length)}</b></span><span class="split-f">إناث <b>${formatNumber(f.length)}</b></span></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(passRateOf(scopedList))}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatPct(passRateOf(scopedM))}</b></span><span class="split-f">إناث <b>${formatPct(passRateOf(scopedF))}</b></span></div></article>`;
+    return `<article class="level-card"><h4>${escapeHtml(c.name)}</h4>${roles?`<small class="level-card-committee-roles">${escapeHtml(roles)}</small>`:""}<div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(examined.length)}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatNumber(examinedM.length)}</b></span><span class="split-f">إناث <b>${formatNumber(examinedF.length)}</b></span></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(passRateOf(scopedList))}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatPct(passRateOf(scopedM))}</b></span><span class="split-f">إناث <b>${formatPct(passRateOf(scopedF))}</b></span></div></article>`;
   }).join("");
   $("#committeeDashboardGrid").innerHTML=cards||`<p class="committee-alerts-empty">لا توجد لجان نشطة بعد.</p>`;
 }
