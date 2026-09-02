@@ -76,12 +76,22 @@ function run() {
   const examinedCountAfterPoll = vm.runInContext('document.querySelector("#committeeExaminedCount").textContent', sandbox);
   assert.strictEqual(examinedCountAfterPoll, "1", "بعد استبدال state.participants بالكامل (محاكاة نبضة استطلاع): العدد يبقى ثابتاً (1)، لا يختفي ولا يرجع صفر");
 
-  // تراجع مؤقت (طلب صريح أثناء اختبار فعلي مباشر): البطاقة تُحكَم الآن بنفس زر "إخفاء/إظهار
-  // العلامة عن اللجنة" الموجود أصلاً بشاشة إدارة اللجان — يمنح الإدارة قدرة فورية على إخفاء/
-  // إظهار هذه البطاقة لكل لجنة على حدة بدون أي نشر أو تعديل قاعدة بيانات جديد.
+  // زر مستقل show_stats_summary (supabase/committee-stats-summary-visibility.sql):
+  // 1) قبل تطبيق ملف الـSQL (الحقل غير موجود بجواب الخادم = undefined): تراجع مؤقت لنفس حالة
+  //    show_score القديمة، حفاظاً على أي إخفاء ضُبط يدوياً بالحل المؤقت السابق دون أي فعل إضافي.
   sandbox.renderCommitteePassRate({ id: "c1", show_score: false });
-  const panelHiddenWhenScoreHidden = vm.runInContext('document.querySelector("#committeePassRateRing").closest(".x").classList.contains("hidden")', sandbox);
-  assert.strictEqual(panelHiddenWhenScoreHidden, true, "إخفاء العلامة عن اللجنة (زر الإدارة الموجود أصلاً) يخفي بطاقة الإحصائية المجمَّعة أيضاً");
+  const hiddenByLegacyFallback = vm.runInContext('document.querySelector("#committeePassRateRing").closest(".x").classList.contains("hidden")', sandbox);
+  assert.strictEqual(hiddenByLegacyFallback, true, "قبل تطبيق SQL الزر المستقل: يتراجع لحالة show_score القديمة (يخفي)");
+
+  // 2) بعد تطبيق ملف الـSQL (show_stats_summary صار boolean حقيقي دائماً): يتحكم وحده تماماً،
+  //    بغض النظر عن show_score إطلاقاً — حتى لو show_score=false، الظهور يتبع الزر الجديد فقط.
+  sandbox.renderCommitteePassRate({ id: "c1", show_score: false, show_stats_summary: true });
+  const shownByNewFlagDespiteLegacyHidden = vm.runInContext('document.querySelector("#committeePassRateRing").closest(".x").classList.contains("hidden")', sandbox);
+  assert.strictEqual(shownByNewFlagDespiteLegacyHidden, false, "بعد تطبيق SQL: الزر الجديد وحده يقرر (show_stats_summary=true يُظهر حتى مع show_score=false)");
+
+  sandbox.renderCommitteePassRate({ id: "c1", show_score: true, show_stats_summary: false });
+  const hiddenByNewFlagDespiteLegacyShown = vm.runInContext('document.querySelector("#committeePassRateRing").closest(".x").classList.contains("hidden")', sandbox);
+  assert.strictEqual(hiddenByNewFlagDespiteLegacyShown, true, "بعد تطبيق SQL: الزر الجديد وحده يقرر (show_stats_summary=false يُخفي حتى مع show_score=true)");
 
   console.log("committee-pass-rate-stability.test.js: كل الحالات نجحت — إحصائية اللجنة تُحسب من committeeSessions المستقرة، فلا تتذبذب/تختفي بعد كل استبدال دوري لـstate.participants");
 }
