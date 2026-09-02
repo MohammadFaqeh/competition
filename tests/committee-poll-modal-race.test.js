@@ -19,10 +19,13 @@ const projectRoot = path.join(__dirname, "..");
 function currentAppSrc() {
   return fs.readFileSync(path.join(projectRoot, "app.js"), "utf8");
 }
-// نسخة app.js كما كانت بآخر commit (قبل إصلاح هذا الخلل بالجلسة الحالية) — لإثبات إنه الخلل
-// كان يتكرر فعليًا بالكود المشحون فعلًا، لا افتراضًا نظريًا.
+// نسخة app.js كما كانت بـcommit df92a26 تحديداً (آخر commit قبل إصلاح هذا الخلل بالجلسة التي
+// كتبت فيها هذا الاختبار) — لإثبات إنه الخلل كان يتكرر فعليًا بالكود المشحون فعلًا، لا افتراضًا
+// نظريًا. مثبَّتة على SHA ثابت عمداً (لا "HEAD") لأن HEAD يتحرك مع كل commit لاحق (تحويل Real-
+// Time الطبقي مثلاً)، وحينها "git show HEAD:app.js" كان سيرجع نسخة مُصلَحة أصلاً فيفشل الاختبار
+// بالغلط رغم إنه الإصلاح نفسه سليم 100%.
 function preFixAppSrc() {
-  return execFileSync("git", ["show", "HEAD:app.js"], { cwd: projectRoot, encoding: "utf8" });
+  return execFileSync("git", ["show", "df92a26:app.js"], { cwd: projectRoot, encoding: "utf8" });
 }
 
 const markerRe = /if\(document\.readyState===("|')loading\1\)document\.addEventListener\("DOMContentLoaded",init,\{once:true\}\);\s*else init\(\);/;
