@@ -95,6 +95,40 @@ window.CloudCompetition=(()=>{
   // الجلسات الجارية، فتتجنب سحب أرشيف الجلسات المعتمدة (وتقييماتها الكاملة) في كل استطلاع
   // كلما تراكمت اختبارات منتهية أكثر بمرور اليوم.
   async function listActiveSessions(){if(context?.kind==="subAdmin"){const {data,error}=await client.rpc("sub_admin_list_sessions",{p_token:context.token});if(error)throw rpcError(error);return (data||[]).filter(s=>s.status==="in_progress")}const {data,error}=await client.from("exam_sessions").select("*").eq("status","in_progress").order("updated_at",{ascending:false});if(error)throw error;return data}
+  // نافذة زمنية متجددة بدل كل الجلسات المعتمدة منذ أول يوم بالمسابقة: تُستخدم فقط باستطلاع
+  // الإدارة الدوري (refreshAdminChanges كل 9 ثوانٍ). جلسة اعتُمدت قبل أكثر من sinceIso عمليًا
+  // لن تتغيّر (إلا بإعادة فتحها للتعديل، وحينها finalized_at تصير جديدة فتدخل النافذة من جديد
+  // تلقائيًا)، فلا داعي لسحبها بكل نبضة — بياناتها محفوظة أصلاً محليًا من آخر مرة كانت "حديثة"
+  // أو من الجلب الكامل عند تسجيل الدخول/زر "تحديث النتائج" اليدوي (listFinalSessions العادية).
+  async function listRecentFinalSessions(sinceIso){const {data,error}=await client.from("exam_sessions").select("*").eq("status","final").gte("finalized_at",sinceIso).order("updated_at",{ascending:false});if(error)throw error;return data}
+  // نسخة "حية فقط" من listSessions (اللجنة/المسؤول الفرعي): تجلب الجلسات الجارية حاليًا + المعتمدة
+  // خلال sinceIso فقط، بدل كامل تاريخ اللجنة منذ أول يوم — تُستخدم باستطلاع اللجنة الدوري (9 ثوانٍ).
+  // تعتمد على دالتَي SQL إضافيتين (committee_list_live_sessions/sub_admin_list_live_sessions،
+  // راجع supabase/exam-sessions-tiered-realtime.sql) قد لا تكونان مُطبَّقتين بعد على قاعدة بيانات
+  // معينة — لو فشل الاستدعاء (الدالة غير موجودة بعد)، نتراجع فورًا لـlistSessions الكاملة
+  // بلا أي انقطاع بعمل اللجنة (فقط بلا توفير بالبيانات المنقولة إلى حين تطبيق ملف الـSQL).
+  async function listLiveCommitteeSessions(sinceIso){
+    try{
+      if(context?.kind==="committee"){const {data,error}=await client.rpc("committee_list_live_sessions",{p_token:context.token,p_since:sinceIso});if(error)throw error;return data}
+      if(context?.kind==="subAdmin"){const {data,error}=await client.rpc("sub_admin_list_live_sessions",{p_token:context.token,p_since:sinceIso});if(error)throw error;return data}
+    }catch(error){console.warn("[examTrace] listLiveCommitteeSessions: الدالة الخفيفة غير متاحة بعد (طبّق supabase/exam-sessions-tiered-realtime.sql)، رجوع للجلب الكامل مؤقتًا",error?.message)}
+    return listSessions();
+  }
+  // جلسة واحدة بعينها بدل قائمة اللجنة الكاملة — لمزامنة موضع الرئيس أثناء رصد العضو (كل 1.5
+  // ثانية، أسخن نقطة استطلاع بالموقع). نفس منطق التراجع الآمن أعلاه لو الدالة الخفيفة غير
+  // مُطبَّقة بعد؛ ولو نجحت لكن الجلسة غير موجودة/لا تخص هذه اللجنة (data فارغة)، نتراجع أيضًا
+  // للبحث بالقائمة الكاملة كطبقة أمان إضافية بدل افتراض "غير موجودة" من أول محاولة.
+  async function getCommitteeSession(sessionId){
+    if(context?.kind==="committee"){
+      try{
+        const {data,error}=await client.rpc("committee_get_session",{p_token:context.token,p_session_id:sessionId});
+        if(error)throw error;
+        if(data)return data;
+      }catch(error){console.warn("[examTrace] getCommitteeSession: الدالة الخفيفة غير متاحة بعد (طبّق supabase/exam-sessions-tiered-realtime.sql)، رجوع للجلب الكامل مؤقتًا",error?.message)}
+    }
+    const sessions=await listSessions();
+    return sessions.find(item=>item.id===sessionId)||null;
+  }
   async function listCommitteeNotifications(){if(context?.kind!=="committee")return [];const {data,error}=await client.rpc("committee_list_notifications",{p_token:context.token});if(error)throw rpcError(error);return data||[]}
   async function lookupChangeTimes(participantIds){if(context?.kind!=="committee"||!participantIds?.length)return [];const {data,error}=await client.rpc("committee_lookup_change_times",{p_token:context.token,p_participant_ids:participantIds});if(error)throw rpcError(error);return data||[]}
   async function reportCommitteeIssue(participantId,message){if(context?.kind!=="committee")return;const {error}=await client.rpc("committee_report_issue",{p_token:context.token,p_participant_id:participantId,p_message:message});if(error)throw rpcError(error)}
@@ -138,5 +172,5 @@ window.CloudCompetition=(()=>{
   async function linkSupervisor(values){const {data,error}=await client.rpc("admin_link_supervisor",{p_user_id:values.userId,p_name:values.name,p_can_edit_final:Boolean(values.canEditFinal),p_can_delete_data:Boolean(values.canDeleteData)});if(error)throw rpcError(error);return data}
   async function unlinkSupervisor(id){const {data,error}=await client.rpc("admin_delete_supervisor",{p_id:id});if(error)throw rpcError(error);return data}
 
-  return {enabled,init,signInAdmin,requestLoginRecoveryCode,confirmLoginRecovery,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,setCommitteeShowScore,listFinalEditAudit,deleteParticipantSession,listSessions,listFinalSessions,listActiveSessions,listCommitteeNotifications,reportCommitteeIssue,listIssueReports,resolveIssueReport,lookupChangeTimes,claimStudent,cancelCommitteeSession,createCommitteeDraw,listCommitteeUsedPositionIds,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,saveSession,queueSessionSave,cancelQueuedSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,getBackupSettings,setBackupSettings,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listSupervisors,linkSupervisor,unlinkSupervisor,get context(){return context},get client(){return client}};
+  return {enabled,init,signInAdmin,requestLoginRecoveryCode,confirmLoginRecovery,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,setCommitteeShowScore,listFinalEditAudit,deleteParticipantSession,listSessions,listFinalSessions,listActiveSessions,listRecentFinalSessions,listLiveCommitteeSessions,getCommitteeSession,listCommitteeNotifications,reportCommitteeIssue,listIssueReports,resolveIssueReport,lookupChangeTimes,claimStudent,cancelCommitteeSession,createCommitteeDraw,listCommitteeUsedPositionIds,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,saveSession,queueSessionSave,cancelQueuedSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,getBackupSettings,setBackupSettings,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listSupervisors,linkSupervisor,unlinkSupervisor,get context(){return context},get client(){return client}};
 })();
