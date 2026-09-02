@@ -76,10 +76,14 @@ function run() {
   const examinedCountAfterPoll = vm.runInContext('document.querySelector("#committeeExaminedCount").textContent', sandbox);
   assert.strictEqual(examinedCountAfterPoll, "1", "بعد استبدال state.participants بالكامل (محاكاة نبضة استطلاع): العدد يبقى ثابتاً (1)، لا يختفي ولا يرجع صفر");
 
-  // إخفاء العلامة عن اللجنة يخفي البطاقة كاملة (سلوك موجود مسبقًا، تأكيد إنه لم ينكسر).
+  // بناءً على طلب صريح لاحق: إخفاء العلامة الفردية عن اللجنة (show_score=false) لا يخفي هذه
+  // البطاقة المجمَّعة — يبقى عدد الممتحَنين/الناجحين/الراسبين ونسبة النجاح ظاهرين للجنة دائماً،
+  // فقط العلامة الدقيقة لكل متسابق تبقى محجوبة (بمكان آخر بالواجهة).
   sandbox.renderCommitteePassRate({ id: "c1", show_score: false });
-  const panelHidden = vm.runInContext('document.querySelector("#committeePassRateRing").closest(".x").classList.contains("hidden")', sandbox);
-  assert.strictEqual(panelHidden, true, "إخفاء العلامة عن اللجنة ما زال يخفي البطاقة كاملة");
+  const panelHiddenWhenScoreHidden = vm.runInContext('document.querySelector("#committeePassRateRing").closest(".x").classList.contains("hidden")', sandbox);
+  assert.strictEqual(panelHiddenWhenScoreHidden, false, "إخفاء العلامة الفردية عن اللجنة لا يخفي بطاقة الإحصائية المجمَّعة");
+  const examinedCountWhenScoreHidden = vm.runInContext('document.querySelector("#committeeExaminedCount").textContent', sandbox);
+  assert.strictEqual(examinedCountWhenScoreHidden, "1", "الأعداد المجمَّعة تبقى تُحسب وتُعرض بشكل صحيح حتى مع إخفاء العلامة الفردية");
 
   console.log("committee-pass-rate-stability.test.js: كل الحالات نجحت — إحصائية اللجنة تُحسب من committeeSessions المستقرة، فلا تتذبذب/تختفي بعد كل استبدال دوري لـstate.participants");
 }
