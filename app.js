@@ -630,6 +630,7 @@ async function enterCloudContext(context){try{operationMode="cloud";stopCommitte
   if(!isSupervisor&&!state.config){showScreen("setupScreen");return}
   if(isSupervisor){window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws);applySupervisorRestrictions()}
   else window.CloudCompetition.markAdminKnownIds(state.participants,state.draws);
+  cloudCommittees=committees;
   mergeFinalSessionsIntoState(sessions,committees);
   const greeting=$("#topAdminGreeting");if(greeting)greeting.textContent=context.profile.display_name?`أهلاً، ${context.profile.display_name}`:"الدورة الحالية";
   showApp()}catch(error){toast(`تعذر فتح البيانات المشتركة: ${error.message}`);showScreen("cloudLoginScreen")}}
@@ -664,7 +665,7 @@ function startAdminAutoRefresh(){stopAdminAutoRefresh();adminAutoRefreshTimer=se
 // أول شي: لو ما تغيّر إطلاقًا منذ آخر استطلاع نتجنب كليًا استبدال/تحليل/كتابة كامل الحالة
 // (participants+draws) بالمتصفح — وهذا هو الجزء الأثقل يلي كان يتكرر كل 5 ثوان بلا داعٍ. لسا
 // لازم ندمج أي نتيجة نهائية اعتمدتها لجنة للتو (mergeFinalSessionsIntoState) حتى بهاي الحالة.
-async function refreshAdminChanges(){const kind=window.CloudCompetition.context?.kind;if(adminRefreshBusy||!["admin","supervisor"].includes(kind)||!$("#modal")?.classList.contains("hidden"))return;adminRefreshBusy=true;try{const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listRecentFinalSessions(new Date(Date.now()-LIVE_RECENT_WINDOW_MS).toISOString()),window.CloudCompetition.listCommittees()]);if(!remote.payload?.config)return;if(!$("#modal")?.classList.contains("hidden")){console.warn("[examTrace] refreshAdminChanges: تم فتح مودال أثناء انتظار الشبكة، تم تجاهل الاستبدال");return}let stateChanged;if(kind==="admin"&&remote.updated_at&&remote.updated_at===lastAdminStateUpdatedAt){stateChanged=mergeFinalSessionsIntoState(sessions,committees,{replace:false})}else{const previous=JSON.stringify({participants:state.participants,draws:state.draws});if(kind==="supervisor"){state={...defaultState(),config:remote.payload.config?.competitionName?{competitionName:remote.payload.config.competitionName,adminName:state.config?.adminName}:state.config,participants:remote.payload.participants||[],draws:remote.payload.draws||[]};window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws)}else{state={...defaultState(),...remote.payload};window.CloudCompetition.markAdminKnownIds(state.participants,state.draws);localStorage.setItem(CLOUD_STORAGE_KEY,JSON.stringify(state));lastAdminStateUpdatedAt=remote.updated_at||null}mergeFinalSessionsIntoState(sessions,committees,{replace:false});stateChanged=previous!==JSON.stringify({participants:state.participants,draws:state.draws})}if(stateChanged)renderAll()}catch(error){console.warn("Admin auto refresh failed",error)}finally{adminRefreshBusy=false}}
+async function refreshAdminChanges(){const kind=window.CloudCompetition.context?.kind;if(adminRefreshBusy||!["admin","supervisor"].includes(kind)||!$("#modal")?.classList.contains("hidden"))return;adminRefreshBusy=true;try{const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listRecentFinalSessions(new Date(Date.now()-LIVE_RECENT_WINDOW_MS).toISOString()),window.CloudCompetition.listCommittees()]);cloudCommittees=committees;if(!remote.payload?.config)return;if(!$("#modal")?.classList.contains("hidden")){console.warn("[examTrace] refreshAdminChanges: تم فتح مودال أثناء انتظار الشبكة، تم تجاهل الاستبدال");return}let stateChanged;if(kind==="admin"&&remote.updated_at&&remote.updated_at===lastAdminStateUpdatedAt){stateChanged=mergeFinalSessionsIntoState(sessions,committees,{replace:false})}else{const previous=JSON.stringify({participants:state.participants,draws:state.draws});if(kind==="supervisor"){state={...defaultState(),config:remote.payload.config?.competitionName?{competitionName:remote.payload.config.competitionName,adminName:state.config?.adminName}:state.config,participants:remote.payload.participants||[],draws:remote.payload.draws||[]};window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws)}else{state={...defaultState(),...remote.payload};window.CloudCompetition.markAdminKnownIds(state.participants,state.draws);localStorage.setItem(CLOUD_STORAGE_KEY,JSON.stringify(state));lastAdminStateUpdatedAt=remote.updated_at||null}mergeFinalSessionsIntoState(sessions,committees,{replace:false});stateChanged=previous!==JSON.stringify({participants:state.participants,draws:state.draws})}if(stateChanged)renderAll()}catch(error){console.warn("Admin auto refresh failed",error)}finally{adminRefreshBusy=false}}
 function participantCloudSignature(participant,draw){return JSON.stringify({level:Number(participant?.level)||0,parts:(participant?.parts||[]).map(Number).sort((a,b)=>a-b),drawId:draw?.id||null,eligibleParts:(draw?.eligibleParts||[]).map(Number).sort((a,b)=>a-b),positions:(draw?.positions||[]).map(item=>item.id)})}
 function committeeScopedState(payload){
   const merged={...defaultState(),...payload};
@@ -757,9 +758,29 @@ function populateCommitteeCenterOptions(){
   centerSelect.innerHTML=`<option value="all">المركز: الكل</option>`+centers.map(c=>`<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join("");
   centerSelect.value=centers.includes(current)?current:"all";
 }
+// نظرة عامة خاصة باللجنة نفسها فقط (رقم واحد إجمالي، بلا أي تفصيل حسب المستوى — هاي لا تهم
+// اللجنة، بخلاف صفحة الإدارة): تُحسب فقط من المتسابقين الذين امتحنتهم هذه اللجنة فعلياً (نفس
+// منطق الإسناد التاريخي assessment.committee.id المستخدم بتفصيل اللجان عند الإدارة)، لا كل
+// المتسابقين المسندين لها حالياً حسب المستوى/الجنس (قد يشمل من لم يُمتحَن بعد).
+function renderCommitteePassRate(committee){
+  const panel=$("#committeePassRateRing")?.closest(".committee-pass-rate-panel");if(!panel)return;
+  // احترام إعداد "إخفاء العلامة عن اللجنة بعد الاعتماد" الموجود أصلاً: نسبة النجاح والأعداد
+  // مشتقة من العلامات، فلو كانت العلامات مخفية عن هذه اللجنة، تبقى هذه البطاقة مخفية كمان بدل
+  // ما تسرّب معلومة ناجح/راسب بشكل مجمَّع رغم إخفاء الأرقام الفردية.
+  if(committee.show_score===false){panel.classList.add("hidden");return}
+  panel.classList.remove("hidden");
+  const examined=state.participants.filter(p=>p.assessment?.committee?.id===committee.id&&Number.isFinite(p.score)&&!p.withdrawn);
+  const passed=examined.filter(p=>p.score>=PASS_SCORE);
+  const failed=examined.filter(p=>p.score<PASS_SCORE);
+  renderPassRateRing("committeePassRateRing","committeePassRateValue",examined.length?passed.length/examined.length*100:null);
+  $("#committeeExaminedCount").textContent=formatNumber(examined.length);
+  $("#committeePassedCount").textContent=formatNumber(passed.length);
+  $("#committeeFailedCount").textContent=formatNumber(failed.length);
+}
 function renderCommitteeStudents(){
   const committee=window.CloudCompetition.context?.committee;
   if(!committee)return;
+  renderCommitteePassRate(committee);
   const chairman=committee.examiner_role!=="member";
   if($("#committeeRoleLabel"))$("#committeeRoleLabel").textContent=chairman?"رئيس لجنة الاختبار":"عضو لجنة الاختبار";
   const query=$("#committeeSearch").value.trim().toLowerCase();
@@ -961,7 +982,38 @@ function renderDashboard(){
   renderPassRateRing("passRateMRing","passRateM",passRateOf(byGender(scoped,"ذكر")));
   renderPassRateRing("passRateFRing","passRateF",passRateOf(byGender(scoped,"أنثى")));
   renderLevelBreakdown(total);
+  renderCommitteeDashboardGrid(total);
   renderDashboardDateFilterUi();
+}
+// بطاقات "حسب اللجنة" بلوحة "نظرة عامة" (بعد "حسب المستوى" مباشرة، بنفس التنسيق تماماً)، بدل
+// وصلة تفصيل اللجان الموجودة أصلاً بصفحة الإحصائيات (نصية بكروت قابلة للفتح) — هون تمنح كل
+// لجنة بطاقتها الخاصة بنفس شكل بطاقة المستوى حرفياً، فقط العنوان اسم اللجنة (+ أسماء أعضائها)
+// بدل اسم المستوى. تعتمد على cloudCommittees المخزَّنة مسبقاً (تُحدَّث أصلاً كل استطلاع دوري
+// للإدارة ومرة عند تسجيل الدخول، دون أي طلب شبكة إضافي هون) فتبقى هذه الدالة متزامنة سريعة رغم
+// إنها تُستدعى من renderDashboard() يلي يشتغل كل renderAll().
+function renderCommitteeDashboardGrid(total){
+  const panel=$("#committeeDashboardPanel");if(!panel)return;
+  const committees=(cloudCommittees||[]).filter(c=>c.active!==false);
+  if(operationMode!=="cloud"||!committees.length){panel.classList.add("hidden");return}
+  panel.classList.remove("hidden");
+  // نفس منطق الإسناد التاريخي المستخدم بتفصيل اللجان بصفحة الإحصائيات (renderCommitteeBreakdown):
+  // متسابق امتحنته لجنة معينة فعلياً يُحسب عليها هي دائماً، حتى لو تغيّرت مستوياتها لاحقاً.
+  const membersByCommittee=new Map();
+  total.forEach(p=>{
+    const historicalCommitteeId=p.assessment?.committee?.id||null;
+    const committee=historicalCommitteeId?committees.find(c=>c.id===historicalCommitteeId):resolveParticipantCommittee(p,committees).currentCommittee;
+    if(!committee)return;
+    if(!membersByCommittee.has(committee.id))membersByCommittee.set(committee.id,[]);
+    membersByCommittee.get(committee.id).push(p);
+  });
+  const cards=[...committees].sort((a,b)=>a.name.localeCompare(b.name,"ar")).map(c=>{
+    const list=membersByCommittee.get(c.id)||[],m=byGenderList(list,"ذكر"),f=byGenderList(list,"أنثى");
+    const scopedList=dashboardDateFilter?list.filter(p=>isParticipantGradedOn(p,dashboardDateFilter)):list;
+    const scopedM=byGenderList(scopedList,"ذكر"),scopedF=byGenderList(scopedList,"أنثى");
+    const roles=[c.chairman_name,c.member_name].filter(Boolean).join(" - ");
+    return `<article class="level-card"><h4>${escapeHtml(c.name)}</h4>${roles?`<small class="level-card-committee-roles">${escapeHtml(roles)}</small>`:""}<div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(list.length)}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatNumber(m.length)}</b></span><span class="split-f">إناث <b>${formatNumber(f.length)}</b></span></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(passRateOf(scopedList))}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatPct(passRateOf(scopedM))}</b></span><span class="split-f">إناث <b>${formatPct(passRateOf(scopedF))}</b></span></div></article>`;
+  }).join("");
+  $("#committeeDashboardGrid").innerHTML=cards||`<p class="committee-alerts-empty">لا توجد لجان نشطة بعد.</p>`;
 }
 function renderLevelBreakdown(total){
   const UNRESOLVED="__unresolved__";
