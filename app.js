@@ -1219,12 +1219,10 @@ async function renderIssueReports(){
   }catch(error){console.warn("تعذر تحميل بلاغات اللجان",error)}
 }
 function currentActorLabel(){const kind=window.CloudCompetition?.context?.kind;if(kind==="subAdmin")return `مسؤول فرعي: ${window.CloudCompetition.context.subAdmin.name}`;if(kind==="supervisor")return `مشرف المسابقة: ${window.CloudCompetition.context.profile.display_name}`;if(kind==="admin")return "الإدارة";return state.config?.adminName||"الإدارة"}
-// تعديل/تغيير علامة اتسجّلت أو اعتُمدت سابقاً (أي مصدر: إلكترونية أو يدوية) صار حصراً للإدارة
-// الرئيسية فقط بناءً على طلب صريح — لا مشرف المسابقة ولا أي حد غيرها، حتى لو كان عند المشرف
-// صلاحية can_edit_final (بقيت الصلاحية موجودة بحساب المشرف لكن لم تعد تُستهلك هون إطلاقاً).
-// إدخال علامة لأول مرة لمتسابق لسا ما اتسجّلت له علامة إطلاقاً يبقى متاحاً للمشرف كالسابق
-// تماماً (حالة امتحان ورقي/خارج النظام) — القيد هون فقط على تغيير علامة موجودة أصلاً.
-function canEditParticipantScore(participant){const kind=window.CloudCompetition?.context?.kind;if(kind==="subAdmin")return false;if(kind==="supervisor"&&(Number.isFinite(participant?.score)||participant?.scoreSource))return false;return true}
+// تعديل/تغيير علامة اتسجّلت أو اعتُمدت سابقاً (أي مصدر: إلكترونية أو يدوية) متاح للإدارة
+// الرئيسية ومشرف المسابقة معاً بناءً على طلب صريح (يُعتبَران "إدارة" لهذا الغرض) — لا المسؤول
+// الفرعي. كان مقيّداً بمشرف المسابقة سابقاً بنفس الجلسة، ثم أُعيد فتحه له صراحةً.
+function canEditParticipantScore(participant){const kind=window.CloudCompetition?.context?.kind;return kind!=="subAdmin"}
 function saveParticipantScore(input){const participant=state.participants.find(p=>p.id===input.dataset.score);if(!participant)return;const score=Number(input.value);if(input.value===""){delete participant.score;delete participant.gradedAt;delete participant.scoreSource;delete participant.manualEntryBy;participant.assessment=null}else if(!Number.isFinite(score)||score<0||score>100){toast("العلامة يجب أن تكون بين 0 و100");input.value=Number.isFinite(participant.score)?participant.score:"";return}else{participant.score=Math.round(score*100)/100;participant.gradedAt=new Date().toISOString();participant.scoreSource="manual";participant.manualEntryBy=currentActorLabel();participant.assessment=null;delete participant.drRequest}saveState();renderDashboard();renderParticipants();toast(Number.isFinite(participant.score)?"تم حفظ العلامة اليدوية، وأُلغيت أي خطوات تقييم إلكتروني سابقة لهذا المتسابق":"تم حذف العلامة وإعادة الحالة إلى بانتظار العلامة")}
 function committeeLabelWithRoles(c){const names=[c.chairman_name,c.member_name].filter(Boolean).join(" - ");return names?`${c.name} (${names})`:c.name}
 function resolveParticipantCommittee(participant,allCommittees,{includeAllGenders=false}={}){

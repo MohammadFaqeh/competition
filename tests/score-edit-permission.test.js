@@ -1,6 +1,6 @@
-// اختبار آلي لصلاحية "تعديل العلامة": تعديل/تغيير علامة مُسجَّلة سابقاً (أي مصدر) صار حصراً
-// للإدارة الرئيسية فقط بناءً على طلب صريح من المستخدم — لا مشرف المسابقة (حتى مع can_edit_
-// final) ولا المسؤول الفرعي. إدخال علامة لأول مرة لمتسابق لسا بلا علامة يبقى متاحاً للمشرف.
+// اختبار آلي لصلاحية "تعديل العلامة": الإدارة الرئيسية ومشرف المسابقة كلاهما يُعتبَران "إدارة"
+// لهذا الغرض بناءً على طلب صريح — يقدران يعدّلا/يدخلا أي علامة (أول مرة أو مُسجَّلة سابقاً، أي
+// مصدر) بلا قيود. المسؤول الفرعي وحده ممنوع تماماً (يستخدم مسار طلب DR فقط).
 // شغّله: node tests/score-edit-permission.test.js
 "use strict";
 const fs = require("fs");
@@ -18,7 +18,7 @@ appSrc = appSrc.replace(markerRe, "/* init() disabled for headless test */");
 const sandbox = {
   console,
   localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-  document: { readyState: "complete", addEventListener: () => {}, querySelector: () => null, querySelectorAll: () => [], documentElement: { lang: "ar", dir: "rtl" } },
+  document: { readyState: "complete", addEventListener: () => {}, querySelectorAll: () => [], documentElement: { lang: "ar", dir: "rtl" } },
   window: {}, navigator: { onLine: true }, crypto: require("crypto").webcrypto,
   fetch: () => Promise.reject(new Error("fetch disabled in test")),
   location: { hash: "", href: "" }, history: { pushState() {}, replaceState() {} },
@@ -40,21 +40,19 @@ function run() {
   assert.strictEqual(sandbox.canEditParticipantScore(electronicallyScored), true, "الإدارة: تعدّل علامة إلكترونية معتمدة سابقاً");
   assert.strictEqual(sandbox.canEditParticipantScore(manuallyScored), true, "الإدارة: تعدّل علامة يدوية مسجّلة سابقاً");
 
+  // بناءً على طلب صريح لاحق: مشرف المسابقة يُعتبَر "إدارة" أيضاً، بلا أي قيد إضافي (بغض النظر
+  // عن can_edit_final، الذي لم يعد ذا صلة لهذا المسار إطلاقاً).
   setContext("supervisor", { profile: { can_edit_final: false } });
-  assert.strictEqual(sandbox.canEditParticipantScore(untested), true, "المشرف بلا صلاحية: يقدر يدخل علامة أول مرة لمتسابق لسا بلا علامة");
-  assert.strictEqual(sandbox.canEditParticipantScore(electronicallyScored), false, "المشرف بلا صلاحية: ممنوع يعدّل علامة إلكترونية معتمدة سابقاً");
-  assert.strictEqual(sandbox.canEditParticipantScore(manuallyScored), false, "المشرف بلا صلاحية: ممنوع يعدّل علامة يدوية مسجّلة سابقاً");
-
-  setContext("supervisor", { profile: { can_edit_final: true } });
-  assert.strictEqual(sandbox.canEditParticipantScore(electronicallyScored), false, "المشرف حتى مع can_edit_final=true: ممنوع يعدّل علامة معتمدة سابقاً (الصلاحية صارت حصراً للإدارة)");
-  assert.strictEqual(sandbox.canEditParticipantScore(manuallyScored), false, "المشرف حتى مع can_edit_final=true: ممنوع يعدّل علامة يدوية مسجّلة سابقاً");
-  assert.strictEqual(sandbox.canEditParticipantScore(untested), true, "المشرف مع can_edit_final=true: لسا يقدر يدخل علامة أول مرة (لم يتأثر هذا المسار)");
+  assert.strictEqual(sandbox.canEditParticipantScore(untested), true, "المشرف: يدخل علامة أول مرة");
+  assert.strictEqual(sandbox.canEditParticipantScore(electronicallyScored), true, "المشرف: يعدّل علامة إلكترونية معتمدة سابقاً حتى بلا can_edit_final");
+  assert.strictEqual(sandbox.canEditParticipantScore(manuallyScored), true, "المشرف: يعدّل علامة يدوية مسجّلة سابقاً حتى بلا can_edit_final");
 
   setContext("subAdmin");
   assert.strictEqual(sandbox.canEditParticipantScore(untested), false, "المسؤول الفرعي: ممنوع تماماً حتى لمتسابق بلا علامة (يستخدم مسار طلب DR فقط)");
   assert.strictEqual(sandbox.canEditParticipantScore(electronicallyScored), false, "المسؤول الفرعي: ممنوع تماماً");
+  assert.strictEqual(sandbox.canEditParticipantScore(manuallyScored), false, "المسؤول الفرعي: ممنوع تماماً");
 
-  console.log("score-edit-permission.test.js: كل الحالات نجحت — تعديل علامة مسجّلة سابقاً حصراً للإدارة الرئيسية، وإدخال علامة أول مرة يبقى متاحاً للمشرف كالسابق");
+  console.log("score-edit-permission.test.js: كل الحالات نجحت — الإدارة ومشرف المسابقة كلاهما يقدران يعدّلا أي علامة بلا قيود، المسؤول الفرعي وحده ممنوع تماماً");
 }
 
 try { run(); } catch (error) { console.error("score-edit-permission.test.js FAILED:", error.stack || error.message); process.exit(1); }
