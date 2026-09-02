@@ -143,6 +143,23 @@ window.CloudCompetition=(()=>{
   async function cancelCommitteeSession(participantId){const {error}=await client.rpc("committee_cancel_session",{p_token:context.token,p_participant_id:participantId});if(error)throw rpcError(error)}
   async function createCommitteeDraw(participantId,level,parts,draw,changeReason=""){const {data,error}=await client.rpc("committee_create_draw",{p_token:context.token,p_participant_id:participantId,p_level:Number(level),p_parts:parts.map(Number),p_draw:draw,p_change_reason:changeReason||null});if(error)throw rpcError(error);return data}
   async function listCommitteeUsedPositionIds(){const {data,error}=await client.rpc("committee_used_position_ids",{p_token:context.token});if(error)throw rpcError(error);return data||[]}
+  // نسخة غنية بالتفصيل (id+level+createdAt) لكل موضع استُخدم عالمياً — لازمة لخوارزمية Scoring
+  // الواعية باليوم/المستوى عند السحب الذاتي للجنة (committee_load_state مقيَّدة بمتسابقي اللجنة
+  // نفسها فقط، فلا تكفي وحدها). دالة SQL إضافية جديدة قد لا تكون مُطبَّقة بعد على قاعدة بيانات
+  // معينة (راجع supabase/committee-used-positions-detailed.sql) — لو فشلت، نتراجع فورًا لقائمة
+  // المعرّفات المسطّحة القديمة (بلا معلومات يوم/مستوى، فتنحصر الأولوية بالاستخدام العام فقط
+  // ريثما يُطبَّق الملف الجديد) بدل ما ينكسر السحب الذاتي كلياً.
+  async function listCommitteeUsedPositionsDetailed(){
+    try{
+      const {data,error}=await client.rpc("committee_used_positions_detailed",{p_token:context.token});
+      if(error)throw error;
+      return data||[];
+    }catch(error){
+      console.warn("[examTrace] listCommitteeUsedPositionsDetailed: الدالة الخفيفة غير متاحة بعد (طبّق supabase/committee-used-positions-detailed.sql)، رجوع لقائمة المعرّفات المسطّحة",error?.message);
+      const ids=await listCommitteeUsedPositionIds();
+      return ids.map(id=>({id,level:null,createdAt:null}));
+    }
+  }
   async function createAdminDraw(draw){const {data,error}=await client.rpc("admin_create_draw",{p_draw:draw});if(error)throw rpcError(error);return data}
   async function createSupervisorDraw(draw){const {data,error}=await client.rpc("supervisor_create_draw",{p_draw:draw});if(error)throw rpcError(error);return data}
   async function replaceCommitteePosition(participantId,drawId,index,position,assessment){const {data,error}=await client.rpc("committee_replace_position",{p_token:context.token,p_participant_id:participantId,p_draw_id:drawId,p_position_index:Number(index),p_position:position,p_assessment:assessment});if(error)throw rpcError(error);return data}
@@ -177,5 +194,5 @@ window.CloudCompetition=(()=>{
   async function linkSupervisor(values){const {data,error}=await client.rpc("admin_link_supervisor",{p_user_id:values.userId,p_name:values.name,p_can_edit_final:Boolean(values.canEditFinal),p_can_delete_data:Boolean(values.canDeleteData)});if(error)throw rpcError(error);return data}
   async function unlinkSupervisor(id){const {data,error}=await client.rpc("admin_delete_supervisor",{p_id:id});if(error)throw rpcError(error);return data}
 
-  return {enabled,init,signInAdmin,requestLoginRecoveryCode,confirmLoginRecovery,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,setCommitteeShowScore,setCommitteeShowStatsSummary,listFinalEditAudit,deleteParticipantSession,listSessions,listFinalSessions,listActiveSessions,listRecentFinalSessions,listLiveCommitteeSessions,getCommitteeSession,listCommitteeNotifications,reportCommitteeIssue,listIssueReports,resolveIssueReport,lookupChangeTimes,claimStudent,cancelCommitteeSession,createCommitteeDraw,listCommitteeUsedPositionIds,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,saveSession,queueSessionSave,cancelQueuedSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,getBackupSettings,setBackupSettings,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listSupervisors,linkSupervisor,unlinkSupervisor,get context(){return context},get client(){return client}};
+  return {enabled,init,signInAdmin,requestLoginRecoveryCode,confirmLoginRecovery,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,saveCompetitionState,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,setCommitteeShowScore,setCommitteeShowStatsSummary,listFinalEditAudit,deleteParticipantSession,listSessions,listFinalSessions,listActiveSessions,listRecentFinalSessions,listLiveCommitteeSessions,getCommitteeSession,listCommitteeNotifications,reportCommitteeIssue,listIssueReports,resolveIssueReport,lookupChangeTimes,claimStudent,cancelCommitteeSession,createCommitteeDraw,listCommitteeUsedPositionIds,listCommitteeUsedPositionsDetailed,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,saveSession,queueSessionSave,cancelQueuedSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,getBackupSettings,setBackupSettings,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listSupervisors,linkSupervisor,unlinkSupervisor,get context(){return context},get client(){return client}};
 })();

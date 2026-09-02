@@ -226,7 +226,13 @@ function buildCandidates(data,lineData){
       const shortSurah=juz===30&&chapter>=93&&chapterCounts.get(chapter)<=20;
       if(startAyah>1&&startAyah<=5)continue;
       if(shortSurah&&startAyah!==1)continue;
-      let bestCandidate=null;
+      // الهدف يضل 8 أسطر بالضبط (يُفضَّل دائماً)، بس صار مسموح بـ9 كحد أقصى (سطر واحد زيادة
+      // فقط، بلا نزول تحت 8 إطلاقاً) لما ما يوجد أي نهاية تعطي 8 بالضبط — هذا وحده يرفع عدد
+      // المواضع المتاحة فعلياً بحوالي 30% (خصوصاً بأجزاء الآيات الطويلة زي 1-3 يلي كانت
+      // مواضعها قليلة جداً وتسبّبت بتكرار ملحوظ لاحظته اللجان). delta يضمن تفضيل 8 دائماً على
+      // 9 لو كلاهما متاحان لنفس نقطة البداية (آخر تحديث لـbestCandidate بأقل delta يفوز، لا
+      // "آخر نهاية وصلها الحلقة").
+      let bestCandidate=null,bestDelta=Infinity;
       const occupiedLines=new Map();
       let words=0;
       for(let end=i;end<verses.length;end++){
@@ -234,9 +240,12 @@ function buildCandidates(data,lineData){
         addVerseLines(occupiedLines,finish);
         words+=wordCount(finish.text_uthmani);
         const lineCount=countOccupiedLines(occupiedLines);
-        if(lineCount>8)break;
+        if(lineCount>9)break;
         if(shortSurah&&endAyah!==chapterCounts.get(endChapter))continue;
         if(lineCount<8)continue;
+        const delta=Math.abs(lineCount-8);
+        if(delta>=bestDelta)continue;
+        bestDelta=delta;
         const segments=occupiedLineSegments(occupiedLines);
         bestCandidate={id:`${juz}-${start.verse_key}-${finish.verse_key}`,juz,chapter,chapterName:chapterMap.get(chapter),endChapter,endChapterName:chapterMap.get(endChapter),startAyah,endAyah,startId:start.id,endId:finish.id,page:start.layoutPage,endPage:finish.layoutPage,words,lineCount,lineModel:"occupied-v2",lineSegments:segments,startKey:start.verse_key,endKey:finish.verse_key};
       }
@@ -912,8 +921,12 @@ function openCommitteeSelfDrawModal(participantId){
       await ensureQuranReady();
       button.textContent="جاري السحب...";
       const questionCount=LEVEL_QUESTIONS[level]||3;
-      const usedIds=new Set(await window.CloudCompetition.listCommitteeUsedPositionIds());
-      const committeeAvailableForParts=juzList=>{const pool=candidates.filter(c=>juzList.includes(c.juz));const unused=pool.filter(c=>!usedIds.has(c.id));return unused.length?unused:pool};
+      // اللجنة لا ترى إلا سحوبات متسابقيها هي (committee_load_state مقيَّدة)، فنجلب استخدام
+      // المواضع عالمياً (كل اللجان) من دالة مخصّصة، ثم نستخدم نفس نظام Scoring الموحّد
+      // (bestScoredCandidates) يلي تستخدمه شاشة الإدارة بالضبط — بدل منطق "غير مستخدَم إطلاقاً
+      // وإلا الكل" القديم يلي كان غير متسق مع الإدارة وأعمى عن اليوم/المستوى/السورة.
+      const usedPositionsDetailed=await window.CloudCompetition.listCommitteeUsedPositionsDetailed();
+      const committeeAvailableForParts=juzList=>bestScoredCandidates(candidates.filter(c=>juzList.includes(c.juz)),level,usedPositionsDetailed);
       const pools=new Map(parts.map(j=>[j,committeeAvailableForParts([j])]));
       const eligibleParts=parts.filter(j=>pools.get(j).length);
       if(eligibleParts.length<questionCount)throw new Error("لا توجد مواضع كافية ضمن الأجزاء المختارة");
@@ -1637,10 +1650,63 @@ function selectFirstParts(){const count=Number($("#drawLevel").value)||0;$$(`#pa
 function handlePartSelection(event){const level=Number($("#drawLevel").value);if(!level){event.target.checked=false;toast("اختر عدد الأجزاء أولاً");return updateAvailability()}if(selectedParts().length>level){event.target.checked=false;toast(`لا يمكن اختيار أكثر من ${level} أجزاء لهذا المستوى`)}updateAvailability()}
 function togglePartRange(range){const level=Number($("#drawLevel").value);if(!level)return toast("اختر عدد الأجزاء أولاً");const [start,end]=range.split("-").map(Number),inputs=$$("#partsGrid input"),rangeInputs=inputs.filter(input=>Number(input.value)>=start&&Number(input.value)<=end),allSelected=rangeInputs.every(input=>input.checked);if(!allSelected){const selectedOutside=inputs.filter(input=>input.checked&&!rangeInputs.includes(input)).length;if(selectedOutside+rangeInputs.length>level)return toast(`هذا الاختيار يتجاوز عدد أجزاء هذا المستوى (${level})`)}rangeInputs.forEach(input=>input.checked=!allSelected);updateAvailability()}
 function selectedParts(){const participant=state.participants.find(item=>item.id===$("#drawParticipant").value);return participant&&participant.parts?.length===participant.level?[...participant.parts]:[]}
-function usedCandidateIds(){return new Set(state.draws.flatMap(d=>d.positions.map(p=>p.id)))}
-function availableForParts(parts){const pool=candidates.filter(c=>parts.includes(c.juz)),used=usedCandidateIds(),unused=pool.filter(c=>!used.has(c.id));return unused.length?unused:leastRepeatedCandidates(pool)}
-function leastRepeatedCandidates(pool){if(!pool.length)return [];const counts=new Map();state.draws.forEach(draw=>draw.positions.forEach(position=>counts.set(position.id,(counts.get(position.id)||0)+1)));const minimum=Math.min(...pool.map(candidate=>counts.get(candidate.id)||0));return pool.filter(candidate=>(counts.get(candidate.id)||0)===minimum)}
-function updateAvailability(){const parts=selectedParts(),available=availableForParts(parts);$("#availableCount").textContent=parts.length?`${formatNumber(available.length)} موضعاً`:"اختر متسابقًا بأجزاء مكتملة"}
+// نظام Scoring واعٍ باليوم/المستوى/السورة لاختيار موضع السحب — بديل موحّد لمنطق "غير مستخدَم
+// إطلاقاً ثم الأقل تكراراً" القديم (كان أعمى عن الزمن والمستوى، وغير متسق أصلاً بين شاشة
+// الإدارة ورصد اللجنة — راجع committeeAvailableForParts). لا يمنع أي موضع نهائياً — فقط يرتّب
+// الأولوية، والاختيار الفعلي الأخير يبقى عشوائياً بالكامل (Web Crypto عبر randomIndex عند
+// المستدعي) بين المرشّحين المتعادلين بأفضل نقاط. الأولوية (الأعلى أولاً): تكرار نفس الموضع
+// اليوم لنفس المستوى، ثم تكرار نفس السورة اليوم لنفس المستوى (يمنع "تكدّس" الطلب داخل سورة
+// قليلة المواضع رغم أن الجزء ككل مرتاح، مثال سورة محمد بجزء 26)، ثم تكرار الموضع بنفس المستوى
+// بأي يوم، ثم الاستخدام العام (أي مستوى، أي يوم) كأخف وزن. عدم تمرير level (استدعاء بلا سياق
+// مستوى معروف) يسقط طبقتَي اليوم/المستوى تلقائياً ويكتفي بالاستخدام العام فقط.
+function drawDayKey(iso){const date=new Date(iso||Date.now());return Number.isNaN(date.getTime())?"":date.toISOString().slice(0,10)}
+const POSITION_SCORE_WEIGHTS={dayLevelPosition:1000,dayLevelSurah:300,levelHistorical:50,overall:5};
+// خريطة id←→موضع مبنية مرة وحدة (تُعاد بناؤها فقط لو تغيّر عدد candidates، أي بعد ensureQuranReady) —
+// نحتاجها لمعرفة juz/chapter موضع بمجرد id عند تجميع استخدام "السورة" من مصدر خارجي (اللجنة).
+let candidatesByIdCache=null;
+function candidatesById(){if(!candidatesByIdCache||candidatesByIdCache.size!==candidates.length)candidatesByIdCache=new Map(candidates.map(c=>[c.id,c]));return candidatesByIdCache}
+// يحوّل state.draws (مصدر الإدارة/المسؤول الفرعي — شامل عالمياً بسياقهم) لقائمة أحداث استخدام
+// مسطّحة {id,level,createdAt} — نفس الشكل يلي ترجعه اللجنة من السيرفر (globally، راجع cloud.js
+// listCommitteeUsedPositionsDetailed) — فدالة الفهرسة والتسجيل تبقى واحدة موحّدة للمصدرين معاً.
+function positionUsageEntriesFromDraws(draws){const entries=[];for(const draw of draws||[])for(const position of draw.positions||[])entries.push({id:position.id,level:draw.level,createdAt:draw.createdAt});return entries}
+function buildPositionUsageIndex(entries,level,todayKey){
+  const byId=candidatesById();
+  const overall=new Map(),levelHistorical=new Map(),dayLevelPosition=new Map(),dayLevelSurah=new Map();
+  for(const entry of entries||[]){
+    overall.set(entry.id,(overall.get(entry.id)||0)+1);
+    if(level==null||entry.level==null||Number(entry.level)!==Number(level))continue;
+    levelHistorical.set(entry.id,(levelHistorical.get(entry.id)||0)+1);
+    if(!entry.createdAt||drawDayKey(entry.createdAt)!==todayKey)continue;
+    dayLevelPosition.set(entry.id,(dayLevelPosition.get(entry.id)||0)+1);
+    const candidate=byId.get(entry.id);
+    if(candidate){const surahKey=`${candidate.juz}-${candidate.chapter}`;dayLevelSurah.set(surahKey,(dayLevelSurah.get(surahKey)||0)+1)}
+  }
+  return {overall,levelHistorical,dayLevelPosition,dayLevelSurah};
+}
+function positionSelectionScore(candidate,index){
+  const w=POSITION_SCORE_WEIGHTS,surahKey=`${candidate.juz}-${candidate.chapter}`;
+  return (index.dayLevelPosition.get(candidate.id)||0)*w.dayLevelPosition
+    +(index.dayLevelSurah.get(surahKey)||0)*w.dayLevelSurah
+    +(index.levelHistorical.get(candidate.id)||0)*w.levelHistorical
+    +(index.overall.get(candidate.id)||0)*w.overall;
+}
+// يرجّع أفضل مرشّحين ضمن pool معطى (الأقل نقاط سوية، بلا استبعاد نهائي لأي أحد) — المستدعي
+// يختار عشوائياً (randomIndex، Web Crypto) من بينهم كخطوة أخيرة، فتبقى العشوائية الفعلية كما
+// هي تماماً. entries: قائمة أحداث الاستخدام (افتراضياً state.draws المحلية؛ اللجنة تمرّر
+// قائمة عالمية جلبتها من السيرفر بدل state.draws المحلية المُقيَّدة بمتسابقي لجنتها فقط).
+function bestScoredCandidates(pool,level,entries=positionUsageEntriesFromDraws(state.draws)){
+  if(!pool.length)return [];
+  const index=buildPositionUsageIndex(entries,level,drawDayKey(new Date().toISOString()));
+  let minScore=Infinity,best=[];
+  for(const candidate of pool){
+    const score=positionSelectionScore(candidate,index);
+    if(score<minScore){minScore=score;best=[candidate]}
+    else if(score===minScore)best.push(candidate);
+  }
+  return best;
+}
+function availableForParts(parts,level=null){return bestScoredCandidates(candidates.filter(c=>parts.includes(c.juz)),level)}
+function updateAvailability(){const parts=selectedParts(),level=Number($("#drawLevel")?.value)||null,available=availableForParts(parts,level);$("#availableCount").textContent=parts.length?`${formatNumber(available.length)} موضعاً`:"اختر متسابقًا بأجزاء مكتملة"}
 
 async function performDraw(event){
   event.preventDefault();const error=$("#drawError");error.classList.add("hidden");const submit=event.submitter;let submitOriginalHtml=null;if(submit){submitOriginalHtml=submit.innerHTML;submit.disabled=true;submit.textContent="جاري تجهيز بيانات القرآن..."}try{await ensureQuranReady()}catch(loadError){if(submit){submit.disabled=false;submit.innerHTML=submitOriginalHtml??"إجراء السحب"}return showDrawError(`تعذر تجهيز بيانات القرآن: ${loadError.message}`)}if(submit){submit.disabled=false;submit.innerHTML=submitOriginalHtml??"إجراء السحب"}const level=Number($("#drawLevel").value),parts=selectedParts(),questionCount=Number($("#drawQuestionCount").value);
@@ -1649,7 +1715,7 @@ async function performDraw(event){
   if(registeredParticipant&&registeredParticipant.parts?.length!==registeredParticipant.level)return showDrawError("الرجاء إدخال الأجزاء المشاركة فيها للمتسابق من زر تعديل قبل إجراء السحب");
   if(!level||parts.length!==level)return showDrawError(`يجب اختيار ${level||"عدد المستوى"} أجزاء بالضبط`);
   if(questionCount<1||questionCount>Math.min(15,parts.length))return showDrawError("عدد الأسئلة يجب ألا يتجاوز عدد الأجزاء المختارة أو 15 سؤالاً");
-  const pools=new Map(parts.map(j=>[j,availableForParts([j])]));const eligibleParts=parts.filter(j=>pools.get(j).length);
+  const pools=new Map(parts.map(j=>[j,availableForParts([j],level)]));const eligibleParts=parts.filter(j=>pools.get(j).length);
   if(eligibleParts.length<questionCount)return showDrawError("لا توجد مواضع كافية ضمن الأجزاء المختارة.");
   const drawnParts=secureShuffle(eligibleParts).slice(0,questionCount);const positions=drawnParts.map(j=>pools.get(j)[randomIndex(pools.get(j).length)]).sort((a,b)=>a.juz-b.juz);
   const draw={id:uid("DRAW"),sequence:nextDrawSequence(),participantId:$("#drawParticipant").value||null,name:$("#drawName").value.trim(),seat:$("#drawSeat").value.trim(),center:$("#drawCenter").value.trim(),age:Number($("#drawAge").value)||null,level,eligibleParts:parts,positions,createdAt:new Date().toISOString(),rerolls:[],verification:""};
@@ -1800,7 +1866,7 @@ function openElectronicAssessment(draw,cloudSession=null,jumpToIndex=null){
 }
 function failurePositionIndex(assessment){let deduction=0;for(let index=0;index<(assessment?.positions||[]).length;index++){deduction+=calculateAssessment({positions:[assessment.positions[index]]}).totalDeduction;if(100-deduction<75)return index}return -1}
 function updateAssessmentSummary(assessment){const result=calculateAssessment(assessment),failureIndex=failurePositionIndex(assessment);$("#assessmentLiveScore").textContent=formatAssessmentNumber(result.score);$("#assessmentLiveScore").className=result.passed?"pass-text":"fail-text";$("#assessmentTotalDeduction").textContent=formatAssessmentNumber(result.totalDeduction);$("#assessmentSummaryRows").innerHTML=Object.entries(ASSESSMENT_RULES).map(([type,rule])=>`<div><span>${rule.label} (${result.totals[type]})</span><b>−${formatAssessmentNumber(result.deductions[type])}</b></div>`).join("");const old=$("#assessmentFailureWarning");if(old)old.remove();if(failureIndex>=0){const chairman=currentExaminerRole()==="chairman";$("#activeAssessmentPosition").insertAdjacentHTML("afterend",`<div id="assessmentFailureWarning" class="assessment-failure-warning"><b>تجاوز المتسابق الحد الأعلى المسموح للنجاح</b><span>وصلت العلامة إلى أقل من 75 عند الموضع ${failureIndex+1}. ${chairman?"يمكنكم إنهاء الاختبار أو الاستمرار.":"بانتظار رئيس اللجنة لإنهاء الاختبار."}</span>${chairman?`<button type="button" id="finishFailedAssessment" class="danger-btn">إنهاء الاختبار الآن</button>`:""}</div>`)}}
-async function replaceAssessmentPosition(draw,participant,assessment,index){if((draw.rerolls?.length||0)>=2)return toast("تم استخدام الحد الأقصى لتبديل الموضع (مرتان) لهذا المتسابق");if(!confirm("سيتم خصم 10 علامات واختيار موضع مختلف عشوائيًا من الجزء نفسه. هل تريد المتابعة؟"))return;const old=draw.positions[index],pool=availableForParts([old.juz]).filter(item=>item.id!==old.id&&!draw.positions.some(position=>position.id===item.id));if(!pool.length)throw new Error("لا يوجد موضع بديل متاح في الجزء نفسه");const replacement=pool[randomIndex(pool.length)],entry=assessment.positions[index];entry.positionChange=(Number(entry.positionChange)||0)+1;entry.changes=entry.changes||[];entry.changes.push({oldPosition:old,newPosition:replacement,committeeName:window.CloudCompetition.context?.committee?.name||"الإدارة",at:new Date().toISOString()});entry.positionId=replacement.id;draw.positions[index]=replacement;assessment.actions.push({positionId:replacement.id,type:"positionChange",delta:1,at:new Date().toISOString(),oldPositionId:old.id});assessment.updatedAt=new Date().toISOString();if(operationMode==="cloud"&&window.CloudCompetition.context?.kind==="committee")await window.CloudCompetition.replaceCommitteePosition(participant.id,draw.id,index,replacement,assessment);else saveState();draw.rerolls=draw.rerolls||[];draw.rerolls.push({positionIndex:index,at:new Date().toISOString()});saveAssessmentDraft(participant);toast(`تم تغيير الموضع ${index+1} بموضع آخر من الجزء ${old.juz}`)}
+async function replaceAssessmentPosition(draw,participant,assessment,index){if((draw.rerolls?.length||0)>=2)return toast("تم استخدام الحد الأقصى لتبديل الموضع (مرتان) لهذا المتسابق");if(!confirm("سيتم خصم 10 علامات واختيار موضع مختلف عشوائيًا من الجزء نفسه. هل تريد المتابعة؟"))return;const old=draw.positions[index],pool=availableForParts([old.juz],draw.level).filter(item=>item.id!==old.id&&!draw.positions.some(position=>position.id===item.id));if(!pool.length)throw new Error("لا يوجد موضع بديل متاح في الجزء نفسه");const replacement=pool[randomIndex(pool.length)],entry=assessment.positions[index];entry.positionChange=(Number(entry.positionChange)||0)+1;entry.changes=entry.changes||[];entry.changes.push({oldPosition:old,newPosition:replacement,committeeName:window.CloudCompetition.context?.committee?.name||"الإدارة",at:new Date().toISOString()});entry.positionId=replacement.id;draw.positions[index]=replacement;assessment.actions.push({positionId:replacement.id,type:"positionChange",delta:1,at:new Date().toISOString(),oldPositionId:old.id});assessment.updatedAt=new Date().toISOString();if(operationMode==="cloud"&&window.CloudCompetition.context?.kind==="committee")await window.CloudCompetition.replaceCommitteePosition(participant.id,draw.id,index,replacement,assessment);else saveState();draw.rerolls=draw.rerolls||[];draw.rerolls.push({positionIndex:index,at:new Date().toISOString()});saveAssessmentDraft(participant);toast(`تم تغيير الموضع ${index+1} بموضع آخر من الجزء ${old.juz}`)}
 async function adoptChairmanPositionChange(draw,participant,assessment,index){
   const remote=await window.CloudCompetition.loadCompetitionState();
   const remoteDraw=(remote.payload?.draws||[]).find(item=>item.id===draw.id);
@@ -1881,7 +1947,7 @@ async function runBulkDraw(participants){
   const button=$("#confirmBulkDraw");button.disabled=true;button.textContent="جاري تجهيز بيانات القرآن...";try{await ensureQuranReady()}catch(error){button.disabled=false;button.textContent="تنفيذ السحب لمن أجزاؤه جاهزة";return toast(`تعذر تجهيز بيانات القرآن: ${error.message}`)}let completed=0,missingPartsNames=[],noPositionsNames=[];
   for(const p of participants){
     button.textContent=`جاري السحب ${completed+1} من ${participants.length}`;
-    if(p.parts?.length!==p.level){missingPartsNames.push(p.name);continue}const parts=p.parts;const questionCount=Math.min(LEVEL_QUESTIONS[p.level]||3,parts.length);const pools=new Map(parts.map(j=>[j,availableForParts([j])]));const eligibleParts=parts.filter(j=>pools.get(j).length);
+    if(p.parts?.length!==p.level){missingPartsNames.push(p.name);continue}const parts=p.parts;const questionCount=Math.min(LEVEL_QUESTIONS[p.level]||3,parts.length);const pools=new Map(parts.map(j=>[j,availableForParts([j],p.level)]));const eligibleParts=parts.filter(j=>pools.get(j).length);
     if(eligibleParts.length<questionCount){noPositionsNames.push(p.name);continue}
     const drawnParts=secureShuffle(eligibleParts).slice(0,questionCount);const positions=drawnParts.map(j=>pools.get(j)[randomIndex(pools.get(j).length)]).sort((a,b)=>a.juz-b.juz);const draw={id:uid("DRAW"),sequence:nextDrawSequence(),participantId:p.id,name:p.name,seat:p.seat,center:p.center,age:p.age,level:p.level,eligibleParts:parts,positions,createdAt:new Date().toISOString(),rerolls:[],verification:""};draw.verification=await createVerification(draw);state.draws.push(draw);saveState();completed++;
   }
@@ -1889,7 +1955,7 @@ async function runBulkDraw(participants){
 }
 function positionTitle(p){return p.endChapter&&p.endChapter!==p.chapter?`${p.chapterName} (${p.startAyah}) إلى ${p.endChapterName} (${p.endAyah})`:`${p.chapterName} (${p.startAyah}${p.endAyah!==p.startAyah?` - ${p.endAyah}`:""})`}
 function positionHtml(p,i){return `<article class="position-card"><span class="position-number">${i+1}</span><div><h3>${escapeHtml(positionTitle(p))}</h3><p>الجزء ${p.juz} · ${p.lineCount?`${p.lineCount} أسطر · `:""}${p.words} كلمة · ${p.startKey} إلى ${p.endKey}</p></div><div class="page-number"><span>الصفحة</span><b>${p.page}</b></div></article>`}
-function requestReroll(drawId){const draw=state.draws.find(d=>d.id===drawId);openModal(`<form id="rerollForm"><div class="modal-head"><h2>إعادة سحب موضع</h2><button class="icon-btn" type="button" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><label>الموضع المطلوب تغييره<select id="rerollIndex">${draw.positions.map((p,i)=>`<option value="${i}">${i+1}. ${escapeHtml(positionTitle(p))}</option>`).join("")}</select></label><label>سبب إعادة السحب<textarea id="rerollReason" required rows="3" placeholder="يُحفظ السبب في سجل الدورة"></textarea></label></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button class="primary-btn">تأكيد وإعادة السحب</button></div></form>`);$("#rerollForm").onsubmit=e=>{e.preventDefault();const index=Number($("#rerollIndex").value),old=draw.positions[index],everHeld=new Set([...draw.positions.map(p=>p.id),...(draw.rerolls||[]).map(r=>r.old.id)]),pool=availableForParts([old.juz]).filter(c=>!everHeld.has(c.id));if(!pool.length)return toast("لا يوجد بديل آخر في هذا الجزء لم يسبق أن أُعطي لهذا المتسابق");const replacement=pool[randomIndex(pool.length)];draw.rerolls.push({old,reason:$("#rerollReason").value.trim(),at:new Date().toISOString()});draw.positions[index]=replacement;const participant=state.participants.find(item=>item.id===draw.participantId);if(participant?.assessment?.drawId===draw.id){participant.assessment.status="draft";delete participant.assessment.result;if(participant.scoreSource==="electronic"){delete participant.score;delete participant.gradedAt;delete participant.scoreSource}}saveState();renderAll();showResult(draw);toast("تم تغيير الموضع وإعادة التقييم الإلكتروني إلى مسودة")}}
+function requestReroll(drawId){const draw=state.draws.find(d=>d.id===drawId);openModal(`<form id="rerollForm"><div class="modal-head"><h2>إعادة سحب موضع</h2><button class="icon-btn" type="button" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><label>الموضع المطلوب تغييره<select id="rerollIndex">${draw.positions.map((p,i)=>`<option value="${i}">${i+1}. ${escapeHtml(positionTitle(p))}</option>`).join("")}</select></label><label>سبب إعادة السحب<textarea id="rerollReason" required rows="3" placeholder="يُحفظ السبب في سجل الدورة"></textarea></label></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button class="primary-btn">تأكيد وإعادة السحب</button></div></form>`);$("#rerollForm").onsubmit=e=>{e.preventDefault();const index=Number($("#rerollIndex").value),old=draw.positions[index],everHeld=new Set([...draw.positions.map(p=>p.id),...(draw.rerolls||[]).map(r=>r.old.id)]),pool=availableForParts([old.juz],draw.level).filter(c=>!everHeld.has(c.id));if(!pool.length)return toast("لا يوجد بديل آخر في هذا الجزء لم يسبق أن أُعطي لهذا المتسابق");const replacement=pool[randomIndex(pool.length)];draw.rerolls.push({old,reason:$("#rerollReason").value.trim(),at:new Date().toISOString()});draw.positions[index]=replacement;const participant=state.participants.find(item=>item.id===draw.participantId);if(participant?.assessment?.drawId===draw.id){participant.assessment.status="draft";delete participant.assessment.result;if(participant.scoreSource==="electronic"){delete participant.score;delete participant.gradedAt;delete participant.scoreSource}}saveState();renderAll();showResult(draw);toast("تم تغيير الموضع وإعادة التقييم الإلكتروني إلى مسودة")}}
 
 function renderHistory(){const query=$("#historySearch").value.trim().toLowerCase();const list=[...state.draws].reverse().filter(d=>`${d.name} ${d.sequence} ${d.verification}`.toLowerCase().includes(query));$("#historyTable").closest(".table-wrap").classList.toggle("is-empty",!list.length);$("#historyTable").innerHTML=list.length?list.map(d=>`<tr><td><strong>${d.sequence.toString().padStart(4,"0")}</strong><small>${d.verification}</small></td><td><strong>${escapeHtml(d.name)}</strong><small>${escapeHtml(d.center)}</small></td><td>${d.level} أجزاء</td><td>${d.positions.map(p=>`ج${p.juz}: ${escapeHtml(positionTitle(p))}`).join("<br>")}</td><td>${formatDate(d.createdAt)}</td><td><div class="row-actions"><button class="compact-btn" data-result="${d.id}"><i data-lucide="eye"></i> عرض</button><button class="icon-btn delete-icon" data-delete-draw="${d.id}" title="حذف السحب"><i data-lucide="trash-2"></i></button></div></td></tr>`).join(""):`<tr><td class="table-empty" colspan="6">لا توجد سحوبات مسجلة</td></tr>`;$$(`[data-result]`).forEach(b=>b.onclick=()=>showResult(state.draws.find(d=>d.id===b.dataset.result)));$$(`[data-delete-draw]`).forEach(b=>b.onclick=()=>confirmDeleteDraw(b.dataset.deleteDraw));lucide.createIcons()}
 function confirmDeleteDraw(drawId){const draw=state.draws.find(d=>d.id===drawId);if(!draw)return;openModal(`<div class="modal-head"><h2>حذف السحب</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>هل تريد حذف سحب <b>${escapeHtml(draw.name)}</b> رقم ${draw.sequence.toString().padStart(4,"0")}؟</p><p class="form-error">ستصبح مواضع هذا السحب متاحة من جديد. وإذا كانت لهذا المتسابق علامة أو تقييم فسيُحذف ويعود إلى حالة بانتظار السحب.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="deleteDrawNow" class="danger-btn"><i data-lucide="trash-2"></i> حذف السحب</button></div>`);$("#deleteDrawNow").onclick=()=>{state.deletions=state.deletions||[];state.deletions.push({type:"draw",drawId:draw.id,sequence:draw.sequence,name:draw.name,at:new Date().toISOString()});state.draws=state.draws.filter(d=>d.id!==drawId);const participant=state.participants.find(p=>p.id===draw.participantId);if(participant&&!state.draws.some(d=>d.participantId===participant.id)){delete participant.score;delete participant.gradedAt;delete participant.scoreSource;delete participant.assessment}saveState();closeModal();renderAll();toast("تم حذف السحب وتقييمه وتحرير مواضعه")}}
