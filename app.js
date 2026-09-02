@@ -1096,8 +1096,16 @@ function openParticipantModal(participant=null){
     const parts=(parsedParts.length===level?parsedParts:[]).map(Number).sort((a,b)=>a-b),oldParts=[...(participant?.parts||[])].map(Number).sort((a,b)=>a-b),partsChanged=Boolean(participant)&&(Number(participant.level)!==level||JSON.stringify(oldParts)!==JSON.stringify(parts)),oldDraw=participant&&state.draws.find(draw=>draw.participantId===participant.id),drawParts=[...(oldDraw?.eligibleParts||[])].map(Number).filter(Number.isFinite).sort((a,b)=>a-b),drawPartsKnown=drawParts.length>0,drawPartsMismatch=Boolean(oldDraw)&&(Number(oldDraw.level)!==level||(drawPartsKnown?JSON.stringify(drawParts)!==JSON.stringify(parts):partsChanged)),resetRequired=Boolean(oldDraw)&&drawPartsMismatch;
     button.disabled=true;const stateBeforeEdit=JSON.parse(JSON.stringify(state));
     try{
-      const item={id:participant?.id||uid("P"),name:$("#pName").value.trim(),seat:$("#pSeat").value.trim(),gender:$("#pGender").value,center:$("#pCenter").value.trim(),branch:BRANCH_NAME,phone:$("#pPhone").value.trim()||null,age:Number($("#pAge").value)||null,level,levelName,parts,createdAt:participant?.createdAt||new Date().toISOString()};
-      if(!resetRequired){item.score=participant?.score;item.gradedAt=participant?.gradedAt;item.scoreSource=participant?.scoreSource;item.assessment=participant?.assessment}
+      // كان يبني item من الصفر بحقول محدودة فقط (بلا withdrawn/manualEntryBy/drRequest/
+      // transferCommitteeId وأي حقل آخر غير مذكور صراحةً هون) — فأي تعديل بسيط لبيانات متسابق
+      // منسحب (مثلاً تصحيح اسم مركزه) من نفس نموذج "تعديل بيانات المتسابق" كان يمسح withdrawn
+      // بصمت بينما يبقي score=0/scoreSource="withdrawn" (لأنه resetRequired=false هون دائماً،
+      // ما في سحب أصلاً لمتسابق منسحب من استيراد)، فتظهر بطاقته "مكتمل · راسب" رغم عدم وجود أي
+      // سحب أو اختبار فعلي له إطلاقاً — تناقض واضح بين حالة "لا يوجد سحب" وعلامة "راسب" ظاهرة.
+      // الإصلاح: نبني item فوق نسخة كاملة من participant الحالي (كل حقوله القديمة تبقى محفوظة
+      // افتراضيًا)، ونكتفي بحذف حقول العلامة صراحةً فقط لما يكون resetRequired فعلاً.
+      const item={...(participant||{}),id:participant?.id||uid("P"),name:$("#pName").value.trim(),seat:$("#pSeat").value.trim(),gender:$("#pGender").value,center:$("#pCenter").value.trim(),branch:BRANCH_NAME,phone:$("#pPhone").value.trim()||null,age:Number($("#pAge").value)||null,level,levelName,parts,createdAt:participant?.createdAt||new Date().toISOString()};
+      if(resetRequired){delete item.score;delete item.gradedAt;delete item.scoreSource;delete item.assessment}
       if(resetRequired&&oldDraw){state.deletions=state.deletions||[];state.deletions.push({type:"draw-parts-changed",drawId:oldDraw.id,participantId:participant.id,name:participant.name,oldParts:drawParts.length?drawParts:oldParts,newParts:parts,at:new Date().toISOString()});state.draws=state.draws.filter(draw=>draw.participantId!==participant.id);committeeSessions=committeeSessions.filter(session=>session.participant_id!==participant.id)}
       const index=state.participants.findIndex(p=>p.id===item.id);if(index>=0)state.participants[index]=item;else state.participants.push(item);
       saveState();if(resetRequired&&oldDraw&&cloudEnabled){const editorKind=window.CloudCompetition.context?.kind;if(editorKind==="subAdmin"){await window.CloudCompetition.deleteParticipantSession(participant.id)}else{if(editorKind==="supervisor")await window.CloudCompetition.saveSupervisorState(state);else await window.CloudCompetition.saveCompetitionState(state);await window.CloudCompetition.deleteParticipantSession(participant.id)}}closeModal();renderAll();toast(resetRequired&&oldDraw?"تم تصحيح الأجزاء وإلغاء السحب والتقييم القديم وإعادة المتسابق لانتظار السحب":"تم حفظ بيانات المتسابق");
