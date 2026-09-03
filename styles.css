@@ -599,11 +599,6 @@ body.exam-fullscreen .color-mode-toggle{display:none}
 .reveal-countdown svg{width:46px;height:46px}
 @keyframes revealPulse{50%{transform:scale(.92);opacity:.72}}
 
-.result-score-editor{display:grid;grid-template-columns:1fr 120px auto;gap:12px;align-items:center;margin:0 var(--sp-6) var(--sp-5);padding:15px;background:var(--green-50);border-right:4px solid var(--green-700);border-radius:var(--radius-sm)}
-.result-score-editor span{font-size:13px;font-weight:800}
-.result-score-editor small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
-.result-score-editor input{margin:0;text-align:center;font-weight:800}
-
 /* 16. Logos / images ------------------------------------------------------------ */
 .auth-logo{display:block;width:168px;height:168px;object-fit:contain}
 .login-logo-image{margin:0 auto;width:148px;height:148px}
@@ -678,11 +673,6 @@ body.exam-fullscreen .color-mode-toggle{display:none}
   .result-hero{align-items:flex-start;gap:15px}
   .draw-code b{font-size:12px}
 }
-@media(max-width:600px){
-  .result-score-editor{grid-template-columns:1fr}
-  .result-score-editor button{width:100%}
-}
-
 /* Electronic assessment ---------------------------------------------------------- */
 .assessment-launch-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--green-700);background:var(--green-50);color:var(--green-800);padding:10px 14px;border-radius:var(--radius-sm);font-weight:800}
 .assessment-launch-btn:hover{background:var(--green-100)}
@@ -857,7 +847,7 @@ img,svg{max-width:100%}
   .committee-tools{align-items:stretch;flex-wrap:wrap}.committee-tools .search-box{flex:1 1 calc(100% - 56px)}.committee-tools select{width:100%;order:3}.committee-tools .secondary-btn{width:46px;padding:0;font-size:0}.committee-tools .secondary-btn svg{margin:0}
   .committee-student{padding:13px}.committee-position-preview li{padding:8px}.committee-form-actions{display:grid;grid-template-columns:1fr}.committee-form-actions>*{width:100%}
   .committee-row .row-actions{justify-content:stretch;width:100%}.committee-row .row-actions>*{flex:1;justify-content:center}
-  .bulk-summary{grid-template-columns:1fr}.result-person{padding-inline:18px}.result-score-editor{margin-inline:18px}.assessment-print-summary{margin-inline:18px}.assessment-print-row{grid-template-columns:24px 1fr}.assessment-print-row>strong,.assessment-print-row>small{grid-column:2}.assessment-print-title{flex-direction:column;gap:2px}
+  .bulk-summary{grid-template-columns:1fr}.result-person{padding-inline:18px}.assessment-print-summary{margin-inline:18px}.assessment-print-row{grid-template-columns:24px 1fr}.assessment-print-row>strong,.assessment-print-row>small{grid-column:2}.assessment-print-title{flex-direction:column;gap:2px}
   .positions-title,.position-card{grid-template-columns:36px minmax(0,1fr) 48px;gap:8px}.position-number{width:34px;height:34px}.position-card h3{font-size:14px}.position-card p{font-size:10px;overflow-wrap:anywhere}.page-number b{font-size:17px}
   .toast{left:10px;right:10px;bottom:10px;text-align:center}
 }
@@ -877,7 +867,7 @@ img,svg{max-width:100%}
 /* 18. Print ----------------------------------------------------------------------- */
 .pdf-export-sheet{position:fixed!important;z-index:-1!important;right:-99999px!important;top:0!important;width:760px!important;max-width:none!important;max-height:none!important;overflow:visible!important;background:#fff!important;color:#111!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:28px!important;direction:rtl;animation:none!important;opacity:1!important;filter:none!important;transform:none!important;pointer-events:none!important}
 .pdf-export-sheet *{animation:none!important;transition:none!important}
-.pdf-export-sheet .modal-actions,.pdf-export-sheet .result-warning,.pdf-export-sheet .legacy-warning,.pdf-export-sheet .result-score-editor{display:none!important}
+.pdf-export-sheet .modal-actions,.pdf-export-sheet .result-warning,.pdf-export-sheet .legacy-warning{display:none!important}
 .pdf-export-sheet .print-only{display:flex!important}
 .pdf-export-sheet .print-letterhead{align-items:center;justify-content:space-between;border-bottom:2px solid var(--green-900);padding:0 0 10px;margin-bottom:10px;color:var(--green-900);gap:12px}
 .pdf-export-sheet .print-letterhead>div{margin-left:auto;display:flex;flex-direction:column}.pdf-export-sheet .print-letterhead b{font-size:15px}.pdf-export-sheet .print-letterhead span{font-size:11px}.pdf-export-sheet .print-logo{width:82px;height:74px;object-fit:contain}
@@ -974,7 +964,6 @@ img,svg{max-width:100%}
   .print-signatures b{display:block;height:31px;border-bottom:1px dotted #777;margin-top:5px;text-align:left}
   .print-footer{justify-content:space-between;margin-top:28px;padding-top:8px;border-top:1px solid #d6ddda;color:#68756f;font-size:8px}
   .modal-body{padding:0}
-  .result-score-editor{display:none!important}
 }
 
 /* Public gateway and isolated local-branch mode */
