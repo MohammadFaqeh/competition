@@ -761,7 +761,13 @@ body.exam-fullscreen .examiner-mode-modal{width:100%;max-width:none;height:100dv
 .examiner-screen{padding:14px 18px 18px}.position-stepper{display:flex;justify-content:center;gap:7px;margin-bottom:12px;overflow-x:auto;padding:2px}.position-stepper button{flex:0 0 34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-weight:800}.position-stepper button.active{background:var(--green-800);border-color:var(--green-800);color:#fff;box-shadow:0 0 0 4px var(--green-100)}
 .position-stepper button.is-done{background:var(--green-100);border-color:var(--green-600);color:var(--green-800);opacity:.75}
 .position-stepper button.is-done.active{opacity:1;background:var(--green-800);border-color:var(--green-800);color:#fff;box-shadow:0 0 0 4px var(--green-100)}
-.exam-position-complete{width:100%;justify-content:center;margin-top:12px}
+/* .exam-split-panel عنده سكرول داخلي خاص (راجع التعليق أعلاه) — لو محتواه (خانات الأخطاء
+   الخمسة + الملاحظة) أطول من المساحة المتاحة على شاشة قصيرة (لابتوب مثلاً)، كان زر "إنهاء هذا
+   الموضع" — آخر عنصر بالقائمة — ينزل تحت حافة السكرول الداخلي دون أي مؤشر واضح إنه فيه سكرول
+   إضافي جوا نفس الصندوق (خصوصًا بلوحات اللمس اللي تخفي شريط التمرير)، فيبدو للممتحن وكأنه غير
+   موجود إطلاقًا رغم إنه موجود فعلاً — يحتاج نزول إضافي داخل الصندوق نفسه ليصله. نثبّته بأسفل
+   الصندوق دائمًا (sticky bottom) ليبقى بمتناول اليد بلا أي حاجة للتمرير اكتشافه أصلاً.  */
+.exam-position-complete{width:100%;justify-content:center;margin-top:12px;position:sticky;bottom:0;background:var(--surface);box-shadow:0 -8px 10px -6px rgb(0 0 0 / .08);z-index:1}
 .exam-position-complete.is-done{background:var(--green-100);border-color:var(--green-600);color:var(--green-800)}
 .exam-position-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-sm)}.exam-position-label{display:flex;justify-content:space-between;gap:10px;color:var(--green-700);font-size:11px;font-weight:800}.exam-position-label b{color:var(--red)}.exam-position-card>h2{font-size:23px;margin:7px 0 2px}.exam-position-card>p{color:var(--muted);font-size:11px}
 .exam-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
