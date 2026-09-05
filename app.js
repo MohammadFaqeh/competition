@@ -1834,7 +1834,10 @@ function renderExamTimerValue(){const el=$("#examTimerValue");if(el)el.textConte
 function playExamTimerBell(){
   try{
     const ctx=examBellAudioCtx||(examBellAudioCtx=new (window.AudioContext||window.webkitAudioContext)());
-    const now=ctx.currentTime,master=ctx.createGain();
+    // بعض المتصفحات تنشئ AudioContext بحالة "معلَّقة" (suspended) وما بتشغّل أي صوت لحد ما
+    // تُستأنف صراحةً — أول ضغطة صوت بالصفحة (مهما كان الزر) كانت ممكن تضيع بصمت بدون هالسطر.
+    if(ctx.state!=="running")ctx.resume();
+    const now=ctx.currentTime+.01,master=ctx.createGain();
     master.gain.value=.5;master.connect(ctx.destination);
     // صوت جرس حقيقي (لا نغمة إلكترونية واحدة): عدة ترددات غير متناغمة معاً بنفس اللحظة، كل
     // وحدة بمعدل تلاشي مختلف — هيك بيطلع طنين معدني قصير شبيه بجرس الاستقبال الحقيقي بدل بيب.
