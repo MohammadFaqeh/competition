@@ -225,19 +225,21 @@ function buildCandidates(data,lineData){
   const result=[];
   for(let juz=1;juz<=30;juz++){
     const verses=data.verses.filter(v=>v.juz_number===juz).sort((a,b)=>a.id-b.id).map(verse=>{const layout=lineData.verses[verse.verse_key];return {...verse,layoutPage:Number(layout.page),lineStart:Number(layout.from),lineEnd:Number(layout.to)}});
-    for(let i=0;i<verses.length;i++){
+    // مواضع متتابعة غير متداخلة داخل الجزء (1-8 ثم 9-16 ثم...) بدل نافذة منزلقة تبدأ من كل آية
+    // على حدة (كانت تولّد مواضع شبه متطابقة بفرق آية واحدة فقط، وترفع عدد المواضع بالجزء بشكل
+    // مبالغ فيه). i يقفز مباشرة لآخر موضع مُختار + 1 بدل التقدّم آية بآية — طلب صريح.
+    let i=0;
+    while(i<verses.length){
       const start=verses[i];
       const [chapter,startAyah]=start.verse_key.split(":").map(Number);
       const shortSurah=juz===30&&chapter>=93&&chapterCounts.get(chapter)<=20;
-      if(startAyah>1&&startAyah<=5)continue;
-      if(shortSurah&&startAyah!==1)continue;
       // الهدف يضل 8 أسطر بالضبط (يُفضَّل دائماً)، بس صار مسموح بـ9 كحد أقصى (سطر واحد زيادة
       // فقط، بلا نزول تحت 8 إطلاقاً) لما ما يوجد أي نهاية تعطي 8 بالضبط — هذا وحده يرفع عدد
       // المواضع المتاحة فعلياً بحوالي 30% (خصوصاً بأجزاء الآيات الطويلة زي 1-3 يلي كانت
       // مواضعها قليلة جداً وتسبّبت بتكرار ملحوظ لاحظته اللجان). delta يضمن تفضيل 8 دائماً على
       // 9 لو كلاهما متاحان لنفس نقطة البداية (آخر تحديث لـbestCandidate بأقل delta يفوز، لا
       // "آخر نهاية وصلها الحلقة").
-      let bestCandidate=null,bestDelta=Infinity;
+      let bestCandidate=null,bestDelta=Infinity,bestEndIndex=-1;
       const occupiedLines=new Map();
       let words=0;
       for(let end=i;end<verses.length;end++){
@@ -253,8 +255,11 @@ function buildCandidates(data,lineData){
         bestDelta=delta;
         const segments=occupiedLineSegments(occupiedLines);
         bestCandidate={id:`${juz}-${start.verse_key}-${finish.verse_key}`,juz,chapter,chapterName:chapterMap.get(chapter),endChapter,endChapterName:chapterMap.get(endChapter),startAyah,endAyah,startId:start.id,endId:finish.id,page:start.layoutPage,endPage:finish.layoutPage,words,lineCount,lineModel:"occupied-v2",lineSegments:segments,startKey:start.verse_key,endKey:finish.verse_key};
+        bestEndIndex=end;
       }
-      if(bestCandidate)result.push(bestCandidate);
+      if(bestCandidate){result.push(bestCandidate);i=bestEndIndex+1}
+      else i++; // آية وحيدة طويلة جداً تتجاوز 9 أسطر لحالها (مثل آية الدَّين) تمنع تكوّن موضع
+      // يبدأ بالضبط هون — نجرّب الآية التالية بدل التخلي عن باقي الجزء بالكامل بالغلط.
     }
   }
   return dedupeCandidates(result);
@@ -813,7 +818,7 @@ function renderCommitteePassRate(committee){
   // متسابقة انسحبت لاحقاً لكنها اختبرت فعلياً وعندها علامة حقيقية > صفر تبقى محسوبة "ممتحنة" (طلب صريح).
   const participantById=new Map(state.participants.map(p=>[p.id,p]));
   const isGhostWithdrawnSession=participantId=>{const participant=participantById.get(participantId);return Boolean(participant?.withdrawn)&&!(Number(participant?.score)>0)};
-  const finalSessions=committeeSessions.filter(s=>s.status==="final"&&Number.isFinite(s.score)&&!isGhostWithdrawnSession(s.participant_id));
+  const finalSessions=committeeSessions.filter(s=>s.status==="final"&&isRealExam(s)&&!isGhostWithdrawnSession(s.participant_id));
   const passed=finalSessions.filter(s=>s.score>=PASS_SCORE);
   const failed=finalSessions.filter(s=>s.score<PASS_SCORE);
   renderPassRateRing("committeePassRateRing","committeePassRateValue",finalSessions.length?passed.length/finalSessions.length*100:null);
@@ -860,7 +865,7 @@ function renderCommitteeStudents(){
     const draw=drawByParticipant.get(participant.id),session=sessionByParticipant.get(participant.id),status=statusOf(participant),withdrawn=Boolean(participant.withdrawn);
     const canSeeScore=committee.show_score!==false;
     const withdrawnWithRealScore=withdrawn&&Number(participant.score)>0;
-    const statusText=withdrawn?(withdrawnWithRealScore?(canSeeScore?`مكتمل (منسحب لاحقاً) · ${participant.score}`:"مكتمل · العلامة غير ظاهرة للجنة"):"منسحب"+(canSeeScore?" · العلامة 0":"")):status==="manual_dr"?(canSeeScore?`مسجّلة يدويًا من الإدارة · ${participant.score}`:"مسجّلة يدويًا من الإدارة"):status==="no_draw"?"لم يتم السحب بعد":status==="final"?(canSeeScore?`مكتمل · ${session.score}`:"مكتمل · العلامة غير ظاهرة للجنة"):status==="in_progress"?"مسودة محفوظة":"جاهز للاختبار";
+    const statusText=withdrawn?(withdrawnWithRealScore?(canSeeScore?`مكتمل (منسحب لاحقاً) · ${participant.score}`:"مكتمل · العلامة غير ظاهرة للجنة"):"منسحب"+(canSeeScore?" · العلامة 0":"")):status==="manual_dr"?(canSeeScore?`مسجّلة يدويًا من الإدارة · ${participant.score}`:"مسجّلة يدويًا من الإدارة"):status==="no_draw"?"لم يتم السحب بعد":status==="final"?(session?.assessment?.incomplete?"مكتمل · غير مكتمل":canSeeScore?`مكتمل · ${session.score}`:"مكتمل · العلامة غير ظاهرة للجنة"):status==="in_progress"?"مسودة محفوظة":"جاهز للاختبار";
     const canSelfDrawThis=Boolean(committee?.can_self_draw)&&!withdrawn&&!draw&&!(participant.parts?.length);
     const positions=withdrawn?"":draw?`<ol class="committee-position-preview">${draw.positions.map((position,index)=>`<li><b>${index+1}</b><span>${escapeHtml(positionTitle(position))}</span><small>الجزء ${position.juz} · صفحة ${position.page}</small></li>`).join("")}</ol>`:canSelfDrawThis?`<div class="committee-no-draw">لم تُسجَّل أجزاء هذا المتسابق بعد — يمكنكم تسجيلها وتنفيذ السحب مباشرة</div>`:`<div class="committee-no-draw">بانتظار قيام الإدارة بإجراء السحب لهذا المتسابق</div>`;
     // بدء اختبار جديد (تسجيل أجزاء+سحب ذاتي، أو التأكيد والبدء) يقتصر على رئيس اللجنة فقط،
@@ -953,13 +958,7 @@ function openCommitteeSelfDrawModal(participantId){
       await ensureQuranReady();
       button.textContent="جاري السحب...";
       const questionCount=LEVEL_QUESTIONS[level]||3;
-      // اللجنة لا ترى إلا سحوبات متسابقيها هي (committee_load_state مقيَّدة)، فنجلب استخدام
-      // المواضع عالمياً (كل اللجان) من دالة مخصّصة، ثم نستخدم نفس نظام Scoring الموحّد
-      // (bestScoredCandidates) يلي تستخدمه شاشة الإدارة بالضبط — بدل منطق "غير مستخدَم إطلاقاً
-      // وإلا الكل" القديم يلي كان غير متسق مع الإدارة وأعمى عن اليوم/المستوى/السورة.
-      const usedPositionsDetailed=await window.CloudCompetition.listCommitteeUsedPositionsDetailed();
-      const committeeAvailableForParts=juzList=>bestScoredCandidates(candidates.filter(c=>juzList.includes(c.juz)),level,usedPositionsDetailed);
-      const pools=new Map(parts.map(j=>[j,committeeAvailableForParts([j])]));
+      const pools=new Map(parts.map(j=>[j,availableForParts([j],level)]));
       const eligibleParts=parts.filter(j=>pools.get(j).length);
       if(eligibleParts.length<questionCount)throw new Error("لا توجد مواضع كافية ضمن الأجزاء المختارة");
       const drawnParts=secureShuffle(eligibleParts).slice(0,questionCount);
@@ -996,7 +995,11 @@ function renderAll(){renderDashboard();renderParticipants();renderHistory();refr
 // اختبر فعلياً وأخذ علامة حقيقية أكثر من صفر يبقى محسوباً ضمن الممتحنين/نسبة النجاح. الانسحاب
 // الفعلي (بلا اختبار حقيقي) يصفّر العلامة دائماً (toggleParticipantWithdrawn/استيراد Excel)،
 // فـ"علامة > صفر" وحدها كافية لاستبعاد كل حالات الانسحاب الحقيقي تلقائياً دون فحص withdrawn إطلاقاً.
-function passRateOf(list){const examined=list.filter(p=>Number.isFinite(p.score)&&p.score>0);return examined.length?examined.filter(p=>p.score>=PASS_SCORE).length/examined.length*100:null}
+// انتهاء اختبار مبكر بسبب تجاوز حد الرسوب (endExamNow) يسجّل علامة رقمية حقيقية داخليًا (لأغراض
+// التدقيق فقط) لكن بعلامة assessment.incomplete=true — يجب استبعاد هذه الحالات دائماً من كل
+// إحصائية ناجح/راسب (لا يوجد نجاح أو رسوب فعلي لاختبار لم يكتمل)، هون التصنيف الموحّد لذلك.
+function isRealExam(entity){return Number.isFinite(entity?.score)&&entity.score>0&&!entity?.assessment?.incomplete}
+function passRateOf(list){const examined=list.filter(isRealExam);return examined.length?examined.filter(p=>p.score>=PASS_SCORE).length/examined.length*100:null}
 function formatPct(n){return n==null?"—":`${new Intl.NumberFormat("ar-JO",{maximumFractionDigits:1,numberingSystem:"latn"}).format(n)}%`}
 function renderPassRateRing(ringId,valueId,pct){const ring=$(`#${ringId}`),value=$(`#${valueId}`);if(!ring||!value)return;const empty=pct==null;ring.classList.toggle("is-empty",empty);ring.style.setProperty("--pct",empty?0:Math.max(0,Math.min(100,pct)));value.textContent=empty?"لا يوجد بيانات":formatPct(pct)}
 let dashboardDateFilter=null;
@@ -1022,7 +1025,7 @@ function renderDashboard(){
   const total=state.participants;
   const scoped=dashboardScopedParticipants();
   const withdrawnAll=total.filter(p=>p.withdrawn);
-  const examined=scoped.filter(p=>Number.isFinite(p.score)&&p.score>0);
+  const examined=scoped.filter(isRealExam);
   const passed=examined.filter(p=>p.score>=PASS_SCORE);
   const failed=examined.filter(p=>p.score<PASS_SCORE);
   $("#statTotal").textContent=formatNumber(total.length);
@@ -1075,7 +1078,7 @@ function renderCommitteeDashboardGrid(total){
   const cards=[...committees].sort((a,b)=>a.name.localeCompare(b.name,"ar")).map(c=>{
     const list=membersByCommittee.get(c.id)||[];
     const scopedList=dashboardDateFilter?list.filter(p=>isParticipantGradedOn(p,dashboardDateFilter)):list;
-    const examined=scopedList.filter(p=>Number.isFinite(p.score)&&p.score>0),examinedM=byGenderList(examined,"ذكر"),examinedF=byGenderList(examined,"أنثى");
+    const examined=scopedList.filter(isRealExam),examinedM=byGenderList(examined,"ذكر"),examinedF=byGenderList(examined,"أنثى");
     const scopedM=byGenderList(scopedList,"ذكر"),scopedF=byGenderList(scopedList,"أنثى");
     const roles=[c.chairman_name,c.member_name].filter(Boolean).join(" - ");
     return `<article class="level-card"><h4>${escapeHtml(c.name)}</h4>${roles?`<small class="level-card-committee-roles">${escapeHtml(roles)}</small>`:""}<div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(examined.length)}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatNumber(examinedM.length)}</b></span><span class="split-f">إناث <b>${formatNumber(examinedF.length)}</b></span></div><div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(passRateOf(scopedList))}</b></div><div class="stat-split"><span class="split-m">ذكور <b>${formatPct(passRateOf(scopedM))}</b></span><span class="split-f">إناث <b>${formatPct(passRateOf(scopedF))}</b></span></div></article>`;
@@ -1221,14 +1224,15 @@ function renderParticipants(){
   participantsPage=Math.min(Math.max(1,participantsPage),participantsTotalPages);
   const listPage=list.slice((participantsPage-1)*PARTICIPANTS_PAGE_SIZE,participantsPage*PARTICIPANTS_PAGE_SIZE);
   renderPagerTabs("participantsPager",participantsPage,participantsTotalPages,page=>{participantsPage=page;renderParticipants()});
-  $("#participantsTable").innerHTML=listPage.length?listPage.map(p=>{const status=statusOf(p),hasDraw=drawByParticipant.has(p.id),passed=Number.isFinite(p.score)&&p.score>=PASS_SCORE,isManualDr=p.scoreSource==="manual"&&Boolean(p.manualEntryBy),isWithdrawn=Boolean(p.withdrawn),hasPendingDr=p.drRequest?.status==="pending";let scoreCell;if(isWithdrawn){scoreCell=`<div class="dr-score-cell"><b>0</b><small class="manual-dr-tag">منسحب</small>${(isMainAdmin||isSubAdmin)?`<button class="compact-btn danger-compact" data-toggle-withdrawn="${p.id}" data-withdrawn="true">إلغاء الانسحاب</button>`:""}</div>`}else if(isManualDr){scoreCell=`<div class="dr-score-cell"><b>${p.score}</b><small class="manual-dr-tag">مسجّلة يدويًا${p.manualEntryBy?` · ${escapeHtml(p.manualEntryBy)}`:""}</small>${(isMainAdmin||isSupervisor)?`<button class="compact-btn danger-compact" data-cancel-dr="${p.id}">إلغاء التسجيل اليدوي</button>`:""}</div>`}else if(hasPendingDr){scoreCell=`<span class="score-help">طلب DR بانتظار الموافقة (${formatAssessmentNumber(p.drRequest.score)})</span>`}else if(!hasDraw){scoreCell=`<span class="score-help">تُدخل بعد إجراء السحب</span>`}else if(isSubAdmin&&!Number.isFinite(p.score)){scoreCell=`<button class="compact-btn" data-request-dr="${p.id}"><i data-lucide="file-edit"></i> طلب DR</button>`}else if(!canEditParticipantScore(p)){
+  $("#participantsTable").innerHTML=listPage.length?listPage.map(p=>{const status=statusOf(p),hasDraw=drawByParticipant.has(p.id),passed=Number.isFinite(p.score)&&p.score>=PASS_SCORE,isIncomplete=Boolean(p.assessment?.incomplete),isManualDr=p.scoreSource==="manual"&&Boolean(p.manualEntryBy),isWithdrawn=Boolean(p.withdrawn),hasPendingDr=p.drRequest?.status==="pending";let scoreCell;if(isWithdrawn){scoreCell=`<div class="dr-score-cell"><b>0</b><small class="manual-dr-tag">منسحب</small>${(isMainAdmin||isSubAdmin)?`<button class="compact-btn danger-compact" data-toggle-withdrawn="${p.id}" data-withdrawn="true">إلغاء الانسحاب</button>`:""}</div>`}else if(isManualDr){scoreCell=`<div class="dr-score-cell"><b>${p.score}</b><small class="manual-dr-tag">مسجّلة يدويًا${p.manualEntryBy?` · ${escapeHtml(p.manualEntryBy)}`:""}</small>${(isMainAdmin||isSupervisor)?`<button class="compact-btn danger-compact" data-cancel-dr="${p.id}">إلغاء التسجيل اليدوي</button>`:""}</div>`}else if(hasPendingDr){scoreCell=`<span class="score-help">طلب DR بانتظار الموافقة (${formatAssessmentNumber(p.drRequest.score)})</span>`}else if(!hasDraw){scoreCell=`<span class="score-help">تُدخل بعد إجراء السحب</span>`}else if(isSubAdmin&&!Number.isFinite(p.score)){scoreCell=`<button class="compact-btn" data-request-dr="${p.id}"><i data-lucide="file-edit"></i> طلب DR</button>`}else if(!canEditParticipantScore(p)){
   // هذا الفرع صار حصراً للمسؤول الفرعي (الإدارة والمشرف الآن يقدران يعدّلا دائماً، راجع
   // canEditParticipantScore). بناءً على طلب صريح: تظهر العلامة له بنفس شكل مربّع الإدارة
   // (أخضر، رقم واضح) بدل نص باهت صغير — للعرض فقط (readonly لا disabled، حتى تبقى بنفس تلوين
   // score-saved الأخضر ولا تتأثر بتنسيق disabled الرمادي)، بلا data-score حتى لا ترتبط بأي
   // معالج حفظ. تنطبق تلقائياً على أي متسابق مكتمل حالياً أو يُضاف لاحقاً، بلا أي إعداد إضافي.
-  scoreCell=`<input class="score-input score-saved" type="number" value="${Number.isFinite(p.score)?p.score:""}" readonly title="نتيجة معتمدة — للعرض فقط">`
-}else{scoreCell=`<input class="score-input ${Number.isFinite(p.score)?"score-saved":""}" data-score="${p.id}" type="number" min="0" max="100" step="0.01" value="${Number.isFinite(p.score)?p.score:""}" placeholder="أدخل العلامة">`}const historicalCommitteeName=resultCommitteeName(p);const assignedCommittee=participantCommittees.length?resolveParticipantCommittee(p,participantCommittees).currentCommittee:null;const committeeCell=historicalCommitteeName?`<span class="score-help" title="اللجنة التي أجرت اختباره فعليًا · رئيس اللجنة: ${escapeAttr(resultCommitteeChairmanName(p)||"-")}${resultCommitteeMemberName(p)?` · عضو اللجنة: ${escapeAttr(resultCommitteeMemberName(p))}`:""}">${escapeHtml(historicalCommitteeName)}</span>`:assignedCommittee?`<button type="button" class="compact-btn" data-committee-info="${assignedCommittee.id}">${escapeHtml(assignedCommittee.name)}</button>`:`<span class="score-help">—</span>`;return `<tr><td><strong>${escapeHtml(p.seat)}</strong></td><td><strong>${escapeHtml(p.name)}</strong></td><td>${escapeHtml(p.gender||"غير محدد")}</td><td>${p.center?escapeHtml(p.center):`<span class="missing-center-tag">⚠ بلا مركز</span>`}</td><td>${escapeHtml(p.levelName||`${p.level} أجزاء`)}</td><td>${committeeCell}</td><td>${status==="completed"||status==="withdrawn"?`<span class="state completed">مكتمل</span><span class="outcome ${passed?"pass":"fail"}">${passed?"ناجح":"راسب"}</span>${isWithdrawn?`<small class="manual-dr-tag">منسحب</small>`:p.scoreSource==="electronic"?`<small class="electronic-score-tag">تقييم إلكتروني</small>`:""}`:`<span class="state ${status}">${status==="drawn"?"تم السحب · أدخل العلامة":"لم يُسحب بعد"}</span>`}</td><td>${scoreCell}</td><td><div class="row-actions">${hasDraw?`<button class="compact-btn" data-result-participant="${p.id}"><i data-lucide="eye"></i> النتيجة</button>`:`<button class="compact-btn" data-draw="${p.id}"><i data-lucide="sparkles"></i> إجراء السحب</button>`}<details class="dropdown-menu row-actions-more"><summary class="icon-btn" title="المزيد من الإجراءات"><i data-lucide="more-vertical"></i></summary><div class="row-actions-more-list"><button class="compact-btn" data-edit="${p.id}"><i data-lucide="pencil"></i> تعديل</button>${operationMode==="cloud"?`<button class="compact-btn" data-assign-committee="${p.id}"><i data-lucide="shuffle"></i> نقل</button>`:""}${(isMainAdmin||isSubAdmin)&&!isWithdrawn?`<button class="compact-btn" data-toggle-withdrawn="${p.id}" data-withdrawn="false"><i data-lucide="user-x"></i> تسجيل انسحاب</button>`:""}<button class="compact-btn danger-compact" data-delete-participant="${p.id}"><i data-lucide="trash-2"></i> حذف</button></div></details></div></td></tr>`}).join(""):`<tr><td class="table-empty" colspan="9">لا توجد أسماء مطابقة</td></tr>`;
+  scoreCell=isIncomplete?`<input class="score-input score-saved" type="text" value="غير مكتمل" readonly title="أُنهي الاختبار مبكراً — للعرض فقط">`:`<input class="score-input score-saved" type="number" value="${Number.isFinite(p.score)?p.score:""}" readonly title="نتيجة معتمدة — للعرض فقط">`
+}else if(isIncomplete){scoreCell=`<input class="score-input score-saved" data-score="${p.id}" type="text" value="غير مكتمل" title="أُنهي الاختبار مبكراً — يمكن استبدالها بعلامة يدوية">`
+}else{scoreCell=`<input class="score-input ${Number.isFinite(p.score)?"score-saved":""}" data-score="${p.id}" type="number" min="0" max="100" step="0.01" value="${Number.isFinite(p.score)?p.score:""}" placeholder="أدخل العلامة">`}const historicalCommitteeName=resultCommitteeName(p);const assignedCommittee=participantCommittees.length?resolveParticipantCommittee(p,participantCommittees).currentCommittee:null;const committeeCell=historicalCommitteeName?`<span class="score-help" title="اللجنة التي أجرت اختباره فعليًا · رئيس اللجنة: ${escapeAttr(resultCommitteeChairmanName(p)||"-")}${resultCommitteeMemberName(p)?` · عضو اللجنة: ${escapeAttr(resultCommitteeMemberName(p))}`:""}">${escapeHtml(historicalCommitteeName)}</span>`:assignedCommittee?`<button type="button" class="compact-btn" data-committee-info="${assignedCommittee.id}">${escapeHtml(assignedCommittee.name)}</button>`:`<span class="score-help">—</span>`;return `<tr><td><strong>${escapeHtml(p.seat)}</strong></td><td><strong>${escapeHtml(p.name)}</strong></td><td>${escapeHtml(p.gender||"غير محدد")}</td><td>${p.center?escapeHtml(p.center):`<span class="missing-center-tag">⚠ بلا مركز</span>`}</td><td>${escapeHtml(p.levelName||`${p.level} أجزاء`)}</td><td>${committeeCell}</td><td>${status==="completed"||status==="withdrawn"?`<span class="state completed">مكتمل</span><span class="outcome ${isIncomplete?"incomplete":passed?"pass":"fail"}">${isIncomplete?"غير مكتمل":passed?"ناجح":"راسب"}</span>${isWithdrawn?`<small class="manual-dr-tag">منسحب</small>`:p.scoreSource==="electronic"?`<small class="electronic-score-tag">تقييم إلكتروني</small>`:""}`:`<span class="state ${status}">${status==="drawn"?"تم السحب · أدخل العلامة":"لم يُسحب بعد"}</span>`}</td><td>${scoreCell}</td><td><div class="row-actions">${hasDraw?`<button class="compact-btn" data-result-participant="${p.id}"><i data-lucide="eye"></i> النتيجة</button>`:`<button class="compact-btn" data-draw="${p.id}"><i data-lucide="sparkles"></i> إجراء السحب</button>`}<details class="dropdown-menu row-actions-more"><summary class="icon-btn" title="المزيد من الإجراءات"><i data-lucide="more-vertical"></i></summary><div class="row-actions-more-list"><button class="compact-btn" data-edit="${p.id}"><i data-lucide="pencil"></i> تعديل</button>${operationMode==="cloud"?`<button class="compact-btn" data-assign-committee="${p.id}"><i data-lucide="shuffle"></i> نقل</button>`:""}${(isMainAdmin||isSubAdmin)&&!isWithdrawn?`<button class="compact-btn" data-toggle-withdrawn="${p.id}" data-withdrawn="false"><i data-lucide="user-x"></i> تسجيل انسحاب</button>`:""}<button class="compact-btn danger-compact" data-delete-participant="${p.id}"><i data-lucide="trash-2"></i> حذف</button></div></details></div></td></tr>`}).join(""):`<tr><td class="table-empty" colspan="9">لا توجد أسماء مطابقة</td></tr>`;
   $$(`[data-edit]`).forEach(b=>b.onclick=()=>openParticipantModal(state.participants.find(p=>p.id===b.dataset.edit)));
   $$(`[data-assign-committee]`).forEach(b=>b.onclick=()=>openAssignCommitteeModal(b.dataset.assignCommittee));
   $$(`[data-committee-info]`).forEach(b=>b.onclick=()=>openCommitteeInfoModal(b.dataset.committeeInfo));
@@ -1387,9 +1391,10 @@ function renderOtherParticipants(){
   lucide.createIcons();
 }
 function resultsExportRow(p){
+  const isIncomplete=Boolean(p.assessment?.incomplete);
   const hasScore=Number.isFinite(p.score);
-  const exportScore=hasScore?p.score:0;
-  return {"المسابقة":state.config?.competitionName||"","المشارك":p.name,"الجنس":p.gender||"غير محدد","رقم المتسابق":p.seat,"الهاتف":p.phone||"","الفرع":p.branch||"","المركز":p.center||"","الأجزاء المشارك فيها":(p.parts||[]).join("،"),"المستوى":p.levelName||`${p.level} أجزاء`,"الروايات":p.recitation||"","علامة التصفية 1":exportScore,"علامة التصفية 2":"","النتيجة":exportScore>=PASS_SCORE?"ناجح":"راسب","الحالة":p.withdrawn?"منسحب":""};
+  const exportScore=isIncomplete?"غير مكتمل":hasScore?p.score:0;
+  return {"المسابقة":state.config?.competitionName||"","المشارك":p.name,"الجنس":p.gender||"غير محدد","رقم المتسابق":p.seat,"الهاتف":p.phone||"","الفرع":p.branch||"","المركز":p.center||"","الأجزاء المشارك فيها":(p.parts||[]).join("،"),"المستوى":p.levelName||`${p.level} أجزاء`,"الروايات":p.recitation||"","علامة التصفية 1":exportScore,"علامة التصفية 2":"","النتيجة":isIncomplete?"غير مكتمل":exportScore>=PASS_SCORE?"ناجح":"راسب","الحالة":p.withdrawn?"منسحب":""};
 }
 function filterParticipantsFor(filters){return state.participants.filter(p=>(filters.gender==="all"||p.gender===filters.gender)&&(!filters.centers?.length||filters.centers.includes(p.center))&&(filters.level==="all"||(p.levelName||`${p.level} أجزاء`)===filters.level))}
 function openResultsFilterModal(title,onConfirm){
@@ -1406,7 +1411,8 @@ async function exportFinalResults(){
     try{await ensureXlsx()}catch(error){return toast(error.message)}
     const byLevel=new Map();for(const p of list){const key=p.levelName||`${p.level} أجزاء`;if(!byLevel.has(key))byLevel.set(key,[]);byLevel.get(key).push(p)}
     const orderedKeys=[...LEVEL_CATALOG.map(l=>l.label),...[...byLevel.keys()].filter(k=>!LEVEL_CATALOG.some(l=>l.label===k))].filter(k=>byLevel.has(k));
-    const sortGroup=group=>[...group].sort((a,b)=>(Number.isFinite(b.score)?b.score:-1)-(Number.isFinite(a.score)?a.score:-1)||String(a.name).localeCompare(String(b.name),"ar"));
+    const rankableScore=p=>p.assessment?.incomplete?-1:Number.isFinite(p.score)?p.score:-1;
+    const sortGroup=group=>[...group].sort((a,b)=>rankableScore(b)-rankableScore(a)||String(a.name).localeCompare(String(b.name),"ar"));
     const workbook=XLSX.utils.book_new(),setSheetOptions=sheet=>{sheet["!cols"]=[{wch:32},{wch:26},{wch:9},{wch:14},{wch:14},{wch:16},{wch:20},{wch:20},{wch:38},{wch:16},{wch:14},{wch:14},{wch:12},{wch:12}];sheet["!views"]=[{rightToLeft:true}]};workbook.Workbook={Views:[{RTL:true}]};
     for(const key of orderedKeys){const rows=sortGroup(byLevel.get(key)).map(resultsExportRow);const sheet=XLSX.utils.json_to_sheet(rows);setSheetOptions(sheet);XLSX.utils.book_append_sheet(workbook,sheet,key.slice(0,31))}
     XLSX.writeFile(workbook,`نتائج-وترتيب-المسابقة-${dateStamp()}.xlsx`);toast("تم تنزيل ملف النتائج مقسماً حسب المستوى")
@@ -1539,8 +1545,9 @@ function numberToArabicWords(value){
 function associationCardHtml(participant,logoSrc="assets/association-logo.png"){
   const final=participant?.assessment?.positions?.length?calculateFinalAssessment(participant.assessment):null;
   const totals=final?.totals||{},deductions=final?.deductions||{};
+  const isIncomplete=Boolean(participant?.assessment?.incomplete);
   const score=Number.isFinite(participant?.score)?participant.score:(final?final.score:null);
-  const hasScore=Number.isFinite(score),passed=hasScore&&score>=PASS_SCORE;
+  const hasScore=!isIncomplete&&Number.isFinite(score),passed=hasScore&&score>=PASS_SCORE;
   const errorRow=(label,type,perError)=>`<tr><td class="assoc-err-label">${escapeHtml(label)}</td><td colspan="3">${totals[type]?formatAssessmentNumber(totals[type]):"-"}</td><td>(${perError})</td><td>${deductions[type]?formatAssessmentNumber(deductions[type]):"-"}</td></tr>`;
   const parts=Array.isArray(participant?.parts)?participant.parts:[];
   const partsGrid=Array.from({length:30},(_,i)=>i+1).map(n=>`<span class="${parts.includes(n)?"marked":""}">${n}</span>`).join("");
@@ -1572,7 +1579,7 @@ function associationCardHtml(participant,logoSrc="assets/association-logo.png"){
       </tbody>
     </table>
     <table class="assoc-score-table">
-      <tr><td rowspan="2" class="assoc-score-label">العلامة ( بعد طرح مجموع الأخطاء من 100 )<br>علامة النجاح (75%)</td><td>رقماً</td><td>${hasScore?score:"-"}</td></tr>
+      <tr><td rowspan="2" class="assoc-score-label">العلامة ( بعد طرح مجموع الأخطاء من 100 )<br>علامة النجاح (75%)</td><td>رقماً</td><td>${isIncomplete?"غير مكتمل":hasScore?score:"-"}</td></tr>
       <tr><td>كتابة</td><td>${hasScore?escapeHtml(numberToArabicWords(score)):""}</td></tr>
     </table>
     <div class="assoc-result-row"><span>النتيجة :</span><label><span class="assoc-check ${passed?"checked":""}"></span> ناجح</label><label><span class="assoc-check ${hasScore&&!passed?"checked":""}"></span> غير ناجح</label></div>
@@ -1686,80 +1693,11 @@ function selectFirstParts(){const count=Number($("#drawLevel").value)||0;$$(`#pa
 function handlePartSelection(event){const level=Number($("#drawLevel").value);if(!level){event.target.checked=false;toast("اختر عدد الأجزاء أولاً");return updateAvailability()}if(selectedParts().length>level){event.target.checked=false;toast(`لا يمكن اختيار أكثر من ${level} أجزاء لهذا المستوى`)}updateAvailability()}
 function togglePartRange(range){const level=Number($("#drawLevel").value);if(!level)return toast("اختر عدد الأجزاء أولاً");const [start,end]=range.split("-").map(Number),inputs=$$("#partsGrid input"),rangeInputs=inputs.filter(input=>Number(input.value)>=start&&Number(input.value)<=end),allSelected=rangeInputs.every(input=>input.checked);if(!allSelected){const selectedOutside=inputs.filter(input=>input.checked&&!rangeInputs.includes(input)).length;if(selectedOutside+rangeInputs.length>level)return toast(`هذا الاختيار يتجاوز عدد أجزاء هذا المستوى (${level})`)}rangeInputs.forEach(input=>input.checked=!allSelected);updateAvailability()}
 function selectedParts(){const participant=state.participants.find(item=>item.id===$("#drawParticipant").value);return participant&&participant.parts?.length===participant.level?[...participant.parts]:[]}
-// نظام Scoring واعٍ باليوم/المستوى/السورة لاختيار موضع السحب — بديل موحّد لمنطق "غير مستخدَم
-// إطلاقاً ثم الأقل تكراراً" القديم (كان أعمى عن الزمن والمستوى، وغير متسق أصلاً بين شاشة
-// الإدارة ورصد اللجنة — راجع committeeAvailableForParts). لا يمنع أي موضع نهائياً — فقط يرتّب
-// الأولوية، والاختيار الفعلي الأخير يبقى عشوائياً بالكامل (Web Crypto عبر randomIndex عند
-// المستدعي) بين المرشّحين المتعادلين بأفضل نقاط. الأولوية (الأعلى أولاً): تكرار نفس الموضع
-// اليوم لنفس المستوى، ثم تكرار نفس السورة اليوم لنفس المستوى (يمنع "تكدّس" الطلب داخل سورة
-// قليلة المواضع رغم أن الجزء ككل مرتاح، مثال سورة محمد بجزء 26)، ثم تكرار الموضع بنفس المستوى
-// بأي يوم، ثم الاستخدام العام (أي مستوى، أي يوم) كأخف وزن. عدم تمرير level (استدعاء بلا سياق
-// مستوى معروف) يسقط طبقتَي اليوم/المستوى تلقائياً ويكتفي بالاستخدام العام فقط.
-function drawDayKey(iso){const date=new Date(iso||Date.now());return Number.isNaN(date.getTime())?"":date.toISOString().slice(0,10)}
-// proximityWindow/proximityPerAyah: طبقة تفضيل إضافية خفيفة الوزن — إذا صار عندنا أكثر من موضع
-// بنفس أقل Score (أي كلهم بنفس درجة التكرار)، نفضّل الموضع الأبعد (بعدد الآيات) عن مواضع
-// زميل/زميلات بنفس اليوم ونفس المستوى ونفس الجزء تم توزيعها فعلاً اليوم — بدل الاختيار العشوائي
-// الكامل بينهم. القرب من موضع زميل بنفس اليوم/المستوى يُضاف كعقوبة تتلاشى تدريجياً كل ما زادت
-// المسافة، وتنعدم تماماً بعد نافذة معيّنة (لا تؤثر إطلاقاً على مواضع بعيدة أصلاً).
-const POSITION_SCORE_WEIGHTS={dayLevelPosition:1000,dayLevelSurah:300,levelHistorical:50,overall:5,proximityWindow:40,proximityPerAyah:2};
-// خريطة id←→موضع مبنية مرة وحدة (تُعاد بناؤها فقط لو تغيّر عدد candidates، أي بعد ensureQuranReady) —
-// نحتاجها لمعرفة juz/chapter موضع بمجرد id عند تجميع استخدام "السورة" من مصدر خارجي (اللجنة).
-let candidatesByIdCache=null;
-function candidatesById(){if(!candidatesByIdCache||candidatesByIdCache.size!==candidates.length)candidatesByIdCache=new Map(candidates.map(c=>[c.id,c]));return candidatesByIdCache}
-// يحوّل state.draws (مصدر الإدارة/المسؤول الفرعي — شامل عالمياً بسياقهم) لقائمة أحداث استخدام
-// مسطّحة {id,level,createdAt} — نفس الشكل يلي ترجعه اللجنة من السيرفر (globally، راجع cloud.js
-// listCommitteeUsedPositionsDetailed) — فدالة الفهرسة والتسجيل تبقى واحدة موحّدة للمصدرين معاً.
-function positionUsageEntriesFromDraws(draws){const entries=[];for(const draw of draws||[])for(const position of draw.positions||[])entries.push({id:position.id,level:draw.level,createdAt:draw.createdAt});return entries}
-function buildPositionUsageIndex(entries,level,todayKey){
-  const byId=candidatesById();
-  const overall=new Map(),levelHistorical=new Map(),dayLevelPosition=new Map(),dayLevelSurah=new Map();
-  const dayLevelJuzStartIds=new Map(); // juz -> [startId,...] مواضع وُزّعت اليوم لنفس المستوى (لحساب "القرب")
-  for(const entry of entries||[]){
-    overall.set(entry.id,(overall.get(entry.id)||0)+1);
-    if(level==null||entry.level==null||Number(entry.level)!==Number(level))continue;
-    levelHistorical.set(entry.id,(levelHistorical.get(entry.id)||0)+1);
-    if(!entry.createdAt||drawDayKey(entry.createdAt)!==todayKey)continue;
-    dayLevelPosition.set(entry.id,(dayLevelPosition.get(entry.id)||0)+1);
-    const candidate=byId.get(entry.id);
-    if(candidate){
-      const surahKey=`${candidate.juz}-${candidate.chapter}`;
-      dayLevelSurah.set(surahKey,(dayLevelSurah.get(surahKey)||0)+1);
-      if(!dayLevelJuzStartIds.has(candidate.juz))dayLevelJuzStartIds.set(candidate.juz,[]);
-      dayLevelJuzStartIds.get(candidate.juz).push(candidate.startId);
-    }
-  }
-  return {overall,levelHistorical,dayLevelPosition,dayLevelSurah,dayLevelJuzStartIds};
-}
-function positionSelectionScore(candidate,index){
-  const w=POSITION_SCORE_WEIGHTS,surahKey=`${candidate.juz}-${candidate.chapter}`;
-  const peerStartIds=index.dayLevelJuzStartIds.get(candidate.juz);
-  let proximityPenalty=0;
-  if(peerStartIds&&peerStartIds.length&&Number.isFinite(candidate.startId)){
-    const minDistance=Math.min(...peerStartIds.map(id=>Math.abs(id-candidate.startId)));
-    proximityPenalty=Math.max(0,w.proximityWindow-minDistance)*w.proximityPerAyah;
-  }
-  return (index.dayLevelPosition.get(candidate.id)||0)*w.dayLevelPosition
-    +(index.dayLevelSurah.get(surahKey)||0)*w.dayLevelSurah
-    +(index.levelHistorical.get(candidate.id)||0)*w.levelHistorical
-    +(index.overall.get(candidate.id)||0)*w.overall
-    +proximityPenalty;
-}
-// يرجّع أفضل مرشّحين ضمن pool معطى (الأقل نقاط سوية، بلا استبعاد نهائي لأي أحد) — المستدعي
-// يختار عشوائياً (randomIndex، Web Crypto) من بينهم كخطوة أخيرة، فتبقى العشوائية الفعلية كما
-// هي تماماً. entries: قائمة أحداث الاستخدام (افتراضياً state.draws المحلية؛ اللجنة تمرّر
-// قائمة عالمية جلبتها من السيرفر بدل state.draws المحلية المُقيَّدة بمتسابقي لجنتها فقط).
-function bestScoredCandidates(pool,level,entries=positionUsageEntriesFromDraws(state.draws)){
-  if(!pool.length)return [];
-  const index=buildPositionUsageIndex(entries,level,drawDayKey(new Date().toISOString()));
-  let minScore=Infinity,best=[];
-  for(const candidate of pool){
-    const score=positionSelectionScore(candidate,index);
-    if(score<minScore){minScore=score;best=[candidate]}
-    else if(score===minScore)best.push(candidate);
-  }
-  return best;
-}
-function availableForParts(parts,level=null){return bestScoredCandidates(candidates.filter(c=>parts.includes(c.juz)),level)}
+// تكرار نفس الموضع بين متسابقين مختلفين صار مقبولاً تماماً (طلب صريح) — الاختيار عشوائي بحت
+// (Web Crypto عبر randomIndex عند المستدعي) من كل مواضع الجزء المطلوب، بلا أي تفضيل أو ترتيب
+// حسب سبق الاستخدام. كان هون سابقاً نظام Scoring يفضّل الأقل استخدامًا (راجع تاريخ الملف لو
+// احتجت استرجاعه)، أُزيل بالكامل بدل تعطيله فقط.
+function availableForParts(parts,level=null){return candidates.filter(c=>parts.includes(c.juz))}
 function updateAvailability(){const parts=selectedParts(),level=Number($("#drawLevel")?.value)||null,available=availableForParts(parts,level);$("#availableCount").textContent=parts.length?`${formatNumber(available.length)} موضعاً`:"اختر متسابقًا بأجزاء مكتملة"}
 
 async function performDraw(event){
@@ -1794,7 +1732,7 @@ function showResult(draw){
   $(`[data-reroll="${draw.id}"]`).onclick=()=>requestReroll(draw.id);
   $(".print-letterhead").insertAdjacentHTML("afterbegin",`<img class="print-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">`);
   $(".print-letterhead>strong")?.remove();
-  $(".result-person").insertAdjacentHTML("beforeend",`<div><span>الجنس</span><b>${escapeHtml(participant?.gender||"غير محدد")}</b></div>${participant&&Number.isFinite(participant.score)?`<div class="print-outcome"><span>النتيجة النهائية</span><b class="${participant.score>=PASS_SCORE?"pass-text":"fail-text"}">${participant.score} / 100 · ${participant.score>=PASS_SCORE?"ناجح":"راسب"}</b></div>`:""}<div class="participant-parts"><span>أرقام الأجزاء المشاركة</span><b>${eligiblePartNumbers}</b></div>`);
+  $(".result-person").insertAdjacentHTML("beforeend",`<div><span>الجنس</span><b>${escapeHtml(participant?.gender||"غير محدد")}</b></div>${participant?.assessment?.incomplete?`<div class="print-outcome"><span>النتيجة النهائية</span><b class="incomplete-text">غير مكتمل</b></div>`:participant&&Number.isFinite(participant.score)?`<div class="print-outcome"><span>النتيجة النهائية</span><b class="${participant.score>=PASS_SCORE?"pass-text":"fail-text"}">${participant.score} / 100 · ${participant.score>=PASS_SCORE?"ناجح":"راسب"}</b></div>`:""}<div class="participant-parts"><span>أرقام الأجزاء المشاركة</span><b>${eligiblePartNumbers}</b></div>`);
   if(resultCommitteeName(participant))$(".result-person").insertAdjacentHTML("beforeend",`<div class="result-committee"><span>لجنة الاختبار</span><b>${escapeHtml(resultCommitteeName(participant))}</b></div>`);
   if(legacyPositions)$(".result-hero").insertAdjacentHTML("afterend",`<p class="legacy-warning"><b>هذه نتيجة قديمة</b><span>أُنشئت قبل اعتماد معيار 8 أسطر بالضبط والبدايات المنطقية. أعد السحب لتطبيق المعيار الجديد.</span></p>`);
   $(".print-signatures")?.remove();
@@ -1892,7 +1830,7 @@ function openElectronicAssessment(draw,cloudSession=null,jumpToIndex=null){
         const session=await window.CloudCompetition.getCommitteeSession(activeCloudSession.id);
         if(session?.status==="final"){
           stopMemberPositionSync();
-          toast(`تم إنهاء الاختبار من قبل رئيس اللجنة${session.score!=null?` · العلامة ${formatAssessmentNumber(session.score)}`:""}`);
+          toast(`تم إنهاء الاختبار من قبل رئيس اللجنة${session.assessment?.incomplete?" · غير مكتمل":session.score!=null?` · العلامة ${formatAssessmentNumber(session.score)}`:""}`);
           closeModal();
           activeCloudSession=null;
           renderCommitteeWorkspace();
@@ -1918,7 +1856,7 @@ function openElectronicAssessment(draw,cloudSession=null,jumpToIndex=null){
   $("#reviewAssessmentBtn").onclick=()=>openAssessmentReview(draw,participant);refresh()
 }
 function failurePositionIndex(assessment){let deduction=0;for(let index=0;index<(assessment?.positions||[]).length;index++){deduction+=calculateAssessment({positions:[assessment.positions[index]]}).totalDeduction;if(100-deduction<75)return index}return -1}
-function updateAssessmentSummary(assessment){const result=calculateAssessment(assessment),failureIndex=failurePositionIndex(assessment);$("#assessmentLiveScore").textContent=formatAssessmentNumber(result.score);$("#assessmentLiveScore").className=result.passed?"pass-text":"fail-text";$("#assessmentTotalDeduction").textContent=formatAssessmentNumber(result.totalDeduction);$("#assessmentSummaryRows").innerHTML=Object.entries(ASSESSMENT_RULES).map(([type,rule])=>`<div><span>${rule.label} (${result.totals[type]})</span><b>−${formatAssessmentNumber(result.deductions[type])}</b></div>`).join("");const old=$("#assessmentFailureWarning");if(old)old.remove();if(failureIndex>=0){const chairman=currentExaminerRole()==="chairman";$("#activeAssessmentPosition").insertAdjacentHTML("afterend",`<div id="assessmentFailureWarning" class="assessment-failure-warning"><b>تجاوز المتسابق الحد الأعلى المسموح للنجاح</b><span>وصلت العلامة إلى أقل من 75 عند الموضع ${failureIndex+1}. ${chairman?"يمكنكم إنهاء الاختبار أو الاستمرار.":"بانتظار رئيس اللجنة لإنهاء الاختبار."}</span>${chairman?`<button type="button" id="finishFailedAssessment" class="danger-btn">إنهاء الاختبار الآن</button>`:""}</div>`)}}
+function updateAssessmentSummary(assessment){const result=calculateAssessment(assessment),failureIndex=failurePositionIndex(assessment);$("#assessmentLiveScore").textContent=formatAssessmentNumber(result.score);$("#assessmentLiveScore").className=result.passed?"pass-text":"fail-text";$("#assessmentTotalDeduction").textContent=formatAssessmentNumber(result.totalDeduction);$("#assessmentSummaryRows").innerHTML=Object.entries(ASSESSMENT_RULES).map(([type,rule])=>`<div><span>${rule.label} (${result.totals[type]})</span><b>−${formatAssessmentNumber(result.deductions[type])}</b></div>`).join("");const old=$("#assessmentFailureWarning");if(old)old.remove();if(failureIndex>=0){const chairman=currentExaminerRole()==="chairman";$("#activeAssessmentPosition").insertAdjacentHTML("afterend",`<div id="assessmentFailureWarning" class="assessment-failure-warning"><b>تجاوز المتسابق الحد الأعلى المسموح للنجاح</b><span>وصلت العلامة إلى أقل من 75 عند الموضع ${failureIndex+1}. ${chairman?"يمكنكم إنهاء الاختبار الآن (تُسجَّل علامته «غير مكتمل» مباشرة) أو الاستمرار.":"بانتظار رئيس اللجنة لإنهاء الاختبار."}</span>${chairman?`<button type="button" id="finishFailedAssessment" class="danger-btn">إنهاء الاختبار الآن</button>`:""}</div>`)}}
 async function replaceAssessmentPosition(draw,participant,assessment,index){if((draw.rerolls?.length||0)>=2)return toast("تم استخدام الحد الأقصى لتبديل الموضع (مرتان) لهذا المتسابق");if(!confirm("سيتم خصم 10 علامات واختيار موضع مختلف عشوائيًا من الجزء نفسه. هل تريد المتابعة؟"))return;const old=draw.positions[index],pool=availableForParts([old.juz],draw.level).filter(item=>item.id!==old.id&&!draw.positions.some(position=>position.id===item.id));if(!pool.length)throw new Error("لا يوجد موضع بديل متاح في الجزء نفسه");const replacement=pool[randomIndex(pool.length)],entry=assessment.positions[index];entry.positionChange=(Number(entry.positionChange)||0)+1;entry.changes=entry.changes||[];entry.changes.push({oldPosition:old,newPosition:replacement,committeeName:window.CloudCompetition.context?.committee?.name||"الإدارة",at:new Date().toISOString(),oldAssessmentSnapshot:{memorization:entry.memorization,language:entry.language,tajweed:entry.tajweed,hesitation:entry.hesitation,note:entry.note,completed:entry.completed}});
   // الموضع الجديد يبدأ تقييماً مستقلاً تماماً — أخطاء/ترددات/ملاحظة الموضع القديم محفوظة أعلاه
   // بـoldAssessmentSnapshot (لا تُفقد)، لكنها لا يجب أن تبقى محتسبة على نص مختلف لم يُسمَّع.
@@ -1943,13 +1881,15 @@ async function adoptChairmanPositionChange(draw,participant,assessment,index){
 }
 async function endExamNow(draw,participant,assessment){
   if(currentExaminerRole()!=="chairman")return;
-  if(!confirm("سيتم إنهاء الاختبار الآن دون الحاجة لإكمال باقي المواضع لأن المتسابق تجاوز حد الرسوب. هل تريد المتابعة؟"))return;
+  if(!confirm("سيتم إنهاء الاختبار الآن دون إكمال باقي المواضع، وستُسجَّل علامة المتسابق «غير مكتمل» مباشرة بدل حساب علامة رقمية ودون حاجة لمراجعة أو اعتماد إضافي. هل تريد المتابعة؟"))return;
+  stopMemberPositionSync();
   assessment.positions.forEach(position=>{if(!position.completed)position.completed=true});
-  assessment.endedEarly=true;assessment.endedEarlyAt=new Date().toISOString();
+  assessment.endedEarly=true;assessment.endedEarlyAt=new Date().toISOString();assessment.incomplete=true;
   saveAssessmentDraft(participant);
-  openAssessmentReview(draw,participant);
+  window.CloudCompetition.cancelQueuedSessionSave?.();
+  await finalizeElectronicAssessment(draw,participant,calculateFinalAssessment(assessment));
 }
-function openCompletedAssessment(draw,participant,session){const assessment=session.assessment||participant.assessment||{},result=assessment.result||calculateAssessment(assessment),testedAt=session.finalized_at||assessment.finalizedAt||participant.gradedAt,canEdit=Boolean(window.CloudCompetition.context?.committee?.can_edit_final),canSeeScore=window.CloudCompetition.context?.committee?.show_score!==false;openModal(`<div class="modal-head"><div><span class="eyebrow">نتيجة معتمدة ${canEdit?"· صلاحية التعديل مفعلة":"للعرض فقط"}</span><h2>${escapeHtml(participant.name)}</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="assessment-review-score ${result.passed?"passed":"failed"}"><span>العلامة النهائية</span><b>${canSeeScore?formatAssessmentNumber(result.score):"—"}</b><strong>${canSeeScore?(result.passed?"ناجح":"راسب"):"العلامة غير ظاهرة لهذه اللجنة"}</strong></div>${canSeeScore?`<div class="assessment-review-grid">${Object.entries(ASSESSMENT_RULES).map(([type,rule])=>`<div><span>${rule.label}</span><b>${result.totals?.[type]||0}</b><small>خصم ${formatAssessmentNumber(result.deductions?.[type]||0)}</small></div>`).join("")}</div>`:""}<p class="assessment-review-note">لجنة الاختبار: <b>${escapeHtml(assessment.committeeName||window.CloudCompetition.context?.committee?.name||"-")}</b><br>موعد الاختبار: <b>${testedAt?formatExamDate(testedAt):"غير مسجل"}</b><br>${canEdit?"أي تعديل وإعادة اعتماد سيُسجلان في سجل النشاط.":"لا يمكن تعديل النتيجة دون منح الصلاحية من الإدارة."}</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button>${canEdit?`<button id="reopenFinalAssessmentBtn" class="primary-btn"><i data-lucide="file-pen-line"></i> تعديل النتيجة المعتمدة</button>`:""}</div>`,"assessment-review-modal");if(canEdit)$("#reopenFinalAssessmentBtn").onclick=()=>reopenFinalAssessment(draw,participant,session)}
+function openCompletedAssessment(draw,participant,session){const assessment=session.assessment||participant.assessment||{},result=assessment.result||calculateAssessment(assessment),incomplete=Boolean(assessment.incomplete),testedAt=session.finalized_at||assessment.finalizedAt||participant.gradedAt,canEdit=Boolean(window.CloudCompetition.context?.committee?.can_edit_final),canSeeScore=window.CloudCompetition.context?.committee?.show_score!==false;openModal(`<div class="modal-head"><div><span class="eyebrow">نتيجة معتمدة ${canEdit?"· صلاحية التعديل مفعلة":"للعرض فقط"}</span><h2>${escapeHtml(participant.name)}</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="assessment-review-score ${incomplete?"incomplete":result.passed?"passed":"failed"}"><span>العلامة النهائية</span><b>${incomplete?"غير مكتمل":canSeeScore?formatAssessmentNumber(result.score):"—"}</b><strong>${incomplete?"أُنهي الاختبار قبل اكتماله":canSeeScore?(result.passed?"ناجح":"راسب"):"العلامة غير ظاهرة لهذه اللجنة"}</strong></div>${canSeeScore?`<div class="assessment-review-grid">${Object.entries(ASSESSMENT_RULES).map(([type,rule])=>`<div><span>${rule.label}</span><b>${result.totals?.[type]||0}</b><small>خصم ${formatAssessmentNumber(result.deductions?.[type]||0)}</small></div>`).join("")}</div>`:""}<p class="assessment-review-note">لجنة الاختبار: <b>${escapeHtml(assessment.committeeName||window.CloudCompetition.context?.committee?.name||"-")}</b><br>موعد الاختبار: <b>${testedAt?formatExamDate(testedAt):"غير مسجل"}</b><br>${canEdit?"أي تعديل وإعادة اعتماد سيُسجلان في سجل النشاط.":"لا يمكن تعديل النتيجة دون منح الصلاحية من الإدارة."}</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button>${canEdit?`<button id="reopenFinalAssessmentBtn" class="primary-btn"><i data-lucide="file-pen-line"></i> تعديل النتيجة المعتمدة</button>`:""}</div>`,"assessment-review-modal");if(canEdit)$("#reopenFinalAssessmentBtn").onclick=()=>reopenFinalAssessment(draw,participant,session)}
 async function reopenFinalAssessment(draw,participant,session){const button=$("#reopenFinalAssessmentBtn");button.disabled=true;button.textContent="جاري فتح التعديل...";try{const assessment=JSON.parse(JSON.stringify(session.assessment||participant.assessment||{}));assessment.status="draft";assessment.updatedAt=new Date().toISOString();assessment.revisions=assessment.revisions||[];assessment.revisions.push({type:"reopened-final",oldScore:session.score,at:assessment.updatedAt});const reopened=await window.CloudCompetition.saveSession(session.id,assessment,"in_progress",null);activeCloudSession=reopened;committeeSessions=committeeSessions.map(item=>item.id===reopened.id?reopened:item);participant.assessment=assessment;delete participant.score;delete participant.gradedAt;safeSetItem(examinerDraftKey(participant.id),JSON.stringify(assessment));openElectronicAssessment(draw,reopened);toast("تم فتح النتيجة للتعديل وسيُسجل التغيير في سجل النشاط")}catch(error){button.disabled=false;button.textContent="تعديل النتيجة المعتمدة";toast(error.message)}}
 async function finalizeElectronicAssessment(draw,participant,result){const button=$("#finalizeAssessmentBtn");if(button?.disabled||participant.assessment?.status==="final")return toast("هذه النتيجة معتمدة مسبقاً");if(button){button.disabled=true;button.textContent="جاري اعتماد النتيجة..."}
   // يمنع مسودة تلقائية متأخرة (كانت مجدولة قبل الاعتماد بأجزاء من الثانية عبر queueSessionSave)
@@ -1965,7 +1905,7 @@ async function finalizeElectronicAssessment(draw,participant,result){const butto
   if(examiningCommittee?.id)assessment.committee={id:examiningCommittee.id,name:examiningCommittee.name};
   saveState();
   console.log("[examTrace] finalizeElectronicAssessment: قبل الحفظ بالسحابة",{studentId:participant.id,examId:draw.id,attemptId:activeCloudSession?.id||null,scoreBeforeSave:participant.score});
-  if(activeCloudSession){try{activeCloudSession=await window.CloudCompetition.saveSession(activeCloudSession.id,assessment,"final",result.score);console.log("[examTrace] finalizeElectronicAssessment: بعد الحفظ بالسحابة",{studentId:participant.id,examId:draw.id,attemptId:activeCloudSession?.id||null,scoreAfterSave:activeCloudSession?.score,status:activeCloudSession?.status});await window.CloudCompetition.log("finalize","participant",participant.id,{score:result.score,drawId:draw.id});committeeSessions=committeeSessions.filter(item=>item.id!==activeCloudSession.id);committeeSessions.unshift(activeCloudSession)}catch(error){console.warn("[examTrace] finalizeElectronicAssessment: فشل الحفظ، رجوع للمسودة",{studentId:participant.id,examId:draw.id,error:error?.message});assessment.status="draft";delete participant.score;delete participant.gradedAt;delete participant.scoreSource;saveAssessmentDraft(participant);if(button){button.disabled=false;button.textContent="اعتماد النتيجة"}return toast(`لم تُعتمد النتيجة: ${error.message}`)}}localStorage.removeItem(examinerDraftKey(participant.id));renderAll();const canSeeScore=window.CloudCompetition.context?.committee?.show_score!==false;openModal(`<div class="modal-head"><h2>تم اعتماد النتيجة</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="assessment-review-score ${result.passed?"passed":"failed"}"><span>${escapeHtml(participant.name)}</span><b>${canSeeScore?formatAssessmentNumber(result.score):"—"}</b><strong>${canSeeScore?(result.passed?"ناجح":"راسب"):"العلامة غير ظاهرة لهذه اللجنة"}</strong></div><p>حُفظت العلامة مع تفاصيل الأخطاء والترددات والملاحظات لكل موضع.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button>${activeCloudSession?`<button id="returnCommitteeWorkspace" class="primary-btn">العودة إلى قائمة اللجنة</button>`:`<button id="showResultAfterAssessment" class="primary-btn">العودة إلى النتيجة</button>`}</div>`);if(activeCloudSession)$("#returnCommitteeWorkspace").onclick=()=>{closeModal();activeCloudSession=null;renderCommitteeWorkspace()};else $("#showResultAfterAssessment").onclick=()=>showResult(draw)}
+  if(activeCloudSession){try{activeCloudSession=await window.CloudCompetition.saveSession(activeCloudSession.id,assessment,"final",result.score);console.log("[examTrace] finalizeElectronicAssessment: بعد الحفظ بالسحابة",{studentId:participant.id,examId:draw.id,attemptId:activeCloudSession?.id||null,scoreAfterSave:activeCloudSession?.score,status:activeCloudSession?.status});await window.CloudCompetition.log("finalize","participant",participant.id,{score:result.score,drawId:draw.id});committeeSessions=committeeSessions.filter(item=>item.id!==activeCloudSession.id);committeeSessions.unshift(activeCloudSession)}catch(error){console.warn("[examTrace] finalizeElectronicAssessment: فشل الحفظ، رجوع للمسودة",{studentId:participant.id,examId:draw.id,error:error?.message});assessment.status="draft";delete participant.score;delete participant.gradedAt;delete participant.scoreSource;saveAssessmentDraft(participant);if(button){button.disabled=false;button.textContent="اعتماد النتيجة"}return toast(`لم تُعتمد النتيجة: ${error.message}`)}}localStorage.removeItem(examinerDraftKey(participant.id));renderAll();const canSeeScore=window.CloudCompetition.context?.committee?.show_score!==false,incomplete=Boolean(assessment.incomplete);openModal(`<div class="modal-head"><h2>${incomplete?"تم إنهاء الاختبار":"تم اعتماد النتيجة"}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="assessment-review-score ${incomplete?"incomplete":result.passed?"passed":"failed"}"><span>${escapeHtml(participant.name)}</span><b>${incomplete?"غير مكتمل":canSeeScore?formatAssessmentNumber(result.score):"—"}</b><strong>${incomplete?"أُنهي الاختبار قبل اكتماله":canSeeScore?(result.passed?"ناجح":"راسب"):"العلامة غير ظاهرة لهذه اللجنة"}</strong></div><p>${incomplete?"سُجِّلت علامة المتسابق «غير مكتمل» مع تفاصيل الأخطاء والترددات والملاحظات المسجَّلة حتى لحظة الإنهاء.":"حُفظت العلامة مع تفاصيل الأخطاء والترددات والملاحظات لكل موضع."}</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button>${activeCloudSession?`<button id="returnCommitteeWorkspace" class="primary-btn">العودة إلى قائمة اللجنة</button>`:`<button id="showResultAfterAssessment" class="primary-btn">العودة إلى النتيجة</button>`}</div>`);if(activeCloudSession)$("#returnCommitteeWorkspace").onclick=()=>{closeModal();activeCloudSession=null;renderCommitteeWorkspace()};else $("#showResultAfterAssessment").onclick=()=>showResult(draw)}
 async function openAssessmentReview(draw,participant){
   stopMemberPositionSync();
   const assessment=participant.assessment,result=calculateAssessment(assessment),chairman=currentExaminerRole()==="chairman";
@@ -2110,13 +2050,14 @@ function renderCommitteeBreakdownBody(){
   list.innerHTML=committees.map(c=>{
     const members=membersByCommittee.get(c.id)||[];
     const withdrawn=members.filter(p=>p.withdrawn);
-    const examined=members.filter(p=>Number.isFinite(p.score)&&p.score>0);
+    const examined=members.filter(isRealExam);
     const passed=examined.filter(p=>p.score>=PASS_SCORE);
     const failed=examined.filter(p=>p.score<PASS_SCORE);
-    const pending=members.length-examined.length-withdrawn.length;
+    const incomplete=members.filter(p=>p.assessment?.incomplete);
+    const pending=members.length-examined.length-withdrawn.length-incomplete.length;
     const rate=passRateOf(members);
     const roles=[c.chairman_name,c.member_name].filter(Boolean).join(" - ");
-    const extraRows=(pending>0?`<div class="level-card-row"><span>بانتظار العلامة</span><b>${formatNumber(pending)}</b></div>`:"")+(withdrawn.length>0?`<div class="level-card-row"><span>منسحبون</span><b>${formatNumber(withdrawn.length)}</b></div>`:"");
+    const extraRows=(pending>0?`<div class="level-card-row"><span>بانتظار العلامة</span><b>${formatNumber(pending)}</b></div>`:"")+(incomplete.length>0?`<div class="level-card-row"><span>غير مكتمل</span><b>${formatNumber(incomplete.length)}</b></div>`:"")+(withdrawn.length>0?`<div class="level-card-row"><span>منسحبون</span><b>${formatNumber(withdrawn.length)}</b></div>`:"");
     return `<details class="committee-breakdown-card"><summary><div class="committee-breakdown-card-name"><b>${escapeHtml(c.name)}</b>${roles?`<small>${escapeHtml(roles)}</small>`:""}</div><div class="committee-breakdown-card-summary"><span>${formatNumber(members.length)} طالب</span><b>${formatPct(rate)}</b></div></summary><div class="committee-breakdown-card-body"><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(members.length)}</b></div><div class="level-card-row"><span>عدد الناجحين</span><b>${formatNumber(passed.length)}</b></div><div class="level-card-row"><span>عدد الراسبين</span><b>${formatNumber(failed.length)}</b></div>${extraRows}<div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(rate)}</b></div></div><p class="committee-breakdown-note">النسبة والناجحون والراسبون تُحسب فقط من الطلاب الذين أُدخلت علاماتهم حتى الآن (${formatNumber(examined.length)} من ${formatNumber(members.length)}).</p></details>`;
   }).join("");
 }
