@@ -1834,10 +1834,16 @@ function renderExamTimerValue(){const el=$("#examTimerValue");if(el)el.textConte
 function playExamTimerBell(){
   try{
     const ctx=examBellAudioCtx||(examBellAudioCtx=new (window.AudioContext||window.webkitAudioContext)());
-    const now=ctx.currentTime,osc=ctx.createOscillator(),gain=ctx.createGain();
-    osc.type="sine";osc.frequency.value=880;
-    gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.3,now+.02);gain.gain.exponentialRampToValueAtTime(.0001,now+.35);
-    osc.connect(gain);gain.connect(ctx.destination);osc.start(now);osc.stop(now+.36);
+    const now=ctx.currentTime,master=ctx.createGain();
+    master.gain.value=.5;master.connect(ctx.destination);
+    // صوت جرس حقيقي (لا نغمة إلكترونية واحدة): عدة ترددات غير متناغمة معاً بنفس اللحظة، كل
+    // وحدة بمعدل تلاشي مختلف — هيك بيطلع طنين معدني قصير شبيه بجرس الاستقبال الحقيقي بدل بيب.
+    [{freq:1000,gain:1,decay:.5},{freq:1997,gain:.5,decay:.32},{freq:2761,gain:.32,decay:.24},{freq:4070,gain:.18,decay:.16}].forEach(p=>{
+      const osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.type="sine";osc.frequency.value=p.freq;
+      gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(p.gain,now+.006);gain.gain.exponentialRampToValueAtTime(.0001,now+p.decay);
+      osc.connect(gain);gain.connect(master);osc.start(now);osc.stop(now+p.decay+.05);
+    });
   }catch(error){console.warn("تعذر تشغيل صوت الجرس",error)}
 }
 function tickExamTimer(){
