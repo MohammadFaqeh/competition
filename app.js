@@ -1038,10 +1038,13 @@ function renderAll(){renderDashboard();renderParticipants();renderHistory();refr
 // اختبر فعلياً وأخذ علامة حقيقية أكثر من صفر يبقى محسوباً ضمن الممتحنين/نسبة النجاح. الانسحاب
 // الفعلي (بلا اختبار حقيقي) يصفّر العلامة دائماً (toggleParticipantWithdrawn/استيراد Excel)،
 // فـ"علامة > صفر" وحدها كافية لاستبعاد كل حالات الانسحاب الحقيقي تلقائياً دون فحص withdrawn إطلاقاً.
-// انتهاء اختبار مبكر بسبب تجاوز حد الرسوب (endExamNow) يسجّل علامة رقمية حقيقية داخليًا (لأغراض
-// التدقيق فقط) لكن بعلامة assessment.incomplete=true — يجب استبعاد هذه الحالات دائماً من كل
-// إحصائية ناجح/راسب (لا يوجد نجاح أو رسوب فعلي لاختبار لم يكتمل)، هون التصنيف الموحّد لذلك.
-function isRealExam(entity){return Number.isFinite(entity?.score)&&entity.score>0&&!entity?.assessment?.incomplete}
+// انتهاء اختبار مبكر بسبب تجاوز حد الرسوب (endExamNow) يسجّل علامة رقمية حقيقية داخليًا (دائماً
+// أقل من 75 بحكم شرط تفعيل الزر نفسه) بعلامة assessment.incomplete=true — طلب صريح: يُحسب ضمن
+// إحصائيات "امتُحن" و"راسب" تماماً كأي رسوب عادي (لا يُستبعد)، وبما إنه دائماً <75 فعلياً فهو
+// يقع في خانة الرسوب تلقائياً بمجرد إدخاله بالإحصائية، دون أي معاملة خاصة إضافية هون. العلامة
+// النصية "غير مكتمل" (بدل الرقم) تبقى تظهر لكل طالب على حدة بمكانها الخاص (scoreCell/التصدير/
+// نافذة النتيجة) — التغيير هون يخص فقط تجميع الإحصائيات لا عرض العلامة الفردية.
+function isRealExam(entity){return Number.isFinite(entity?.score)&&entity.score>0}
 function passRateOf(list){const examined=list.filter(isRealExam);return examined.length?examined.filter(p=>p.score>=PASS_SCORE).length/examined.length*100:null}
 function formatPct(n){return n==null?"—":`${new Intl.NumberFormat("ar-JO",{maximumFractionDigits:1,numberingSystem:"latn"}).format(n)}%`}
 function renderPassRateRing(ringId,valueId,pct){const ring=$(`#${ringId}`),value=$(`#${valueId}`);if(!ring||!value)return;const empty=pct==null;ring.classList.toggle("is-empty",empty);ring.style.setProperty("--pct",empty?0:Math.max(0,Math.min(100,pct)));value.textContent=empty?"لا يوجد بيانات":formatPct(pct)}
@@ -1454,8 +1457,7 @@ async function exportFinalResults(){
     try{await ensureXlsx()}catch(error){return toast(error.message)}
     const byLevel=new Map();for(const p of list){const key=p.levelName||`${p.level} أجزاء`;if(!byLevel.has(key))byLevel.set(key,[]);byLevel.get(key).push(p)}
     const orderedKeys=[...LEVEL_CATALOG.map(l=>l.label),...[...byLevel.keys()].filter(k=>!LEVEL_CATALOG.some(l=>l.label===k))].filter(k=>byLevel.has(k));
-    const rankableScore=p=>p.assessment?.incomplete?-1:Number.isFinite(p.score)?p.score:-1;
-    const sortGroup=group=>[...group].sort((a,b)=>rankableScore(b)-rankableScore(a)||String(a.name).localeCompare(String(b.name),"ar"));
+    const sortGroup=group=>[...group].sort((a,b)=>(Number.isFinite(b.score)?b.score:-1)-(Number.isFinite(a.score)?a.score:-1)||String(a.name).localeCompare(String(b.name),"ar"));
     const workbook=XLSX.utils.book_new(),setSheetOptions=sheet=>{sheet["!cols"]=[{wch:32},{wch:26},{wch:9},{wch:14},{wch:14},{wch:16},{wch:20},{wch:20},{wch:38},{wch:16},{wch:14},{wch:14},{wch:12},{wch:12}];sheet["!views"]=[{rightToLeft:true}]};workbook.Workbook={Views:[{RTL:true}]};
     for(const key of orderedKeys){const rows=sortGroup(byLevel.get(key)).map(resultsExportRow);const sheet=XLSX.utils.json_to_sheet(rows);setSheetOptions(sheet);XLSX.utils.book_append_sheet(workbook,sheet,key.slice(0,31))}
     XLSX.writeFile(workbook,`نتائج-وترتيب-المسابقة-${dateStamp()}.xlsx`);toast("تم تنزيل ملف النتائج مقسماً حسب المستوى")
@@ -2096,11 +2098,10 @@ function renderCommitteeBreakdownBody(){
     const examined=members.filter(isRealExam);
     const passed=examined.filter(p=>p.score>=PASS_SCORE);
     const failed=examined.filter(p=>p.score<PASS_SCORE);
-    const incomplete=members.filter(p=>p.assessment?.incomplete);
-    const pending=members.length-examined.length-withdrawn.length-incomplete.length;
+    const pending=members.length-examined.length-withdrawn.length;
     const rate=passRateOf(members);
     const roles=[c.chairman_name,c.member_name].filter(Boolean).join(" - ");
-    const extraRows=(pending>0?`<div class="level-card-row"><span>بانتظار العلامة</span><b>${formatNumber(pending)}</b></div>`:"")+(incomplete.length>0?`<div class="level-card-row"><span>غير مكتمل</span><b>${formatNumber(incomplete.length)}</b></div>`:"")+(withdrawn.length>0?`<div class="level-card-row"><span>منسحبون</span><b>${formatNumber(withdrawn.length)}</b></div>`:"");
+    const extraRows=(pending>0?`<div class="level-card-row"><span>بانتظار العلامة</span><b>${formatNumber(pending)}</b></div>`:"")+(withdrawn.length>0?`<div class="level-card-row"><span>منسحبون</span><b>${formatNumber(withdrawn.length)}</b></div>`:"");
     return `<details class="committee-breakdown-card"><summary><div class="committee-breakdown-card-name"><b>${escapeHtml(c.name)}</b>${roles?`<small>${escapeHtml(roles)}</small>`:""}</div><div class="committee-breakdown-card-summary"><span>${formatNumber(members.length)} طالب</span><b>${formatPct(rate)}</b></div></summary><div class="committee-breakdown-card-body"><div class="level-card-row"><span>عدد الطلاب</span><b>${formatNumber(members.length)}</b></div><div class="level-card-row"><span>عدد الناجحين</span><b>${formatNumber(passed.length)}</b></div><div class="level-card-row"><span>عدد الراسبين</span><b>${formatNumber(failed.length)}</b></div>${extraRows}<div class="level-card-row"><span>نسبة النجاح</span><b>${formatPct(rate)}</b></div></div><p class="committee-breakdown-note">النسبة والناجحون والراسبون تُحسب فقط من الطلاب الذين أُدخلت علاماتهم حتى الآن (${formatNumber(examined.length)} من ${formatNumber(members.length)}).</p></details>`;
   }).join("");
 }
