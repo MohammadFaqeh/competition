@@ -58,7 +58,7 @@ window.CloudCompetition=(()=>{
     if(error)throw rpcError(error);
     adminKnownParticipantIds=currentParticipantIds;adminKnownDrawIds=currentDrawIds;
   }
-  function queueStateSave(payload,onError){if(context?.kind!=="admin")return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));saveTimer=setTimeout(()=>saveCompetitionState(snapshot).catch(onError||console.error),450)}
+  function queueStateSave(payload,onError,onSuccess){if(context?.kind!=="admin")return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));saveTimer=setTimeout(()=>saveCompetitionState(snapshot).then(()=>onSuccess?.()).catch(onError||console.error),450)}
 
   function markSupervisorKnownIds(participants,draws){supervisorKnownParticipantIds=new Set((participants||[]).map(p=>p.id));supervisorKnownDrawIds=new Set((draws||[]).map(d=>d.id))}
   async function saveSupervisorState(payload){
@@ -70,7 +70,7 @@ window.CloudCompetition=(()=>{
     if(error)throw rpcError(error);
     supervisorKnownParticipantIds=currentParticipantIds;supervisorKnownDrawIds=currentDrawIds;
   }
-  function queueSupervisorSave(payload,onError){if(context?.kind!=="supervisor")return;clearTimeout(supervisorSaveTimer);const snapshot=JSON.parse(JSON.stringify(payload));supervisorSaveTimer=setTimeout(()=>saveSupervisorState(snapshot).catch(onError||console.error),450)}
+  function queueSupervisorSave(payload,onError,onSuccess){if(context?.kind!=="supervisor")return;clearTimeout(supervisorSaveTimer);const snapshot=JSON.parse(JSON.stringify(payload));supervisorSaveTimer=setTimeout(()=>saveSupervisorState(snapshot).then(()=>onSuccess?.()).catch(onError||console.error),450)}
 
   // القراءة (لجان/جلسات/أدمن فرعي/سجل النشاط): يشترك فيها admin وsupervisor عبر نفس القراءة
   // المباشرة من الجداول — سياسات RLS موسّعة لتشمل الدورين، فلا حاجة لأي تفرّع هنا.
@@ -178,7 +178,7 @@ window.CloudCompetition=(()=>{
   async function deleteSubAdmin(id){if(context?.kind==="supervisor"){const {data,error}=await client.rpc("supervisor_delete_sub_admin",{p_id:id});if(error)throw rpcError(error);return data}const {data,error}=await client.rpc("admin_delete_sub_admin",{p_id:id});if(error)throw rpcError(error);return data}
   async function saveSubAdminParticipants(participants,deletedIds=[]){const {data,error}=await client.rpc("sub_admin_save_participants",{p_token:context.token,p_participants:participants,p_deleted_ids:deletedIds});if(error)throw rpcError(error);return data}
   function markSubAdminKnownIds(ids){subAdminKnownIds=new Set(ids)}
-  function queueSubAdminParticipantsSave(participants,onError){if(context?.kind!=="subAdmin")return;clearTimeout(subAdminSaveTimer);const snapshot=JSON.parse(JSON.stringify(participants));subAdminSaveTimer=setTimeout(()=>{const currentIds=new Set(snapshot.map(p=>p.id)),deletedIds=[...subAdminKnownIds].filter(id=>!currentIds.has(id));saveSubAdminParticipants(snapshot,deletedIds).then(()=>{subAdminKnownIds=currentIds}).catch(onError||console.error)},450)}
+  function queueSubAdminParticipantsSave(participants,onError,onSuccess){if(context?.kind!=="subAdmin")return;clearTimeout(subAdminSaveTimer);const snapshot=JSON.parse(JSON.stringify(participants));subAdminSaveTimer=setTimeout(()=>{const currentIds=new Set(snapshot.map(p=>p.id)),deletedIds=[...subAdminKnownIds].filter(id=>!currentIds.has(id));saveSubAdminParticipants(snapshot,deletedIds).then(()=>{subAdminKnownIds=currentIds;onSuccess?.()}).catch(onError||console.error)},450)}
   async function createSubAdminDraw(draw){const {data,error}=await client.rpc("sub_admin_create_draw",{p_token:context.token,p_draw:draw});if(error)throw rpcError(error);return data}
   async function listActivityLog(limit=200){const {data,error}=await client.from("audit_log").select("id,actor_id,action,entity_type,entity_id,details,created_at").order("created_at",{ascending:false}).limit(limit);if(error)throw error;return data}
 

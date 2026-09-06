@@ -76,6 +76,17 @@ html.theme-dark{
   --shadow-sm:0 1px 2px rgba(0,0,0,.35);
   --shadow-md:0 10px 28px rgba(0,0,0,.45);
   --shadow-lg:0 24px 60px rgba(0,0,0,.6);
+  /* --green-50/100 و--gold-soft كانت تبقى بلونها الفاتح الأصلي بالوضع الداكن (ما كان لها أي
+     إعادة تعريف هون أصلاً) — فتظهر كبقع باهتة شبه بيضاء/كريمية فوق خلفية داكنة بدل تباين واضح
+     (شارات الحالة، الأزرار الثانوية عند hover، أيقونات الإحصائيات...). نفس أسلوب local-mode-notice
+     أدناه (الوحيد يلي كان مُعدَّلاً يدوياً من قبل) بالضبط: خلفية داكنة مشبعة + نص فاتح واضح.*/
+  --green-50:#16281f;
+  --green-100:#1c3a2c;
+  --green-600:#3fae82;
+  --green-700:#4bc494;
+  --green-800:#6fe3ac;
+  --gold-soft:#332a10;
+  --gold-600:#e6c877;
 }
 html.theme-dark .light-btn,
 html.theme-dark .range-btn,
@@ -90,6 +101,14 @@ html.theme-dark .committee-no-draw{background:#3a2020;color:#e8a3a3}
 html.theme-dark .missing-parts-list span{background:#3a2020;color:#e8a3a3;border-color:#5a3232}
 html.theme-dark .local-mode-notice{background:#332a10;color:#e6c877}
 html.theme-dark .local-mode-notice button{background:#8f6c22;color:#16221c}
+html.theme-dark .result-warning{color:#e6c877}
+/* هاي الحالات الأربع تستخدم --green-800 كخلفية صلبة بنص أبيض فوقها (شارة نشطة) لا كنص على
+   خلفية داكنة — لو تركناها تاخذ لون --green-800 الفاتح الجديد (مخصص ليكون نصاً واضحاً على
+   خلفية داكنة) بيصير النص الأبيض فوقها غير مقروء. نثبّتها بلون أخضر داكن صريح بالوضعين. */
+html.theme-dark .position-stepper button.active,
+html.theme-dark .position-stepper button.is-done.active,
+html.theme-dark .pager-tabs button.active,
+html.theme-dark .examiner-diff-position-head{background:#1a5642;border-color:#1a5642;color:#fff}
 
 /* 2. Reset / Base ---------------------------------------------------------- */
 *,*::before,*::after{box-sizing:border-box}
@@ -256,6 +275,13 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 }
 .topbar h2{font-size:16.5px;margin:3px 0 0}
 .topbar-actions{margin-right:auto;display:flex;align-items:center;gap:var(--sp-3)}
+.sync-status-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.sync-status-pill i{width:14px;height:14px}
+.sync-status-pill.is-saving{background:var(--green-50);color:var(--green-800)}
+.sync-status-pill.is-saved{background:var(--green-100);color:var(--green-800)}
+.sync-status-pill.is-error{background:var(--red-soft);color:var(--red)}
+.sync-status-pill .spin{animation:syncSpin .8s linear infinite}
+@keyframes syncSpin{to{transform:rotate(360deg)}}
 .date-chip{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12.5px;padding-left:var(--sp-4);border-left:1px solid var(--line)}
 .date-chip-text{display:flex;flex-direction:column;gap:1px;line-height:1.3}
 .date-chip-text small{font-size:12.5px;font-weight:700;color:var(--caption);direction:ltr;text-align:right;letter-spacing:.2px}
@@ -703,8 +729,19 @@ body.exam-fullscreen .color-mode-toggle{display:none}
 .text-login-btn{border:0;background:transparent;color:var(--green-800);font:inherit;font-weight:700;margin:12px auto;cursor:pointer}.login-mode-links{display:flex;justify-content:center;gap:16px}.login-mode-links .text-login-btn{margin:12px 0}.admin-login-form{padding-top:0}.admin-login-form .secondary-btn{margin-top:9px;justify-content:center}.committee-form-actions{display:flex;gap:8px;align-items:end}.committee-position-preview{display:grid;gap:5px;margin:12px 0 0;padding:0;list-style:none}.committee-position-preview li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 9px;border-radius:8px;background:var(--green-50)}.committee-position-preview li>b{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--surface);color:var(--green-800)}.committee-position-preview li span{font-size:12px;font-weight:700}.committee-position-preview li small{font-size:9px;color:var(--muted)}
 .missing-parts-list{display:grid;gap:6px;max-height:260px;overflow:auto;margin-top:12px}.missing-parts-list span{padding:9px 12px;border:1px solid #efcaca;border-radius:8px;background:#fff7f7;color:#9e3434;font-weight:700}
 .cloud-committees-panel{margin-top:16px}.committee-account-form{display:grid;grid-template-columns:1fr 1.4fr 1.5fr auto;align-items:end;gap:12px}.committee-account-form fieldset{border:0;padding:0;margin:0;grid-column:1/-1}.committee-account-form legend{font-size:11px;font-weight:700;margin-bottom:7px}.committee-level-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:7px}.committee-level-options label{display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:11px;line-height:1.4}.committee-level-options input{width:auto;margin:0;flex:0 0 auto}.field-help{color:var(--muted);font-size:10px;margin:10px 0}
-.committee-confirm-parts{font-size:15px}.committee-confirm-parts b{font-size:19px;font-weight:800;color:var(--ink);line-height:1.9}.committees-list{display:grid;gap:8px;margin-top:12px}.committee-row{display:flex;flex-direction:column;gap:9px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:9px}.committee-row-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.committee-row b{display:block;font-size:13px}.committee-row small{display:block;color:var(--muted);font-size:10.5px;line-height:1.7}.committee-row.inactive{opacity:.6}.committee-levels-badges{display:flex;flex-wrap:wrap;gap:6px}.committee-levels-badges span{padding:3px 9px;border-radius:999px;background:var(--green-100);color:var(--green-800);font-size:9.5px;font-weight:700}.managed-centers-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.managed-center-tag{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--green-100);color:var(--green-800);font-size:11px;font-weight:600}.managed-center-tag button{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;opacity:.7}.managed-center-tag button:hover{opacity:1}.managed-center-tag button svg{width:12px;height:12px}
-.committee-row .permission-on{color:var(--green-700);font-weight:800;margin-top:3px}.committee-row .permission-off{color:var(--red);font-weight:800;margin-top:3px}.committee-audit{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}.committee-audit .panel-head{margin-bottom:9px}.committee-audit h3{font-size:15px}.final-edit-audit-list{display:grid;gap:6px;max-height:280px;overflow:auto}.final-edit-audit-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}.final-edit-audit-list article div{display:flex;flex-direction:column}.final-edit-audit-list b{font-size:11px}.final-edit-audit-list span,.final-edit-audit-list small{color:var(--muted);font-size:9px}.final-edit-audit-list small{white-space:nowrap}
+.committee-confirm-parts{font-size:15px}.committee-confirm-parts b{font-size:19px;font-weight:800;color:var(--ink);line-height:1.9}.committees-list{display:grid;gap:8px;margin-top:12px}.committee-row{display:flex;flex-direction:column;gap:9px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:9px}.committee-row-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.committee-row b{display:block;font-size:13px}.committee-row small{display:block;color:var(--muted);font-size:10.5px;line-height:1.7}.committee-row.inactive{opacity:.6}.committee-row.just-saved{animation:committeeRowSaved 1.6s var(--ease)}
+@keyframes committeeRowSaved{0%{box-shadow:0 0 0 3px var(--green-600,var(--green-800))}70%{box-shadow:0 0 0 3px var(--green-600,var(--green-800))}100%{box-shadow:none}}.committee-levels-badges{display:flex;flex-wrap:wrap;gap:6px}.committee-levels-badges span{padding:3px 9px;border-radius:999px;background:var(--green-100);color:var(--green-800);font-size:9.5px;font-weight:700}.managed-centers-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.managed-center-tag{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--green-100);color:var(--green-800);font-size:11px;font-weight:600}.managed-center-tag button{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;opacity:.7}.managed-center-tag button:hover{opacity:1}.managed-center-tag button svg{width:12px;height:12px}
+.committee-row .permission-on{color:var(--green-700);font-weight:800;margin-top:3px}.committee-row .permission-off{color:var(--red);font-weight:800;margin-top:3px}
+.committee-permissions{display:grid;gap:2px;border-top:1px solid var(--line-soft);padding-top:9px}
+.permission-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 2px;font-size:11.5px;color:var(--ink);cursor:pointer}
+.switch{position:relative;display:inline-block;width:38px;height:21px;flex:0 0 auto}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:1}
+.switch-slider{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:background var(--dur-fast) var(--ease)}
+.switch-slider::before{content:"";position:absolute;width:15px;height:15px;inset-inline-start:3px;top:3px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:inset-inline-start var(--dur-fast) var(--ease)}
+.switch input:checked+.switch-slider{background:var(--green-700)}
+.switch input:checked+.switch-slider::before{inset-inline-start:20px}
+.switch input:disabled+.switch-slider{opacity:.55;cursor:not-allowed}
+.committee-audit{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}.committee-audit .panel-head{margin-bottom:9px}.committee-audit h3{font-size:15px}.final-edit-audit-list{display:grid;gap:6px;max-height:280px;overflow:auto}.final-edit-audit-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}.final-edit-audit-list article div{display:flex;flex-direction:column}.final-edit-audit-list b{font-size:11px}.final-edit-audit-list span,.final-edit-audit-list small{color:var(--muted);font-size:9px}.final-edit-audit-list small{white-space:nowrap}
 .monitor-layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;align-items:start}
 .monitor-committees-panel .committees-list{margin-top:0}
 .monitor-committee-btn{width:100%;text-align:right;font:inherit;cursor:pointer;transition:border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
@@ -821,7 +858,10 @@ body.exam-fullscreen .examiner-mode-modal{width:100%;max-width:none;height:100dv
 @media(max-width:520px){.assessment-layout{padding:10px}.assessment-position>header{grid-template-columns:38px 1fr}.assessment-position>header>b{grid-column:2}.assessment-counter{align-items:flex-start;flex-direction:column}.counter-control{align-self:stretch;grid-template-columns:36px 1fr 36px}.assessment-modal .modal-actions{flex-wrap:wrap}.assessment-modal .modal-actions button{flex:1 1 100%}.modal:has(.examiner-mode-modal){padding:0}.examiner-mode-modal{width:100%;height:100dvh;max-height:100dvh;border-radius:0}.examiner-header{border-radius:0;padding:11px 12px;grid-template-columns:38px 1fr 72px}.examiner-header>div:nth-child(2)>span{font-size:14px}.examiner-score b{font-size:25px}.examiner-screen{padding:10px}.exam-position-card{padding:14px}.exam-position-card>h2{font-size:20px}.exam-actions{grid-template-columns:1fr;gap:8px;margin:14px 0}.exam-action.positionChange{grid-column:auto}.exam-action-add{min-height:70px}.examiner-navigation{grid-template-columns:1fr 1fr;margin:8px -10px -10px;padding:9px 10px}.examiner-navigation #reviewAssessmentBtn{grid-column:1/-1;grid-row:1}.position-stepper{justify-content:flex-start}}
 
 /* Final responsive hardening: phone, tablet, laptop and large screens */
-html,body{max-width:100%;overflow-x:hidden}
+/* overflow-x:hidden على html/body كان يكسر position:sticky بالـ.topbar (يفرض overflow-y:auto
+   ضمنياً على body فيصير هو حاوية التمرير بدل الصفحة، فما يبقى الهيدر ثابت فوق أثناء التمرير) —
+   overflow-x:clip يمنع نفس تمرير أفقي غير مرغوب بدون هالأثر الجانبي. */
+html,body{max-width:100%;overflow-x:clip}
 img,svg{max-width:100%}
 .panel,.stat,.committee-student,.modal-card{min-width:0}
 .table-wrap{-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}

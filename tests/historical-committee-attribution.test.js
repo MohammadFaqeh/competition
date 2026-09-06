@@ -1,11 +1,13 @@
-// اختبار آلي لإصلاح صريح مطلوب من المستخدم: إحصائيات اللجنة (عدد الممتحنين عند اللجنة نفسها،
-// وبطاقة كل لجنة عند لوحة تحكم الإدارة) يجب أن تعتمد على "من امتحن الطالب فعلياً"، لا على مستواه
-// الحالي — لأن نقل المستوى بين اللجان يصير يومياً بالمسابقة، فكان اعتماد المستوى الحالي يُسقط
-// طلاباً امتحنوا فعلياً عند لجنة معينة من إحصائياتها بمجرد نقلهم لمستوى/لجنة أخرى لاحقاً.
+// اختبار آلي لإصلاح صريح مطلوب من المستخدم: إحصائيات اللجنة (عدد الممتحنين عند اللجنة نفسها)
+// يجب أن تعتمد على "من امتحن الطالب فعلياً"، لا على مستواه الحالي — لأن نقل المستوى بين اللجان
+// يصير يومياً بالمسابقة، فكان اعتماد المستوى الحالي يُسقط طلاباً امتحنوا فعلياً عند لجنة معينة
+// من إحصائياتها بمجرد نقلهم لمستوى/لجنة أخرى لاحقاً.
 // الإصلاح: assessment.committee={id,name} يُختم عند اعتماد النتيجة (finalizeElectronicAssessment)
 // ويُعبَّأ رجعياً للجلسات القديمة (mergeFinalSessionsIntoState) — والمنطق المستهلِك لهذا الحقل
-// (committeeScopedState/renderCommitteeDashboardGrid) كان موجوداً أصلاً بالكود لكنه معطَّل فعلياً
-// (dead code) لعدم تعبئة البيانات، فيُفعَّل الآن تلقائياً دون أي تغيير إضافي بهما.
+// (committeeScopedState، وتفصيل اللجان بصفحة الإحصائيات) كان موجوداً أصلاً بالكود لكنه معطَّل
+// فعلياً (dead code) لعدم تعبئة البيانات، فيُفعَّل الآن تلقائياً دون أي تغيير إضافي بهما.
+// ملاحظة: بطاقة "التوزيع حسب اللجنة" بلوحة النظرة العامة (renderCommitteeDashboardGrid) حُذفت
+// لاحقاً بناءً على طلب صريح — الحالة الثالثة التي كانت تفحصها هون أُزيلت لعدم بقاء الدالة.
 // شغّله: node tests/historical-committee-attribution.test.js
 "use strict";
 const fs = require("fs");
@@ -77,17 +79,7 @@ function run() {
   const scoped = sandbox.committeeScopedState(payload);
   assert.strictEqual(scoped.participants.length, 1, "المتسابقة يجب أن تبقى ضمن نطاق لجنة 9 رغم أن مستواها الحالي (المستوى السابع) لا يطابق لجنة 9 إطلاقاً — لأنها من امتحنتها فعلياً");
 
-  // 3) renderCommitteeDashboardGrid (لوحة الإدارة): نفس المتسابقة يجب أن تُحسب على بطاقة لجنة 9
-  //    (من امتحنها فعلياً)، لا على بطاقة لجنة 3 (مستواها الحالي فقط، لم تُمتحن هناك إطلاقاً).
-  vm.runInContext("cloudCommittees = __committees; operationMode = 'cloud';", Object.assign(sandbox, { __committees: [committee9, committee3] }));
-  sandbox.renderCommitteeDashboardGrid([participant]);
-  const gridHtml = vm.runInContext('document.querySelector("#committeeDashboardGrid").innerHTML', sandbox);
-  const committee9Card = gridHtml.slice(gridHtml.indexOf("لجنة رقم 9"), gridHtml.indexOf("لجنة رقم 9") + 400);
-  const committee3Card = gridHtml.slice(gridHtml.indexOf("لجنة رقم 3"), gridHtml.indexOf("لجنة رقم 3") + 400);
-  assert.ok(/عدد الطلاب<\/span><b>1<\/b>/.test(committee9Card), "بطاقة لجنة 9 يجب أن تحسب المتسابقة (امتحنتها فعلياً) ضمن عدد الطلاب");
-  assert.ok(/عدد الطلاب<\/span><b>0<\/b>/.test(committee3Card), "بطاقة لجنة 3 يجب ألا تحسبها إطلاقاً (لم تُمتحن هناك، فقط مستواها الحالي يطابقها)");
-
-  console.log("historical-committee-attribution.test.js: نجح — إحصائيات اللجنة (عند اللجنة نفسها وعند لوحة الإدارة) تعتمد الآن على من امتحن الطالب فعلياً، لا على مستواه الحالي، مع تعبئة رجعية للجلسات القديمة");
+  console.log("historical-committee-attribution.test.js: نجح — إحصائيات اللجنة تعتمد الآن على من امتحن الطالب فعلياً، لا على مستواه الحالي، مع تعبئة رجعية للجلسات القديمة");
 }
 
 try { run(); } catch (error) { console.error("historical-committee-attribution.test.js FAILED:", error.stack || error.message); process.exit(1); }
