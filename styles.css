@@ -790,9 +790,9 @@ body.exam-fullscreen .color-mode-toggle{display:none}
 .examiner-mode-modal{width:min(820px,100%);max-height:calc(100vh - 24px);background:var(--surface)}
 body.exam-fullscreen .modal{padding:0;background:var(--surface)}
 body.exam-fullscreen .examiner-mode-modal{width:100%;max-width:none;height:100dvh;max-height:100dvh;border-radius:0;animation:none}
-.examiner-header{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:42px minmax(0,1fr) 90px;align-items:center;gap:12px;padding:13px 18px;background:var(--green-950);color:#fff;border-radius:var(--radius-lg) var(--radius-lg) 0 0}.examiner-header>div:nth-child(2){display:flex;flex-direction:column}.examiner-header>div:nth-child(2)>span{font-size:17px;font-weight:800}.examiner-header small{color:#bcd6cb}.examiner-header .icon-btn{color:#fff;border-color:rgba(255,255,255,.25)}
-.examiner-score{text-align:center;border-right:1px solid rgba(255,255,255,.18)}.examiner-score small{display:block;font-size:9px}.examiner-score b{display:block;font-size:30px;line-height:1.1;color:#fff}
-.examiner-screen{padding:14px 18px 18px}.position-stepper{display:flex;justify-content:center;gap:7px;margin-bottom:12px;overflow-x:auto;padding:2px}.position-stepper button{flex:0 0 34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-weight:800}.position-stepper button.active{background:var(--green-800);border-color:var(--green-800);color:#fff;box-shadow:0 0 0 4px var(--green-100)}
+.examiner-header{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:38px minmax(0,1fr) 78px;align-items:center;gap:10px;padding:9px 16px;background:var(--green-950);color:#fff;border-radius:var(--radius-lg) var(--radius-lg) 0 0}.examiner-header>div:nth-child(2){display:flex;flex-direction:column}.examiner-header>div:nth-child(2)>span{font-size:15px;font-weight:800}.examiner-header small{color:#bcd6cb}.examiner-header .icon-btn{color:#fff;border-color:rgba(255,255,255,.25)}
+.examiner-score{text-align:center;border-right:1px solid rgba(255,255,255,.18)}.examiner-score small{display:block;font-size:9px}.examiner-score b{display:block;font-size:24px;line-height:1.1;color:#fff}
+.examiner-screen{padding:10px 16px 14px}.position-stepper{display:flex;justify-content:center;gap:6px;margin-bottom:8px;overflow-x:auto;padding:2px}.position-stepper button{flex:0 0 28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-weight:800;font-size:11px}.position-stepper button.active{background:var(--green-800);border-color:var(--green-800);color:#fff;box-shadow:0 0 0 4px var(--green-100)}
 .position-stepper button.is-done{background:var(--green-100);border-color:var(--green-600);color:var(--green-800);opacity:.75}
 .position-stepper button.is-done.active{opacity:1;background:var(--green-800);border-color:var(--green-800);color:#fff;box-shadow:0 0 0 4px var(--green-100)}
 /* .exam-split-panel عنده سكرول داخلي خاص (راجع التعليق أعلاه) — لو محتواه (خانات الأخطاء
@@ -801,16 +801,16 @@ body.exam-fullscreen .examiner-mode-modal{width:100%;max-width:none;height:100dv
    إضافي جوا نفس الصندوق (خصوصًا بلوحات اللمس اللي تخفي شريط التمرير)، فيبدو للممتحن وكأنه غير
    موجود إطلاقًا رغم إنه موجود فعلاً — يحتاج نزول إضافي داخل الصندوق نفسه ليصله. نثبّته بأسفل
    الصندوق دائمًا (sticky bottom) ليبقى بمتناول اليد بلا أي حاجة للتمرير اكتشافه أصلاً.  */
-.exam-position-complete{width:100%;justify-content:center;margin-top:12px;position:sticky;bottom:0;background:var(--surface);box-shadow:0 -8px 10px -6px rgb(0 0 0 / .08);z-index:1}
+.exam-position-complete{width:100%;justify-content:center;margin-top:8px;position:sticky;bottom:0;background:var(--surface);box-shadow:0 -8px 10px -6px rgb(0 0 0 / .08);z-index:1}
 .exam-position-complete.is-done{background:var(--green-100);border-color:var(--green-600);color:var(--green-800)}
-.exam-position-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-sm)}.exam-position-label{display:flex;justify-content:space-between;gap:10px;color:var(--green-700);font-size:11px;font-weight:800}.exam-position-label b{color:var(--red)}.exam-position-card>h2{font-size:23px;margin:7px 0 2px}.exam-position-card>p{color:var(--muted);font-size:11px}
+.exam-position-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow-sm)}.exam-position-label{display:flex;justify-content:space-between;gap:10px;color:var(--green-700);font-size:11px;font-weight:800}.exam-position-label b{color:var(--red)}.exam-position-card>h2{font-size:18px;margin:5px 0 2px}.exam-position-card>p{color:var(--muted);font-size:11px}
 .exam-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
-.exam-split-quran{position:sticky;top:66px;align-self:start;min-width:0}
+.exam-split-quran{position:sticky;top:54px;align-self:start;min-width:0}
 /* يثبّت عمود الأزرار جنب صورة المصحف بنفس الآلية تمامًا (sticky أصلية بالمتصفح، بلا أي
    جافاسكربت يحسب المكان أثناء السكرول)، فيضل في متناول اليد دومًا أثناء متابعة القراءة بلا
    حاجة للطلوع لأعلى الشاشة لتسجيل خطأ ثم النزول للعودة لمكان المتابعة. سكرول داخلي خاص فيه
    لو طال محتواه عن المساحة المتاحة، بدل ما يدفع الصفحة كلها للسكرول. */
-.exam-split-panel{position:sticky;top:66px;align-self:start;min-width:0;max-height:calc(100vh - 160px);overflow-y:auto}
+.exam-split-panel{position:sticky;top:54px;align-self:start;min-width:0;max-height:calc(100dvh - 100px);overflow-y:auto}
 .quran-split-viewer{border:1px solid var(--line);border-radius:9px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow-sm)}
 .quran-split-image{position:relative;background:var(--surface)}
 .quran-split-image img{display:block;width:100%;height:auto}
@@ -830,12 +830,12 @@ body.exam-fullscreen .examiner-mode-modal{width:100%;max-width:none;height:100dv
 .pager-tabs .pager-nav svg{width:16px;height:16px}
 .pager-ellipsis{min-width:16px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-weight:800;user-select:none}
 .examiner-score .fail-text{color:#ff7777;text-shadow:0 0 12px rgba(255,0,0,.25)}
-.exam-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}.exam-action{position:relative;display:grid;grid-template-columns:1fr 38px;gap:5px}.exam-action-add{position:relative;min-height:82px;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;align-items:center;text-align:right;padding:13px 14px;border:2px solid var(--green-100);border-radius:9px;background:var(--green-50);color:var(--green-950)}.exam-action-add span{font-size:15px;font-weight:800}.exam-action-add small{font-size:9px;color:var(--muted)}.exam-action-add strong{grid-row:1/3;grid-column:2;font-size:31px;margin-left:26px}.exam-action-add svg{position:absolute;left:10px;bottom:10px;width:18px}.exam-action-add:active{transform:scale(.98);background:var(--green-100)}.exam-action-minus{border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--red);font-size:22px}.exam-action-minus:active{background:var(--red-soft)}
+.exam-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:10px 0}.exam-action{position:relative;display:grid;grid-template-columns:1fr 34px;gap:5px}.exam-action-add{position:relative;min-height:58px;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;align-items:center;text-align:right;padding:8px 10px;border:2px solid var(--green-100);border-radius:9px;background:var(--green-50);color:var(--green-950)}.exam-action-add span{font-size:13px;font-weight:800}.exam-action-add small{font-size:8.5px;color:var(--muted)}.exam-action-add strong{grid-row:1/3;grid-column:2;font-size:24px;margin-left:20px}.exam-action-add svg{position:absolute;left:8px;bottom:8px;width:14px}.exam-action-add:active{transform:scale(.98);background:var(--green-100)}.exam-action-minus{border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--red);font-size:19px}.exam-action-minus:active{background:var(--red-soft)}
 .exam-action.language .exam-action-add{background:#f4f8fb;border-color:#d9e8f0}.exam-action.tajweed .exam-action-add{background:#faf7ed;border-color:#eee4c5}.exam-action.hesitation .exam-action-add{background:#f7f4fb;border-color:#e4dcef}.exam-action.positionChange{grid-column:1/-1}.exam-action.positionChange .exam-action-add{background:var(--red-soft);border-color:#efcece;color:#782d2d}
 .exam-action-cap-warning{grid-column:1/-1;font-size:10.5px;line-height:1.6;color:#7d2525;background:var(--red-soft);border:1px solid #e7a5a5;border-radius:7px;padding:8px 10px;margin-top:2px}
 .exam-action.positionChange .exam-action-add:disabled{opacity:.42;filter:grayscale(.5);cursor:not-allowed;background:var(--line-soft);border-color:var(--line);color:var(--muted)}
 .exam-note{display:block;color:var(--muted);font-size:11px}.exam-note textarea{margin-top:5px;resize:vertical;background:var(--surface)}
-.exam-timer-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:12px 0;padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow-sm)}
+.exam-timer-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:8px 0;padding:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow-sm)}
 .exam-timer-display{display:flex;align-items:center;gap:6px;color:var(--ink)}
 .exam-timer-display i{width:16px;height:16px;color:var(--muted)}
 .exam-timer-display b{font-size:19px;min-width:26px;text-align:center;font-weight:800}
@@ -919,7 +919,7 @@ img,svg{max-width:100%}
 
 @media(max-height:560px) and (orientation:landscape){
   .auth-screen{padding:8px;align-items:start}.login-card{min-height:auto;padding:16px 24px}.login-logo-image{width:64px;height:64px}.login-card>p,.login-card small{display:none}.login-card h1{font-size:19px;margin-bottom:12px}.login-card label{margin-bottom:9px}
-  .modal{padding:0}.modal-card,.examiner-mode-modal{height:100dvh;max-height:100dvh;border-radius:0}.examiner-header{border-radius:0}.exam-action-add{min-height:62px}
+  .modal{padding:0}.modal-card,.examiner-mode-modal{height:100dvh;max-height:100dvh;border-radius:0}.examiner-header{border-radius:0}
 }
 
 /* 18. Print ----------------------------------------------------------------------- */
