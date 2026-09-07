@@ -5,7 +5,7 @@ window.CloudCompetition=(()=>{
   const SUB_ADMIN_TOKEN_KEY="competition.subAdminToken";
   let client=null,context=null,saveTimer=null,sessionSaveTimer=null,lastAccessRefresh=0,committeeRequest=null;
   let subAdminSaveTimer=null,subAdminKnownIds=new Set();
-  let supervisorSaveTimer=null,supervisorKnownParticipantIds=new Set(),supervisorKnownDrawIds=new Set();
+  let supervisorSaveTimer=null;
   let saveGeneration=0,supervisorSaveGeneration=0,subAdminSaveGeneration=0;
   const config=()=>window.SUPABASE_CONFIG||{};
   const enabled=()=>Boolean(config().url&&config().anonKey&&window.supabase?.createClient);
@@ -60,30 +60,41 @@ window.CloudCompetition=(()=>{
   async function signOut(){if(context?.kind==="committee"){await client.rpc("committee_logout",{p_token:context.token});localStorage.removeItem(TOKEN_KEY)}else if(context?.kind==="subAdmin"){await client.rpc("sub_admin_logout",{p_token:context.token});localStorage.removeItem(SUB_ADMIN_TOKEN_KEY)}else await client.auth.signOut();context=null}
 
   async function loadCompetitionState(){if(context?.kind==="committee"){const {data,error}=await client.rpc("committee_load_state",{p_token:context.token});if(error)throw rpcError(error);return {payload:data}}if(context?.kind==="subAdmin"){const {data,error}=await client.rpc("sub_admin_load_state",{p_token:context.token});if(error)throw rpcError(error);return {payload:data}}if(context?.kind==="supervisor"){const {data,error}=await client.rpc("supervisor_load_state");if(error)throw rpcError(error);return {payload:data}}const {data,error}=await client.from("competition_state").select("payload,updated_at").eq("id",1).single();if(error)throw error;return data}
-  let adminKnownParticipantIds=new Set(),adminKnownDrawIds=new Set();
-  function markAdminKnownIds(participants,draws){adminKnownParticipantIds=new Set((participants||[]).map(p=>p.id));adminKnownDrawIds=new Set((draws||[]).map(d=>d.id))}
+  let adminKnownParticipants=new Map(),adminKnownDraws=new Map();
+  function markAdminKnownIds(participants,draws){adminKnownParticipants=new Map((participants||[]).map(p=>[p.id,JSON.stringify(p)]));adminKnownDraws=new Map((draws||[]).map(d=>[d.id,JSON.stringify(d)]))}
   // يدمج بدل الاستبدال الأعمى: أي متسابق أو سحب أضافه طرف آخر (مسؤول فرعي مثلاً) بعد آخر
   // مزامنة محلية للإدارة يبقى محفوظاً بدل أن يُمحى بصمت لو حفظت الإدارة في نفس اللحظة تقريباً.
+  // ولأن admin_save_state أصلاً مصمَّمة هيك (أي id غائب عن الدفعة وغير مُدرَج بالمحذوفين يبقى
+  // كما هو بالسحابة)، ما في داعي نرسل كل القائمة (مئات المتسابقين) بكل حفظة — فقط من تغيّر
+  // محتواه فعلياً منذ آخر مزامنة ناجحة. هذا يختصر حجم كل حفظة من كامل القائمة إلى عنصر أو
+  // عنصرين عادةً (نفس السبب يلي كان يعلّق "جارٍ الحفظ" طويلاً أو يفشل بشبكة ضعيفة أيام الامتحان).
   async function saveCompetitionState(payload){
-    const currentParticipantIds=new Set((payload.participants||[]).map(p=>p.id));
-    const currentDrawIds=new Set((payload.draws||[]).map(d=>d.id));
-    const deletedParticipantIds=[...adminKnownParticipantIds].filter(id=>!currentParticipantIds.has(id));
-    const deletedDrawIds=[...adminKnownDrawIds].filter(id=>!currentDrawIds.has(id));
-    const {error}=await client.rpc("admin_save_state",{p_config:payload.config,p_participants:payload.participants,p_draws:payload.draws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
+    const incomingParticipants=payload.participants||[],incomingDraws=payload.draws||[];
+    const currentParticipantIds=new Set(incomingParticipants.map(p=>p.id));
+    const currentDrawIds=new Set(incomingDraws.map(d=>d.id));
+    const deletedParticipantIds=[...adminKnownParticipants.keys()].filter(id=>!currentParticipantIds.has(id));
+    const deletedDrawIds=[...adminKnownDraws.keys()].filter(id=>!currentDrawIds.has(id));
+    const changedParticipants=incomingParticipants.filter(p=>adminKnownParticipants.get(p.id)!==JSON.stringify(p));
+    const changedDraws=incomingDraws.filter(d=>adminKnownDraws.get(d.id)!==JSON.stringify(d));
+    const {error}=await client.rpc("admin_save_state",{p_config:payload.config,p_participants:changedParticipants,p_draws:changedDraws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
     if(error)throw rpcError(error);
-    adminKnownParticipantIds=currentParticipantIds;adminKnownDrawIds=currentDrawIds;
+    markAdminKnownIds(incomingParticipants,incomingDraws);
   }
   function queueStateSave(payload,onError,onSuccess){if(context?.kind!=="admin")return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));const myGeneration=++saveGeneration;saveTimer=setTimeout(()=>withRetry(()=>saveCompetitionState(snapshot),()=>myGeneration!==saveGeneration).then(()=>{if(myGeneration===saveGeneration)onSuccess?.()}).catch(error=>{if(myGeneration===saveGeneration)(onError||console.error)(error)}),450)}
 
-  function markSupervisorKnownIds(participants,draws){supervisorKnownParticipantIds=new Set((participants||[]).map(p=>p.id));supervisorKnownDrawIds=new Set((draws||[]).map(d=>d.id))}
+  let supervisorKnownParticipants=new Map(),supervisorKnownDraws=new Map();
+  function markSupervisorKnownIds(participants,draws){supervisorKnownParticipants=new Map((participants||[]).map(p=>[p.id,JSON.stringify(p)]));supervisorKnownDraws=new Map((draws||[]).map(d=>[d.id,JSON.stringify(d)]))}
   async function saveSupervisorState(payload){
-    const currentParticipantIds=new Set((payload.participants||[]).map(p=>p.id));
-    const currentDrawIds=new Set((payload.draws||[]).map(d=>d.id));
-    const deletedParticipantIds=[...supervisorKnownParticipantIds].filter(id=>!currentParticipantIds.has(id));
-    const deletedDrawIds=[...supervisorKnownDrawIds].filter(id=>!currentDrawIds.has(id));
-    const {error}=await client.rpc("supervisor_save_state",{p_participants:payload.participants,p_draws:payload.draws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
+    const incomingParticipants=payload.participants||[],incomingDraws=payload.draws||[];
+    const currentParticipantIds=new Set(incomingParticipants.map(p=>p.id));
+    const currentDrawIds=new Set(incomingDraws.map(d=>d.id));
+    const deletedParticipantIds=[...supervisorKnownParticipants.keys()].filter(id=>!currentParticipantIds.has(id));
+    const deletedDrawIds=[...supervisorKnownDraws.keys()].filter(id=>!currentDrawIds.has(id));
+    const changedParticipants=incomingParticipants.filter(p=>supervisorKnownParticipants.get(p.id)!==JSON.stringify(p));
+    const changedDraws=incomingDraws.filter(d=>supervisorKnownDraws.get(d.id)!==JSON.stringify(d));
+    const {error}=await client.rpc("supervisor_save_state",{p_participants:changedParticipants,p_draws:changedDraws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
     if(error)throw rpcError(error);
-    supervisorKnownParticipantIds=currentParticipantIds;supervisorKnownDrawIds=currentDrawIds;
+    markSupervisorKnownIds(incomingParticipants,incomingDraws);
   }
   function queueSupervisorSave(payload,onError,onSuccess){if(context?.kind!=="supervisor")return;clearTimeout(supervisorSaveTimer);const snapshot=JSON.parse(JSON.stringify(payload));const myGeneration=++supervisorSaveGeneration;supervisorSaveTimer=setTimeout(()=>withRetry(()=>saveSupervisorState(snapshot),()=>myGeneration!==supervisorSaveGeneration).then(()=>{if(myGeneration===supervisorSaveGeneration)onSuccess?.()}).catch(error=>{if(myGeneration===supervisorSaveGeneration)(onError||console.error)(error)}),450)}
 
