@@ -6,9 +6,24 @@ window.CloudCompetition=(()=>{
   let client=null,context=null,saveTimer=null,sessionSaveTimer=null,lastAccessRefresh=0,committeeRequest=null;
   let subAdminSaveTimer=null,subAdminKnownIds=new Set();
   let supervisorSaveTimer=null,supervisorKnownParticipantIds=new Set(),supervisorKnownDrawIds=new Set();
+  let saveGeneration=0,supervisorSaveGeneration=0,subAdminSaveGeneration=0;
   const config=()=>window.SUPABASE_CONFIG||{};
   const enabled=()=>Boolean(config().url&&config().anonKey&&window.supabase?.createClient);
   const rpcError=error=>new Error(error?.code?error.message:"تعذر الاتصال بالخادم. تحقق من اتصال الإنترنت وحاول مجددًا");
+  // حفظ حالة كاملة (مشاركين + سحوبات) بلا حد زمني وبلا إعادة محاولة كان يعني: عند شبكة ضعيفة
+  // أيام الامتحان، إما يعلق "جارٍ الحفظ" طويلاً بلا سقف (لا مهلة على الطلب أصلاً)، أو ينقطع
+  // الاتصال لحظة واحدة فتفشل المزامنة نهائياً فوراً بلا أي محاولة تلقائية ثانية. timeoutSignal
+  // يضمن سقفاً زمنياً لكل محاولة، وwithRetry يعيد المحاولة صامتاً مرتين إضافيتين قبل إظهار أي
+  // خطأ فعلي للمستخدم — بشرط ألا يكون قد صدر طلب حفظ أحدث بالأثناء (isStale) حتى لا تُعاد كتابة
+  // بيانات أحدث ببيانات أقدم لو نجحت محاولة متأخرة بعد ما بدأ حفظ جديد فوقها.
+  function timeoutSignal(ms){const controller=new AbortController();setTimeout(()=>controller.abort(),ms);return controller.signal}
+  async function withRetry(fn,isStale){
+    const delays=[2000,4000];
+    for(let attempt=0;;attempt++){
+      try{return await fn()}
+      catch(error){if(isStale()||attempt>=delays.length)throw error;await new Promise(resolve=>setTimeout(resolve,delays[attempt]))}
+    }
+  }
 
   async function init(){
     if(!enabled())return {enabled:false};
@@ -54,11 +69,11 @@ window.CloudCompetition=(()=>{
     const currentDrawIds=new Set((payload.draws||[]).map(d=>d.id));
     const deletedParticipantIds=[...adminKnownParticipantIds].filter(id=>!currentParticipantIds.has(id));
     const deletedDrawIds=[...adminKnownDrawIds].filter(id=>!currentDrawIds.has(id));
-    const {error}=await client.rpc("admin_save_state",{p_config:payload.config,p_participants:payload.participants,p_draws:payload.draws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds});
+    const {error}=await client.rpc("admin_save_state",{p_config:payload.config,p_participants:payload.participants,p_draws:payload.draws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
     if(error)throw rpcError(error);
     adminKnownParticipantIds=currentParticipantIds;adminKnownDrawIds=currentDrawIds;
   }
-  function queueStateSave(payload,onError,onSuccess){if(context?.kind!=="admin")return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));saveTimer=setTimeout(()=>saveCompetitionState(snapshot).then(()=>onSuccess?.()).catch(onError||console.error),450)}
+  function queueStateSave(payload,onError,onSuccess){if(context?.kind!=="admin")return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));const myGeneration=++saveGeneration;saveTimer=setTimeout(()=>withRetry(()=>saveCompetitionState(snapshot),()=>myGeneration!==saveGeneration).then(()=>{if(myGeneration===saveGeneration)onSuccess?.()}).catch(error=>{if(myGeneration===saveGeneration)(onError||console.error)(error)}),450)}
 
   function markSupervisorKnownIds(participants,draws){supervisorKnownParticipantIds=new Set((participants||[]).map(p=>p.id));supervisorKnownDrawIds=new Set((draws||[]).map(d=>d.id))}
   async function saveSupervisorState(payload){
@@ -66,11 +81,11 @@ window.CloudCompetition=(()=>{
     const currentDrawIds=new Set((payload.draws||[]).map(d=>d.id));
     const deletedParticipantIds=[...supervisorKnownParticipantIds].filter(id=>!currentParticipantIds.has(id));
     const deletedDrawIds=[...supervisorKnownDrawIds].filter(id=>!currentDrawIds.has(id));
-    const {error}=await client.rpc("supervisor_save_state",{p_participants:payload.participants,p_draws:payload.draws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds});
+    const {error}=await client.rpc("supervisor_save_state",{p_participants:payload.participants,p_draws:payload.draws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
     if(error)throw rpcError(error);
     supervisorKnownParticipantIds=currentParticipantIds;supervisorKnownDrawIds=currentDrawIds;
   }
-  function queueSupervisorSave(payload,onError,onSuccess){if(context?.kind!=="supervisor")return;clearTimeout(supervisorSaveTimer);const snapshot=JSON.parse(JSON.stringify(payload));supervisorSaveTimer=setTimeout(()=>saveSupervisorState(snapshot).then(()=>onSuccess?.()).catch(onError||console.error),450)}
+  function queueSupervisorSave(payload,onError,onSuccess){if(context?.kind!=="supervisor")return;clearTimeout(supervisorSaveTimer);const snapshot=JSON.parse(JSON.stringify(payload));const myGeneration=++supervisorSaveGeneration;supervisorSaveTimer=setTimeout(()=>withRetry(()=>saveSupervisorState(snapshot),()=>myGeneration!==supervisorSaveGeneration).then(()=>{if(myGeneration===supervisorSaveGeneration)onSuccess?.()}).catch(error=>{if(myGeneration===supervisorSaveGeneration)(onError||console.error)(error)}),450)}
 
   // القراءة (لجان/جلسات/أدمن فرعي/سجل النشاط): يشترك فيها admin وsupervisor عبر نفس القراءة
   // المباشرة من الجداول — سياسات RLS موسّعة لتشمل الدورين، فلا حاجة لأي تفرّع هنا.
@@ -179,9 +194,9 @@ window.CloudCompetition=(()=>{
   async function listSubAdmins(){const {data,error}=await client.from("sub_admins").select("id,name,login_code,gender,active,created_at").order("created_at");if(error)throw error;return data}
   async function saveSubAdmin(values){if(context?.kind==="supervisor"){const {data,error}=await client.rpc("supervisor_save_sub_admin",{p_id:values.id||null,p_name:values.name,p_login_code:values.code,p_pin:values.pin||"",p_gender:values.gender,p_active:values.active!==false});if(error)throw rpcError(error);return data}const {data,error}=await client.rpc("admin_save_sub_admin",{p_id:values.id||null,p_name:values.name,p_login_code:values.code,p_pin:values.pin||"",p_gender:values.gender,p_active:values.active!==false});if(error)throw rpcError(error);return data}
   async function deleteSubAdmin(id){if(context?.kind==="supervisor"){const {data,error}=await client.rpc("supervisor_delete_sub_admin",{p_id:id});if(error)throw rpcError(error);return data}const {data,error}=await client.rpc("admin_delete_sub_admin",{p_id:id});if(error)throw rpcError(error);return data}
-  async function saveSubAdminParticipants(participants,deletedIds=[]){const {data,error}=await client.rpc("sub_admin_save_participants",{p_token:context.token,p_participants:participants,p_deleted_ids:deletedIds});if(error)throw rpcError(error);return data}
+  async function saveSubAdminParticipants(participants,deletedIds=[]){const {data,error}=await client.rpc("sub_admin_save_participants",{p_token:context.token,p_participants:participants,p_deleted_ids:deletedIds}).abortSignal(timeoutSignal(20000));if(error)throw rpcError(error);return data}
   function markSubAdminKnownIds(ids){subAdminKnownIds=new Set(ids)}
-  function queueSubAdminParticipantsSave(participants,onError,onSuccess){if(context?.kind!=="subAdmin")return;clearTimeout(subAdminSaveTimer);const snapshot=JSON.parse(JSON.stringify(participants));subAdminSaveTimer=setTimeout(()=>{const currentIds=new Set(snapshot.map(p=>p.id)),deletedIds=[...subAdminKnownIds].filter(id=>!currentIds.has(id));saveSubAdminParticipants(snapshot,deletedIds).then(()=>{subAdminKnownIds=currentIds;onSuccess?.()}).catch(onError||console.error)},450)}
+  function queueSubAdminParticipantsSave(participants,onError,onSuccess){if(context?.kind!=="subAdmin")return;clearTimeout(subAdminSaveTimer);const snapshot=JSON.parse(JSON.stringify(participants));const myGeneration=++subAdminSaveGeneration;subAdminSaveTimer=setTimeout(()=>{const currentIds=new Set(snapshot.map(p=>p.id)),deletedIds=[...subAdminKnownIds].filter(id=>!currentIds.has(id));withRetry(()=>saveSubAdminParticipants(snapshot,deletedIds),()=>myGeneration!==subAdminSaveGeneration).then(()=>{if(myGeneration===subAdminSaveGeneration){subAdminKnownIds=currentIds;onSuccess?.()}}).catch(error=>{if(myGeneration===subAdminSaveGeneration)(onError||console.error)(error)})},450)}
   async function createSubAdminDraw(draw){const {data,error}=await client.rpc("sub_admin_create_draw",{p_token:context.token,p_draw:draw});if(error)throw rpcError(error);return data}
   async function listActivityLog(limit=200){const {data,error}=await client.from("audit_log").select("id,actor_id,action,entity_type,entity_id,details,created_at").order("created_at",{ascending:false}).limit(limit);if(error)throw error;return data}
 
