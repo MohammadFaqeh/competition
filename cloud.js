@@ -10,12 +10,8 @@ window.CloudCompetition=(()=>{
   const config=()=>window.SUPABASE_CONFIG||{};
   const enabled=()=>Boolean(config().url&&config().anonKey&&window.supabase?.createClient);
   const rpcError=error=>new Error(error?.code?error.message:"تعذر الاتصال بالخادم. تحقق من اتصال الإنترنت وحاول مجددًا");
-  // حفظ حالة كاملة (مشاركين + سحوبات) بلا حد زمني وبلا إعادة محاولة كان يعني: عند شبكة ضعيفة
-  // أيام الامتحان، إما يعلق "جارٍ الحفظ" طويلاً بلا سقف (لا مهلة على الطلب أصلاً)، أو ينقطع
-  // الاتصال لحظة واحدة فتفشل المزامنة نهائياً فوراً بلا أي محاولة تلقائية ثانية. timeoutSignal
-  // يضمن سقفاً زمنياً لكل محاولة، وwithRetry يعيد المحاولة صامتاً مرتين إضافيتين قبل إظهار أي
-  // خطأ فعلي للمستخدم — بشرط ألا يكون قد صدر طلب حفظ أحدث بالأثناء (isStale) حتى لا تُعاد كتابة
-  // بيانات أحدث ببيانات أقدم لو نجحت محاولة متأخرة بعد ما بدأ حفظ جديد فوقها.
+  // timeoutSignal يضمن سقفاً زمنياً لكل محاولة حفظ، وwithRetry يعيد المحاولة صامتاً مرتين قبل
+  // إظهار خطأ للمستخدم — بشرط ألا يكون قد صدر طلب حفظ أحدث بالأثناء (isStale)، منعاً لكتابة بيانات أقدم فوق أحدث.
   function timeoutSignal(ms){const controller=new AbortController();setTimeout(()=>controller.abort(),ms);return controller.signal}
   async function withRetry(fn,isStale){
     const delays=[2000,4000];
@@ -38,18 +34,14 @@ window.CloudCompetition=(()=>{
     return {enabled:true,context};
   }
 
-  // الإداري الرئيسي ومشرف المسابقة كلاهما حساب Supabase Auth حقيقي، ويدخلان من نفس نموذج
-  // البريد/كلمة السر — الدور (admin أو supervisor) محفوظ في profiles.role ويحدد الصلاحيات.
+  // الإداري ومشرف المسابقة كلاهما حساب Supabase Auth حقيقي يدخل بنفس نموذج البريد/كلمة السر — الدور محفوظ بـprofiles.role.
   async function loadAdminContext(user){
     const {data:profile,error}=await client.from("profiles").select("id,role,display_name,can_edit_final,can_delete_data").eq("id",user.id).single();
     if(error||!["admin","supervisor"].includes(profile?.role))throw new Error("الحساب موجود لكن ملف الصلاحية غير مُعدّ");
     return context={kind:profile.role,user,profile,committee:null};
   }
   async function signInAdmin(email,password){const {data,error}=await client.auth.signInWithPassword({email,password});if(error)throw new Error("بيانات الدخول غير صحيحة");return loadAdminContext(data.user)}
-  // "نسيت كلمة السر/الرمز" — لكل الحسابات (إدارة/مشرف بالإيميل، لجنة/مسؤول فرعي برمز الدخول)،
-  // تدفق ذاتي كامل عبر Edge Function واحدة (password-reset) تشتغل بصلاحية service_role (لا
-  // يوجد المفتاح بالمتصفح إطلاقاً): ترسل رمزاً للإداري الرئيسي فقط، وتحدّث كلمة السر/الـPIN
-  // مباشرة على نفس الحساب بعد التحقق من الرمز. identifier: إيميل أو رمز دخول اللجنة/المسؤول.
+  // "نسيت كلمة السر" لكل الحسابات: تدفق ذاتي عبر Edge Function واحدة (password-reset، صلاحية service_role) — ترسل رمزاً للإداري وتحدّث كلمة السر/الـPIN بعد التحقق.
   async function requestLoginRecoveryCode(identifier){const {data,error}=await client.functions.invoke("password-reset",{body:{action:"request",identifier}});if(error)throw rpcError(error);if(data?.ok===false)throw new Error(data.error||"تعذر إرسال الرمز");return data}
   async function confirmLoginRecovery(identifier,code,newValue){const {data,error}=await client.functions.invoke("password-reset",{body:{action:"reset",identifier,code,newValue}});if(error)throw rpcError(error);if(data?.ok===false)throw new Error(data.error||"تعذر التحديث");return data}
   async function signInCommittee(code,pin){const {data,error}=await client.rpc("committee_login",{p_login_code:code,p_pin:pin});if(error)throw rpcError(error);localStorage.setItem(TOKEN_KEY,data.token);return context={kind:"committee",token:data.token,committee:data.committee,profile:{role:"committee",display_name:data.committee.name}}}
@@ -60,18 +52,12 @@ window.CloudCompetition=(()=>{
   async function signOut(){if(context?.kind==="committee"){await client.rpc("committee_logout",{p_token:context.token});localStorage.removeItem(TOKEN_KEY)}else if(context?.kind==="subAdmin"){await client.rpc("sub_admin_logout",{p_token:context.token});localStorage.removeItem(SUB_ADMIN_TOKEN_KEY)}else await client.auth.signOut();context=null}
 
   async function loadCompetitionState(){if(context?.kind==="committee"){const {data,error}=await client.rpc("committee_load_state",{p_token:context.token});if(error)throw rpcError(error);return {payload:data}}if(context?.kind==="subAdmin"){const {data,error}=await client.rpc("sub_admin_load_state",{p_token:context.token});if(error)throw rpcError(error);return {payload:data}}if(context?.kind==="supervisor"){const {data,error}=await client.rpc("supervisor_load_state");if(error)throw rpcError(error);return {payload:data}}const {data,error}=await client.from("competition_state").select("payload,updated_at").eq("id",1).single();if(error)throw error;return data}
-  // فحص خفيف جداً (توقيت فقط، بلا أي بيانات) قبل أي تنزيل كامل — راجع competition-state-
-  // version-check.sql. يفشل بصمت (يرجع null) لو الدالة غير مطبَّقة بعد على قاعدة بيانات معينة،
-  // ليتابع الاستطلاع الدوري بالسلوك القديم (تنزيل كامل) بدل ما ينكسر كلياً.
+  // فحص خفيف (توقيت فقط) قبل أي تنزيل كامل — يفشل بصمت (يرجع null) لو الدالة غير مطبَّقة بعد.
   async function getStateVersion(){try{const {data,error}=await client.rpc("competition_state_version");if(error)return null;return data}catch{return null}}
   let adminKnownParticipants=new Map(),adminKnownDraws=new Map();
   function markAdminKnownIds(participants,draws){adminKnownParticipants=new Map((participants||[]).map(p=>[p.id,JSON.stringify(p)]));adminKnownDraws=new Map((draws||[]).map(d=>[d.id,JSON.stringify(d)]))}
-  // يدمج بدل الاستبدال الأعمى: أي متسابق أو سحب أضافه طرف آخر (مسؤول فرعي مثلاً) بعد آخر
-  // مزامنة محلية للإدارة يبقى محفوظاً بدل أن يُمحى بصمت لو حفظت الإدارة في نفس اللحظة تقريباً.
-  // ولأن admin_save_state أصلاً مصمَّمة هيك (أي id غائب عن الدفعة وغير مُدرَج بالمحذوفين يبقى
-  // كما هو بالسحابة)، ما في داعي نرسل كل القائمة (مئات المتسابقين) بكل حفظة — فقط من تغيّر
-  // محتواه فعلياً منذ آخر مزامنة ناجحة. هذا يختصر حجم كل حفظة من كامل القائمة إلى عنصر أو
-  // عنصرين عادةً (نفس السبب يلي كان يعلّق "جارٍ الحفظ" طويلاً أو يفشل بشبكة ضعيفة أيام الامتحان).
+  // يدمج بدل الاستبدال الأعمى: أي id غائب عن الدفعة وغير مُدرَج بالمحذوفين يبقى كما هو بالسحابة
+  // (admin_save_state مصمَّمة هيك) — فلا داعي نرسل كل القائمة، فقط من تغيّر فعلياً منذ آخر مزامنة.
   async function saveCompetitionState(payload){
     const incomingParticipants=payload.participants||[],incomingDraws=payload.draws||[];
     const currentParticipantIds=new Set(incomingParticipants.map(p=>p.id));
@@ -102,12 +88,8 @@ window.CloudCompetition=(()=>{
   }
   function queueSupervisorSave(payload,onError,onSuccess){if(context?.kind!=="supervisor")return;clearTimeout(supervisorSaveTimer);const snapshot=JSON.parse(JSON.stringify(payload));const myGeneration=++supervisorSaveGeneration;supervisorSaveTimer=setTimeout(()=>withRetry(()=>saveSupervisorState(snapshot),()=>myGeneration!==supervisorSaveGeneration).then(()=>{if(myGeneration===supervisorSaveGeneration)onSuccess?.()}).catch(error=>{if(myGeneration===supervisorSaveGeneration)(onError||console.error)(error)}),450)}
 
-  // القراءة (لجان/جلسات/أدمن فرعي/سجل النشاط): يشترك فيها admin وsupervisor عبر نفس القراءة
-  // المباشرة من الجداول — سياسات RLS موسّعة لتشمل الدورين، فلا حاجة لأي تفرّع هنا.
-  // show_stats_summary عمود إضافي جديد (زر مستقل لإخفاء/إظهار بطاقة إحصائية اللجنة، منفصل عن
-  // show_score) قد لا يكون مُطبَّقاً بعد على قاعدة بيانات معينة (راجع supabase/committee-stats-
-  // summary-visibility.sql) — لو فشل السطر الأول بسببه (العمود غير موجود)، نتراجع فورًا للقائمة
-  // القديمة بلا هذا العمود، بدل ما تنكسر شاشة إدارة اللجان كاملةً لحين تطبيق ملف الـSQL.
+  // القراءة يشترك فيها admin وsupervisor عبر نفس RLS الموسّعة، فلا حاجة لتفرّع هنا.
+  // show_stats_summary عمود جديد قد لا يكون مُطبَّقاً بعد — لو فشل السطر الأول بسببه، نتراجع للقائمة القديمة بلا هذا العمود.
   async function listCommittees(){if(committeeRequest)return committeeRequest;committeeRequest=(async()=>{const {data,error}=await client.from("committees").select("id,name,chairman_name,member_name,responsible_gender,level_names,levels,extra_participant_ids,active,login_code,member_login_code,can_edit_final,can_self_draw,show_score,show_stats_summary,created_at").order("created_at");if(!error)return data;const fallback=await client.from("committees").select("id,name,chairman_name,member_name,responsible_gender,level_names,levels,extra_participant_ids,active,login_code,member_login_code,can_edit_final,can_self_draw,show_score,created_at").order("created_at");if(fallback.error)throw fallback.error;return fallback.data})();try{return await committeeRequest}finally{committeeRequest=null}}
   async function saveCommittee(values){if(context?.kind==="supervisor"){const {data,error}=await client.rpc("supervisor_save_committee",{p_id:values.id||null,p_name:values.name,p_chairman_name:values.chairmanName,p_chairman_code:values.code,p_chairman_pin:values.pin||"",p_member_name:values.memberName||null,p_member_code:values.memberCode,p_member_pin:values.memberPin||"",p_responsible_gender:values.responsibleGender,p_level_names:values.levelNames,p_active:values.active!==false});if(error)throw rpcError(error);return data}const {data,error}=await client.rpc("admin_save_committee_v3",{p_id:values.id||null,p_name:values.name,p_chairman_name:values.chairmanName,p_chairman_code:values.code,p_chairman_pin:values.pin||"",p_member_name:values.memberName||null,p_member_code:values.memberCode,p_member_pin:values.memberPin||"",p_responsible_gender:values.responsibleGender,p_level_names:values.levelNames,p_active:values.active!==false});if(error)throw rpcError(error);return data}
   async function assignParticipantToCommittee(committeeId,participantId,assign=true){if(context?.kind==="subAdmin"){const {data,error}=await client.rpc("sub_admin_assign_participant_to_committee",{p_token:context.token,p_committee_id:committeeId,p_participant_id:participantId,p_assign:assign});if(error)throw rpcError(error);return data}const {data,error}=await client.rpc("admin_assign_participant_to_committee",{p_committee_id:committeeId,p_participant_id:participantId,p_assign:assign});if(error)throw rpcError(error);return data}
@@ -120,27 +102,15 @@ window.CloudCompetition=(()=>{
   async function setCommitteeShowStatsSummary(id,enabled){if(context?.kind==="supervisor"){const {data,error}=await client.rpc("supervisor_set_committee_show_stats_summary",{p_committee_id:id,p_enabled:Boolean(enabled)});if(error)throw rpcError(error);return data}const {data,error}=await client.rpc("admin_set_committee_show_stats_summary",{p_committee_id:id,p_enabled:Boolean(enabled)});if(error)throw rpcError(error);return data}
   async function deleteParticipantSession(participantId){if(context?.kind==="supervisor"){const {error}=await client.rpc("supervisor_delete_participant_session",{p_participant_id:participantId});if(error)throw rpcError(error);return}if(context?.kind==="subAdmin"){const {error}=await client.rpc("sub_admin_delete_participant_session",{p_token:context.token,p_participant_id:participantId});if(error)throw rpcError(error);return}if(context?.kind!=="admin")return;const {error}=await client.rpc("admin_delete_participant_session",{p_participant_id:participantId});if(error)throw rpcError(error)}
   async function listSessions(){if(context?.kind==="committee"){const {data,error}=await client.rpc("committee_list_sessions",{p_token:context.token});if(error)throw rpcError(error);return data}if(context?.kind==="subAdmin"){const {data,error}=await client.rpc("sub_admin_list_sessions",{p_token:context.token});if(error)throw rpcError(error);return data}const {data,error}=await client.from("exam_sessions").select("*").order("updated_at",{ascending:false});if(error)throw error;return data}
-  // خفيفة عن listSessions: تجلب فقط الجلسات المعتمدة نهائيًا (final)، وهي كل ما يحتاجه
-  // دمج النتائج بجهاز الإدارة (mergeFinalSessionsIntoState) — تتجنب سحب كل الجلسات الجارية
-  // (في_تقدم) بتفاصيلها الكاملة يلي تكبر وتتحدّث باستمرار أثناء الرصد الفعلي عند اللجان.
+  // خفيفة عن listSessions: تجلب فقط الجلسات المعتمدة نهائياً (final)، كل ما يحتاجه mergeFinalSessionsIntoState — بلا سحب الجلسات الجارية المتغيّرة باستمرار.
   async function listFinalSessions(){const {data,error}=await client.from("exam_sessions").select("*").eq("status","final").order("updated_at",{ascending:false});if(error)throw error;return data}
-  // خفيفة عن listSessions: تجلب فقط الجلسات الجارية الآن (in_progress)، لا تجرّ معها كل جلسة
-  // معتمدة (final) سابقة — تستخدمها المراقبة الحية فقط، التي تستطلع كل 4 ثوانٍ وما بيهمها إلا
-  // الجلسات الجارية، فتتجنب سحب أرشيف الجلسات المعتمدة (وتقييماتها الكاملة) في كل استطلاع
-  // كلما تراكمت اختبارات منتهية أكثر بمرور اليوم.
+  // خفيفة عن listSessions: تجلب فقط الجلسات الجارية (in_progress) — تستخدمها المراقبة الحية (كل 4 ثوانٍ) بلا سحب أرشيف الجلسات المعتمدة.
   async function listActiveSessions(){if(context?.kind==="subAdmin"){const {data,error}=await client.rpc("sub_admin_list_sessions",{p_token:context.token});if(error)throw rpcError(error);return (data||[]).filter(s=>s.status==="in_progress")}const {data,error}=await client.from("exam_sessions").select("*").eq("status","in_progress").order("updated_at",{ascending:false});if(error)throw error;return data}
-  // نافذة زمنية متجددة بدل كل الجلسات المعتمدة منذ أول يوم بالمسابقة: تُستخدم فقط باستطلاع
-  // الإدارة الدوري (refreshAdminChanges كل 9 ثوانٍ). جلسة اعتُمدت قبل أكثر من sinceIso عمليًا
-  // لن تتغيّر (إلا بإعادة فتحها للتعديل، وحينها finalized_at تصير جديدة فتدخل النافذة من جديد
-  // تلقائيًا)، فلا داعي لسحبها بكل نبضة — بياناتها محفوظة أصلاً محليًا من آخر مرة كانت "حديثة"
-  // أو من الجلب الكامل عند تسجيل الدخول/زر "تحديث النتائج" اليدوي (listFinalSessions العادية).
+  // نافذة زمنية متجددة (لا كل الجلسات منذ أول يوم): جلسة اعتُمدت قبل أكثر من sinceIso لن تتغيّر
+  // إلا بإعادة فتحها (حينها finalized_at تصير جديدة وتدخل النافذة من جديد) — فلا داعي لسحبها كل نبضة.
   async function listRecentFinalSessions(sinceIso){const {data,error}=await client.from("exam_sessions").select("*").eq("status","final").gte("finalized_at",sinceIso).order("updated_at",{ascending:false});if(error)throw error;return data}
-  // نسخة "حية فقط" من listSessions (اللجنة/المسؤول الفرعي): تجلب الجلسات الجارية حاليًا + المعتمدة
-  // خلال sinceIso فقط، بدل كامل تاريخ اللجنة منذ أول يوم — تُستخدم باستطلاع اللجنة الدوري (9 ثوانٍ).
-  // تعتمد على دالتَي SQL إضافيتين (committee_list_live_sessions/sub_admin_list_live_sessions،
-  // راجع supabase/exam-sessions-tiered-realtime.sql) قد لا تكونان مُطبَّقتين بعد على قاعدة بيانات
-  // معينة — لو فشل الاستدعاء (الدالة غير موجودة بعد)، نتراجع فورًا لـlistSessions الكاملة
-  // بلا أي انقطاع بعمل اللجنة (فقط بلا توفير بالبيانات المنقولة إلى حين تطبيق ملف الـSQL).
+  // نسخة "حية فقط" من listSessions: تجلب الجلسات الجارية + المعتمدة خلال sinceIso فقط، لا كامل
+  // تاريخ اللجنة — لو الدالة الخفيفة غير مُطبَّقة بعد، نتراجع فورًا لـlistSessions الكاملة بلا انقطاع.
   async function listLiveCommitteeSessions(sinceIso){
     try{
       if(context?.kind==="committee"){const {data,error}=await client.rpc("committee_list_live_sessions",{p_token:context.token,p_since:sinceIso});if(error)throw error;return data}
@@ -149,9 +119,7 @@ window.CloudCompetition=(()=>{
     return listSessions();
   }
   // جلسة واحدة بعينها بدل قائمة اللجنة الكاملة — لمزامنة موضع الرئيس أثناء رصد العضو (كل 1.5
-  // ثانية، أسخن نقطة استطلاع بالموقع). نفس منطق التراجع الآمن أعلاه لو الدالة الخفيفة غير
-  // مُطبَّقة بعد؛ ولو نجحت لكن الجلسة غير موجودة/لا تخص هذه اللجنة (data فارغة)، نتراجع أيضًا
-  // للبحث بالقائمة الكاملة كطبقة أمان إضافية بدل افتراض "غير موجودة" من أول محاولة.
+  // ثانية). لو الدالة الخفيفة غير مُطبَّقة بعد أو الجلسة غير موجودة، نتراجع للبحث بالقائمة الكاملة.
   async function getCommitteeSession(sessionId){
     if(context?.kind==="committee"){
       try{
@@ -172,12 +140,8 @@ window.CloudCompetition=(()=>{
   async function cancelCommitteeSession(participantId){const {error}=await client.rpc("committee_cancel_session",{p_token:context.token,p_participant_id:participantId});if(error)throw rpcError(error)}
   async function createCommitteeDraw(participantId,level,parts,draw,changeReason=""){const {data,error}=await client.rpc("committee_create_draw",{p_token:context.token,p_participant_id:participantId,p_level:Number(level),p_parts:parts.map(Number),p_draw:draw,p_change_reason:changeReason||null});if(error)throw rpcError(error);return data}
   async function listCommitteeUsedPositionIds(){const {data,error}=await client.rpc("committee_used_position_ids",{p_token:context.token});if(error)throw rpcError(error);return data||[]}
-  // نسخة غنية بالتفصيل (id+level+createdAt) لكل موضع استُخدم عالمياً — لازمة لخوارزمية Scoring
-  // الواعية باليوم/المستوى عند السحب الذاتي للجنة (committee_load_state مقيَّدة بمتسابقي اللجنة
-  // نفسها فقط، فلا تكفي وحدها). دالة SQL إضافية جديدة قد لا تكون مُطبَّقة بعد على قاعدة بيانات
-  // معينة (راجع supabase/committee-used-positions-detailed.sql) — لو فشلت، نتراجع فورًا لقائمة
-  // المعرّفات المسطّحة القديمة (بلا معلومات يوم/مستوى، فتنحصر الأولوية بالاستخدام العام فقط
-  // ريثما يُطبَّق الملف الجديد) بدل ما ينكسر السحب الذاتي كلياً.
+  // نسخة غنية بالتفصيل (id+level+createdAt) لكل موضع استُخدم عالمياً، لازمة للسحب الذاتي للجنة
+  // (committee_load_state مقيَّدة بمتسابقيها فقط). لو الدالة غير مُطبَّقة بعد، نتراجع لقائمة المعرّفات المسطّحة القديمة.
   async function listCommitteeUsedPositionsDetailed(){
     try{
       const {data,error}=await client.rpc("committee_used_positions_detailed",{p_token:context.token});
@@ -194,20 +158,14 @@ window.CloudCompetition=(()=>{
   async function replaceCommitteePosition(participantId,drawId,index,position,assessment){const {data,error}=await client.rpc("committee_replace_position",{p_token:context.token,p_participant_id:participantId,p_draw_id:drawId,p_position_index:Number(index),p_position:position,p_assessment:assessment});if(error)throw rpcError(error);return data}
   async function saveSession(sessionId,assessment,status="in_progress",score=null){if(context?.committee){assessment.committeeName=context.committee.name;assessment.committee={id:context.committee.id,name:context.committee.name}}const {data,error}=await client.rpc("committee_save_session",{p_token:context.token,p_session_id:sessionId,p_assessment:assessment,p_status:status,p_score:score});if(error)throw rpcError(error);return data}
   function queueSessionSave(sessionId,assessment,onError){clearTimeout(sessionSaveTimer);const snapshot=JSON.parse(JSON.stringify(assessment));sessionSaveTimer=setTimeout(()=>saveSession(sessionId,snapshot).catch(onError||console.error),300)}
-  // يمنع حفظ مسودة تلقائي متأخر (مجدول قبل ثوانٍ من "queueSessionSave") من الوصول للسيرفر
-  // بعد اعتماد النتيجة النهائية ويرجّعها بالغلط لحالة "قيد الاختبار" بعلامة فارغة — استدعها
-  // فورًا قبل أي حفظ مباشر (اعتماد نهائي أو تثبيت رصد) حتى لا يتزاحم مع مسودة معلّقة.
+  // يمنع مسودة تلقائية متأخرة (queueSessionSave) من الوصول بعد الاعتماد وإرجاع الجلسة لحالة "قيد الاختبار" بعلامة فارغة — استدعها قبل أي حفظ مباشر.
   function cancelQueuedSessionSave(){clearTimeout(sessionSaveTimer);sessionSaveTimer=null}
-  // عمداً بلا تنفيذ: كل الأفعال المهمة تُسجَّل من داخل دوال قاعدة البيانات نفسها (audit_log)،
-  // وهذا الاستدعاء من الواجهة موجود فقط لتوافق نداءات قديمة في app.js.
+  // عمداً بلا تنفيذ: الأفعال تُسجَّل من داخل دوال قاعدة البيانات نفسها (audit_log)، هذا فقط لتوافق نداءات قديمة.
   async function log(){return}
-  // تنظيف انتهازي لسجلات النشاط/الإشعارات الأقدم من 48 ساعة (راجع supabase/log-retention-
-  // cleanup.sql) — يُستدعى مرة عند فتح لوحة الإدارة، بصمت تام (فشله لا يوقف أي شيء، الدالة
-  // نفسها قد لا تكون مُطبَّقة بعد على قواعد بيانات لم تُحدَّث بهذا الملف).
+  // تنظيف انتهازي لسجلات النشاط الأقدم من 48 ساعة، يُستدعى بصمت تام عند فتح لوحة الإدارة (فشله لا يوقف شيء).
   async function pruneOldLogs(){try{await client.rpc("prune_old_logs")}catch{}}
 
-  // can_edit_final/can_delete_data (راجع sub-admin-permissions-toggle.sql) قد لا تكونا مُطبَّقتين
-  // بعد على قاعدة بيانات معينة — لو فشل السطر الأول بسببهما، نتراجع فورًا للقائمة القديمة.
+  // can_edit_final/can_delete_data قد لا تكونا مُطبَّقتين بعد — لو فشل السطر الأول بسببهما، نتراجع للقائمة القديمة.
   async function listSubAdmins(){const {data,error}=await client.from("sub_admins").select("id,name,login_code,gender,active,can_edit_final,can_delete_data,created_at").order("created_at");if(!error)return data;const fallback=await client.from("sub_admins").select("id,name,login_code,gender,active,created_at").order("created_at");if(fallback.error)throw fallback.error;return fallback.data}
   async function setSubAdminPermissions(id,canEditFinal,canDeleteData){const {error}=await client.rpc("admin_set_sub_admin_permissions",{p_id:id,p_can_edit_final:Boolean(canEditFinal),p_can_delete_data:Boolean(canDeleteData)});if(error)throw rpcError(error)}
   async function saveSubAdmin(values){if(context?.kind==="supervisor"){const {data,error}=await client.rpc("supervisor_save_sub_admin",{p_id:values.id||null,p_name:values.name,p_login_code:values.code,p_pin:values.pin||"",p_gender:values.gender,p_active:values.active!==false});if(error)throw rpcError(error);return data}const {data,error}=await client.rpc("admin_save_sub_admin",{p_id:values.id||null,p_name:values.name,p_login_code:values.code,p_pin:values.pin||"",p_gender:values.gender,p_active:values.active!==false});if(error)throw rpcError(error);return data}
@@ -219,9 +177,7 @@ window.CloudCompetition=(()=>{
   async function listActivityLog(limit=200){const {data,error}=await client.from("audit_log").select("id,actor_id,action,entity_type,entity_id,details,created_at").order("created_at",{ascending:false}).limit(limit);if(error)throw error;return data}
 
 
-  // إدارة حسابات المشرفين — للإداري الرئيسي فقط. لا يوجد service_role بالمشروع، فلا يمكن
-  // إنشاء مستخدم Supabase Auth جديد من هنا؛ الإداري يُنشئه يدويًا من لوحة Supabase أولاً،
-  // وهذه الدوال تربط الـ UID الناتج بدور supervisor داخل profiles فقط.
+  // إدارة حسابات المشرفين — الإداري ينشئ المستخدم يدوياً بلوحة Supabase (لا service_role هون)، وهذه الدوال تربط الـUID بدور supervisor فقط.
   async function listSupervisors(){const {data,error}=await client.rpc("admin_list_supervisors");if(error)throw rpcError(error);return data}
   async function linkSupervisor(values){const {data,error}=await client.rpc("admin_link_supervisor",{p_user_id:values.userId,p_name:values.name,p_can_edit_final:Boolean(values.canEditFinal),p_can_delete_data:Boolean(values.canDeleteData)});if(error)throw rpcError(error);return data}
   async function unlinkSupervisor(id){const {data,error}=await client.rpc("admin_delete_supervisor",{p_id:id});if(error)throw rpcError(error);return data}
