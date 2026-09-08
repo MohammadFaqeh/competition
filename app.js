@@ -61,6 +61,7 @@ const COMMITTEE_ALERTS_KEY="competition-committee-alerts";
 const LIVE_AUTOREFRESH_KEY="competition-live-autorefresh";
 function liveAutoRefreshEnabled(){return localStorage.getItem(LIVE_AUTOREFRESH_KEY)==="on"}
 const ASSESSMENT_DRAFT_PREFIX="competition-assessment-draft-";
+const DIWAN_ASSESSMENT_DRAFT_PREFIX="diwan-assessment-draft-";
 const IDLE_LOGOUT_MS=30*60*1000;
 const optionalScripts=new Map();
 let quranReadyPromise=null;
@@ -2135,6 +2136,8 @@ async function cancelDiwanCommitteeExam(participantId){
   if(!confirm(`إلغاء اختبار «${participant.name}» الجاري؟ سيُحذف كل ما سُجّل حتى الآن وتعود حالته إلى "جاهز للاختبار".`))return;
   try{
     await window.DiwanCompetition.cancelSession(participantId);
+    localStorage.removeItem(`${DIWAN_ASSESSMENT_DRAFT_PREFIX}chairman-${participantId}`);
+    localStorage.removeItem(`${DIWAN_ASSESSMENT_DRAFT_PREFIX}member-${participantId}`);
     if(activeDiwanCloudSession?.participant_id===participantId)activeDiwanCloudSession=null;
     delete participant.assessment;
     diwanCommitteeSessions=diwanCommitteeSessions.filter(session=>session.participant_id!==participantId);
@@ -2150,8 +2153,13 @@ function ensureDiwanAssessment(participant,draw){
   participant.assessment=assessment;
   return assessment;
 }
+function diwanExaminerDraftKey(participantId){return `${DIWAN_ASSESSMENT_DRAFT_PREFIX}${currentExaminerRole()}-${participantId}`}
+function loadDiwanLocalAssessmentDraft(participantId){try{return JSON.parse(localStorage.getItem(diwanExaminerDraftKey(participantId))||"null")}catch{return null}}
+// نسخة محلية إضافية (localStorage) فوق الحفظ السحابي كل 300ms — لو انسكر المتصفح فجأة أو انقطع
+// الإنترنت لحظة إعادة فتح الطالب، يرجّع آخر رصد محلي بدل ما يبلّش من الصفر (نفس saveAssessmentDraft بالسنوية).
 function saveDiwanAssessmentDraft(participant){
   participant.assessment.status="draft";participant.assessment.updatedAt=new Date().toISOString();participant.assessment.examinerRole=currentExaminerRole();
+  safeSetItem(diwanExaminerDraftKey(participant.id),JSON.stringify(participant.assessment));
   if(activeDiwanCloudSession)window.DiwanCompetition.queueSessionSave(activeDiwanCloudSession.id,participant.assessment,error=>toast(`تعذر حفظ المسودة: ${error.message}`));
 }
 function openDiwanElectronicAssessment(draw,cloudSession=null,jumpToIndex=null){
@@ -2159,8 +2167,17 @@ function openDiwanElectronicAssessment(draw,cloudSession=null,jumpToIndex=null){
   activeDiwanCloudSession=cloudSession;
   const participant=diwanCommitteeScopedState.participants.find(item=>item.id===draw.participantId);
   if(!participant)return toast("التقييم الإلكتروني متاح للمتسابقين المسجلين فقط");
+  const cloudDraft=cloudSession?.assessment&&Object.keys(cloudSession.assessment).length?cloudSession.assessment:null;
+  const localDraft=loadDiwanLocalAssessmentDraft(participant.id);
+  const currentDraft=participant.assessment&&Object.keys(participant.assessment).length?participant.assessment:null;
+  const draftCandidates=[currentDraft,cloudDraft,localDraft?.drawId===draw.id?localDraft:null].filter(Boolean);
+  if(draftCandidates.length){
+    const newestDraft=draftCandidates.reduce((best,item)=>new Date(item.updatedAt||0)>new Date(best.updatedAt||0)?item:best);
+    if(newestDraft!==currentDraft)participant.assessment=newestDraft;
+  }
   const assessment=ensureDiwanAssessment(participant,draw);assessment.actions=assessment.actions||[];
   let currentIndex=jumpToIndex!=null?Math.min(Math.max(0,jumpToIndex),draw.positions.length-1):Math.min(Math.max(0,Number(assessment.currentPosition)||0),draw.positions.length-1);
+  let chairmanPositionChangeCounts=draw.positions.map(()=>0);
   let quranPageOffsets=draw.positions.map(()=>0);
   let tajweedCapWarningVisible=false,tajweedCapWarningTimer=null;
   let lastRenderedPositionIndex=null;
@@ -2169,17 +2186,47 @@ function openDiwanElectronicAssessment(draw,cloudSession=null,jumpToIndex=null){
     const stayedOnSamePosition=lastRenderedPositionIndex===currentIndex,previousPanelScroll=stayedOnSamePosition?($(".exam-split-panel")?.scrollTop||0):0;
     if(!stayedOnSamePosition)resetExamTimerState();
     lastRenderedPositionIndex=currentIndex;
-    $("#activeAssessmentPosition").innerHTML=assessmentPositionHtml(assessment.positions[currentIndex],draw.positions[currentIndex],currentIndex,draw.positions.length,0,quranPageOffsets[currentIndex],0,tajweedCapWarningVisible);
+    $("#activeAssessmentPosition").innerHTML=assessmentPositionHtml(assessment.positions[currentIndex],draw.positions[currentIndex],currentIndex,draw.positions.length,chairmanPositionChangeCounts[currentIndex],quranPageOffsets[currentIndex],draw.rerolls?.length||0,tajweedCapWarningVisible);
     const panel=$(".exam-split-panel");if(panel)panel.scrollTop=previousPanelScroll;
     $$(`[data-position-step]`).forEach(button=>{const index=Number(button.dataset.positionStep);button.classList.toggle("active",index===currentIndex);button.classList.toggle("is-done",Boolean(assessment.positions[index].completed))});$("#previousAssessmentPosition").disabled=currentIndex===0;$("#nextAssessmentPosition").disabled=currentIndex===draw.positions.length-1;lucide.createIcons()};
   const refresh=()=>{renderPosition();updateAssessmentSummary(assessment);$("#undoAssessmentAction").disabled=!assessment.actions.length;const finish=$("#finishFailedAssessment");if(finish)finish.onclick=()=>endDiwanExamNow(draw,participant,assessment)};
+  stopMemberPositionSync();
+  if(currentExaminerRole()==="member"&&activeDiwanCloudSession){
+    const syncChairmanChanges=async()=>{
+      try{
+        const session=await window.DiwanCompetition.getSession(activeDiwanCloudSession.id);
+        if(session?.status==="final"){
+          stopMemberPositionSync();
+          toast(`تم إنهاء الاختبار من قبل رئيس اللجنة${session.assessment?.incomplete?" · غير مكتمل":session.score!=null?` · العلامة ${formatAssessmentNumber(session.score)}`:""}`);
+          closeModal();
+          activeDiwanCloudSession=null;
+          renderDiwanCommitteeWorkspace();
+          return;
+        }
+        const chairmanPositions=session?.assessment?.examinerDrafts?.chairman?.positions;
+        if(Array.isArray(chairmanPositions)){
+          const nextCounts=draw.positions.map((_,i)=>Number(chairmanPositions[i]?.positionChange)||0);
+          const changedIndex=nextCounts.findIndex((count,i)=>count>(chairmanPositionChangeCounts[i]||0));
+          if(changedIndex>=0)toast(`⚠ رئيس اللجنة غيّر الموضع ${changedIndex+1} — يمكنك اعتماد التغيير الآن`);
+          chairmanPositionChangeCounts=nextCounts;
+          refresh();
+        }
+      }catch(error){console.warn("Diwan member position sync failed",error)}
+    };
+    syncChairmanChanges();
+    memberPositionSyncTimer=setInterval(syncChairmanChanges,1500);
+  }
   $("#assessmentExamScreen").addEventListener("click",event=>{
     const timerButton=event.target.closest("[data-exam-timer-action]");if(timerButton){const action=timerButton.dataset.examTimerAction;if(action==="start")startExamTimer();else if(action==="stop")stopExamTimerInterval();else if(action==="zero")zeroExamTimer();else if(action==="bell")playExamTimerBell();return}
     const quranNavButton=event.target.closest("[data-quran-page-nav]");if(quranNavButton){if(quranNavButton.disabled)return;const delta=Number(quranNavButton.dataset.quranPageNav),pageCount=new Set(drawPositionSegments(draw.positions[currentIndex]).map(segment=>segment.page)).size;quranPageOffsets[currentIndex]=Math.min(Math.max(0,(quranPageOffsets[currentIndex]||0)+delta),Math.max(0,pageCount-1));return renderPosition()}
     const completeButton=event.target.closest("[data-toggle-complete]");if(completeButton){const index=Number(completeButton.dataset.toggleComplete),position=assessment.positions[index];position.completed=!position.completed;saveDiwanAssessmentDraft(participant);return refresh()}
     const actionButton=event.target.closest("[data-assess-delta]");if(actionButton){
       const index=Number(actionButton.dataset.assessIndex),type=actionButton.dataset.assessType,delta=Number(actionButton.dataset.assessDelta);
-      if(type==="positionChange")return toast("تغيير الموضع أثناء الاختبار غير متاح حالياً لاختبارات ديوان الحفاظ");
+      if(type==="positionChange"&&delta>0){
+        if(currentExaminerRole()==="chairman"){actionButton.disabled=true;replaceDiwanAssessmentPosition(draw,participant,assessment,index).then(()=>{currentIndex=index;refresh()}).catch(error=>toast(error.message)).finally(()=>actionButton.disabled=false)}
+        else{const chairmanCount=chairmanPositionChangeCounts[index]||0,ownCount=Number(assessment.positions[index].positionChange)||0;if(chairmanCount<=ownCount)return;actionButton.disabled=true;adoptDiwanChairmanPositionChange(draw,participant,assessment,index).then(()=>{currentIndex=index;refresh()}).catch(error=>toast(error.message)).finally(()=>actionButton.disabled=false)}
+        return;
+      }
       const position=assessment.positions[index],before=Number(position[type])||0,after=Math.max(0,before+delta);if(after===before)return;
       if(type==="tajweed"&&delta>0&&tajweedTotalOf(assessment)>=TAJWEED_ERROR_CAP){tajweedCapWarningVisible=true;clearTimeout(tajweedCapWarningTimer);tajweedCapWarningTimer=setTimeout(()=>{tajweedCapWarningVisible=false;renderPosition()},6000);return renderPosition()}
       position[type]=after;assessment.actions.push({positionId:position.positionId,type,delta:after-before,at:new Date().toISOString()});saveDiwanAssessmentDraft(participant);return refresh()
@@ -2192,9 +2239,45 @@ function openDiwanElectronicAssessment(draw,cloudSession=null,jumpToIndex=null){
   $("#undoAssessmentAction").onclick=()=>{const action=assessment.actions.pop();if(!action)return;const index=assessment.positions.findIndex(position=>position.positionId===action.positionId);if(index<0)return;const position=assessment.positions[index];position[action.type]=Math.max(0,(Number(position[action.type])||0)-action.delta);currentIndex=index;saveDiwanAssessmentDraft(participant);refresh();toast("تم التراجع عن آخر تسجيل")};
   $("#reviewAssessmentBtn").onclick=()=>openDiwanAssessmentReview(draw,participant);refresh();
 }
+async function replaceDiwanAssessmentPosition(draw,participant,assessment,index){
+  if((draw.rerolls?.length||0)>=2)return toast("تم استخدام الحد الأقصى لتبديل الموضع (مرتان) لهذا المتسابق");
+  if(!confirm("سيتم خصم 10 علامات واختيار موضع مختلف عشوائيًا من الجزء نفسه. هل تريد المتابعة؟"))return;
+  const old=draw.positions[index],pool=diwanAvailableForParts([old.juz]).filter(item=>item.id!==old.id&&!draw.positions.some(position=>position.id===item.id));
+  if(!pool.length)throw new Error("لا يوجد موضع بديل متاح في الجزء نفسه");
+  const replacement=pool[randomIndex(pool.length)],entry=assessment.positions[index];
+  entry.positionChange=(Number(entry.positionChange)||0)+1;
+  entry.changes=entry.changes||[];
+  entry.changes.push({oldPosition:old,newPosition:replacement,committeeName:window.CloudCompetition.context?.committee?.name||"الإدارة",at:new Date().toISOString(),oldAssessmentSnapshot:{memorization:entry.memorization,language:entry.language,tajweed:entry.tajweed,hesitation:entry.hesitation,note:entry.note,completed:entry.completed}});
+  entry.memorization=0;entry.language=0;entry.tajweed=0;entry.hesitation=0;entry.note="";entry.completed=false;
+  entry.positionId=replacement.id;draw.positions[index]=replacement;
+  assessment.actions.push({positionId:replacement.id,type:"positionChange",delta:1,at:new Date().toISOString(),oldPositionId:old.id});
+  assessment.updatedAt=new Date().toISOString();
+  await window.DiwanCompetition.replacePosition(participant.id,draw.id,index,replacement,assessment);
+  draw.rerolls=draw.rerolls||[];draw.rerolls.push({positionIndex:index,at:new Date().toISOString()});
+  saveDiwanAssessmentDraft(participant);
+  toast(`تم تغيير الموضع ${index+1} بموضع آخر من الجزء ${old.juz}`);
+}
+async function adoptDiwanChairmanPositionChange(draw,participant,assessment,index){
+  const remote=await window.DiwanCompetition.loadCommitteeState();
+  const remoteDraw=(remote.payload?.draws||[]).find(item=>item.id===draw.id);
+  const fresh=remoteDraw?.positions?.[index];
+  if(!fresh)throw new Error("تعذر جلب الموضع الجديد من رئيس اللجنة، حاول مجددًا");
+  const old=draw.positions[index],entry=assessment.positions[index];
+  entry.positionChange=(Number(entry.positionChange)||0)+1;
+  entry.changes=entry.changes||[];
+  entry.changes.push({oldPosition:old,newPosition:fresh,committeeName:window.CloudCompetition.context?.committee?.name||"الإدارة",at:new Date().toISOString(),oldAssessmentSnapshot:{memorization:entry.memorization,language:entry.language,tajweed:entry.tajweed,hesitation:entry.hesitation,note:entry.note,completed:entry.completed}});
+  entry.memorization=0;entry.language=0;entry.tajweed=0;entry.hesitation=0;entry.note="";entry.completed=false;
+  entry.positionId=fresh.id;
+  draw.positions[index]=fresh;
+  assessment.actions.push({positionId:fresh.id,type:"positionChange",delta:1,at:new Date().toISOString()});
+  assessment.updatedAt=new Date().toISOString();
+  saveDiwanAssessmentDraft(participant);
+  toast(`تم اعتماد الموضع الجديد للموضع ${index+1} كما اختاره رئيس اللجنة`);
+}
 async function endDiwanExamNow(draw,participant,assessment){
   if(currentExaminerRole()!=="chairman")return;
   if(!confirm("سيتم إنهاء الاختبار الآن دون إكمال باقي المواضع، وستُسجَّل علامة المتسابق «غير مكتمل» مباشرة بدل حساب علامة رقمية. هل تريد المتابعة؟"))return;
+  stopMemberPositionSync();
   assessment.positions.forEach(position=>{if(!position.completed)position.completed=true});
   assessment.endedEarly=true;assessment.endedEarlyAt=new Date().toISOString();assessment.incomplete=true;
   saveDiwanAssessmentDraft(participant);
@@ -2202,6 +2285,7 @@ async function endDiwanExamNow(draw,participant,assessment){
   await finalizeDiwanElectronicAssessment(draw,participant,calculateFinalAssessment(assessment));
 }
 async function openDiwanAssessmentReview(draw,participant){
+  stopMemberPositionSync();
   const assessment=participant.assessment,result=calculateAssessment(assessment),chairman=currentExaminerRole()==="chairman";
   const incompleteIndex=assessment.positions.findIndex(p=>!p.completed);
   if(incompleteIndex>=0){toast(`الرجاء وضع "إنهاء هذا الموضع" على الموضع ${incompleteIndex+1} قبل المراجعة والاعتماد`);return openDiwanElectronicAssessment(draw,activeDiwanCloudSession,incompleteIndex)}
@@ -2239,6 +2323,7 @@ async function finalizeDiwanElectronicAssessment(draw,participant,result){
       diwanCommitteeSessions=diwanCommitteeSessions.filter(item=>item.id!==activeDiwanCloudSession.id);diwanCommitteeSessions.unshift(activeDiwanCloudSession);
     }catch(error){assessment.status="draft";delete participant.score;delete participant.gradedAt;delete participant.scoreSource;saveDiwanAssessmentDraft(participant);if(button){button.disabled=false;button.textContent="اعتماد النتيجة"}return toast(`لم تُعتمد النتيجة: ${error.message}`)}
   }
+  localStorage.removeItem(diwanExaminerDraftKey(participant.id));
   renderDiwanCommitteeStudents();
   const canSeeScore=window.CloudCompetition.context?.committee?.show_score!==false,incomplete=Boolean(assessment.incomplete);
   openModal(`<div class="modal-head"><h2>${incomplete?"تم إنهاء الاختبار":"تم اعتماد النتيجة"}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="assessment-review-score ${incomplete?"incomplete":result.passed?"passed":"failed"}"><span>${escapeHtml(participant.name)}</span><b>${incomplete?"غير مكتمل":canSeeScore?formatAssessmentNumber(result.score):"—"}</b><strong>${incomplete?"أُنهي الاختبار قبل اكتماله":canSeeScore?(result.passed?"ناجح":"راسب"):"العلامة غير ظاهرة لهذه اللجنة"}</strong></div><p>${incomplete?"سُجِّلت علامة المتسابق «غير مكتمل» مع تفاصيل الأخطاء والترددات والملاحظات المسجَّلة حتى لحظة الإنهاء.":"حُفظت العلامة مع تفاصيل الأخطاء والترددات والملاحظات لكل موضع."}</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button><button id="returnDiwanCommitteeWorkspace" class="primary-btn">العودة إلى قائمة ديوان الحفاظ</button></div></div>`);

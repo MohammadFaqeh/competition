@@ -239,6 +239,10 @@ window.DiwanCompetition=(()=>{
   // إلغاء اللجنة اختباراً بدأته هي بنفسها طالما لم يُعتمد بعد — مستقل عن deleteParticipantSession
   // الإدارية أعلاه (تلك تتطلب صلاحية admin ولا يمكن للجنة استدعاءها بجلسة p_token).
   async function cancelSession(participantId){const {error}=await client().rpc("diwan_committee_cancel_session",{p_token:committeeToken(),p_participant_id:participantId});if(error)throw rpcError(error)}
+  // جلسة واحدة بعينها بدل قائمة اللجنة الكاملة — لمزامنة موضع الرئيس أثناء رصد العضو (نفس getCommitteeSession بالسنوية).
+  async function getSession(sessionId){const {data,error}=await client().rpc("diwan_committee_get_session",{p_token:committeeToken(),p_session_id:sessionId});if(error)throw rpcError(error);return data}
+  // تغيير موضع أثناء الاختبار (اعتذار الطالب) — رئيس اللجنة فقط، بحد أقصى مرتين لكل متسابق (نفس replaceCommitteePosition بالسنوية).
+  async function replacePosition(participantId,drawId,index,position,assessment){const {data,error}=await client().rpc("diwan_committee_replace_position",{p_token:committeeToken(),p_participant_id:participantId,p_draw_id:drawId,p_position_index:Number(index),p_position:position,p_assessment:assessment});if(error)throw rpcError(error);return data}
   // مسودة تلقائية مؤجَّلة (300ms، نفس queueSessionSave بالسنوية) — cancelQueuedSessionSave تُستدعى
   // قبل أي حفظ مباشر (اعتماد/فتح مراجعة) لمنع مسودة متأخرة من إرجاع الجلسة "قيد الاختبار" بعلامة فارغة.
   let sessionSaveTimer=null;
@@ -246,5 +250,5 @@ window.DiwanCompetition=(()=>{
   function cancelQueuedSessionSave(){clearTimeout(sessionSaveTimer);sessionSaveTimer=null}
 
   return {loadState,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,deleteParticipantSession,listSessions,
-    loadCommitteeState,listCommitteeSessions,claimStudent,saveSession,cancelSession,queueSessionSave,cancelQueuedSessionSave};
+    loadCommitteeState,listCommitteeSessions,claimStudent,saveSession,cancelSession,getSession,replacePosition,queueSessionSave,cancelQueuedSessionSave};
 })();

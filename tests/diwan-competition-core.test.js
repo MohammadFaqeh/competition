@@ -137,10 +137,51 @@ async function testCommitteeCancelSession() {
   console.log("diwan-competition-core.test.js: إلغاء اللجنة لاختبارها الخاص (cancelSession) — نجح");
 }
 
+async function testGetSessionAndReplacePosition() {
+  const calls = [];
+  async function rpcHandler(name, args) {
+    calls.push({ name, args });
+    if (name === "diwan_committee_get_session") return { data: { id: args.p_session_id, status: "in_progress" }, error: null };
+    if (name === "diwan_committee_replace_position") return { data: { draw: { id: args.p_draw_id }, assessment: args.p_assessment }, error: null };
+    throw new Error(`unexpected rpc: ${name}`);
+  }
+  const sandbox = loadCloudModule(rpcHandler, () => ({ data: null, error: null }));
+  await sandbox.window.CloudCompetition.init();
+  const diwan = sandbox.window.DiwanCompetition;
+
+  // بلا جلسة لجنة: كلتا الدالتين ترفضان فوراً بلا أي RPC (نفس بوابة بقية دوال اللجنة)
+  sandbox.window.CloudCompetition = { ...sandbox.window.CloudCompetition, context: {}, client: sandbox.window.CloudCompetition.client };
+  await assert.rejects(() => diwan.getSession("S1"), /انتهت جلسة اللجنة/, "بلا جلسة لجنة يُرفض جلب الجلسة فوراً");
+  await assert.rejects(() => diwan.replacePosition("P1", "D1", 0, {}, {}), /انتهت جلسة اللجنة/, "بلا جلسة لجنة يُرفض تغيير الموضع فوراً");
+  assert.strictEqual(calls.length, 0, "لا يُستدعى أي RPC بلا جلسة لجنة");
+
+  // بجلسة لجنة سنوية: تستخدم نفس التوكن المشترك وترسل المعاملات الصحيحة
+  sandbox.window.CloudCompetition = { ...sandbox.window.CloudCompetition, context: { kind: "committee", token: "annual-committee-token-1" }, client: sandbox.window.CloudCompetition.client };
+
+  calls.length = 0;
+  await diwan.getSession("S42");
+  assert.strictEqual(calls.length, 1, "استُدعيت diwan_committee_get_session فعلياً");
+  assert.strictEqual(calls[0].args.p_token, "annual-committee-token-1", "استُخدم توكن جلسة اللجنة المشتركة نفسه");
+  assert.strictEqual(calls[0].args.p_session_id, "S42", "أُرسل معرّف الجلسة الصحيح");
+
+  calls.length = 0;
+  const newPosition = { id: "POS9", juz: 3 }, assessment = { drawId: "D1" };
+  await diwan.replacePosition("P1", "D1", 2, newPosition, assessment);
+  assert.strictEqual(calls.length, 1, "استُدعيت diwan_committee_replace_position فعلياً");
+  assert.strictEqual(calls[0].args.p_token, "annual-committee-token-1", "استُخدم توكن جلسة اللجنة المشتركة نفسه لتغيير الموضع");
+  assert.strictEqual(calls[0].args.p_participant_id, "P1");
+  assert.strictEqual(calls[0].args.p_draw_id, "D1");
+  assert.strictEqual(calls[0].args.p_position_index, 2, "رقم الموضع يُرسل كرقم صحيح");
+  assert.strictEqual(JSON.stringify(calls[0].args.p_position), JSON.stringify(newPosition));
+
+  console.log("diwan-competition-core.test.js: مزامنة جلسة العضو (getSession) وتغيير الموضع (replacePosition) — نجح");
+}
+
 async function run() {
   await testDiffOnlySave();
   await testAdminGateAndSharedCommitteeSession();
   await testCommitteeCancelSession();
+  await testGetSessionAndReplacePosition();
 }
 
 run().catch(error => {
