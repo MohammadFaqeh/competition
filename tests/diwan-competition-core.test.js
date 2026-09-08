@@ -1,8 +1,8 @@
 // اختبار آلي لطبقة الاتصال الجديدة window.DiwanCompetition (راجع cloud.js وsupabase/diwan-al-
-// hifadh-core.sql) — مسار "اختبارات ديوان الحفاظ" المستقل. يتحقق من: (أ) حفظ الحالة يرسل فقط
-// الفروقات (نفس تحسين admin_save_state بالسنوية، مطبَّق من أول يوم هون)، (ب) الحفظ يُرفض بلا
-// جلسة إدارة (kind!=="admin")، (ج) تسجيل دخول لجنة ديوان الحفاظ مستقل تماماً عن أي جلسة إدارة/
-// لجنة سنوية (توكن ومفتاح localStorage مختلفان).
+// hifadh-core.sql) — مسار "اختبارات ديوان الحفاظ" المستقل من ناحية بيانات المتسابقين فقط.
+// يتحقق من: (أ) حفظ الحالة يرسل فقط الفروقات (نفس تحسين admin_save_state بالسنوية)، (ب) الحفظ
+// يُرفض بلا جلسة إدارة (kind!=="admin")، (ج) دوال اللجنة تستعمل توكن جلسة اللجنة المشتركة نفسها
+// من window.CloudCompetition.context (لا تسجيل دخول أو توكن منفصل — طلب صريح: نفس اللجان تمتحن الطرفين).
 // شغّله: node tests/diwan-competition-core.test.js
 "use strict";
 const fs = require("fs");
@@ -75,12 +75,12 @@ async function testDiffOnlySave() {
   console.log("diwan-competition-core.test.js: حفظ الحالة يرسل فقط الفروقات — نجح");
 }
 
-async function testAdminGateAndCommitteeIsolation() {
+async function testAdminGateAndSharedCommitteeSession() {
   const calls = [];
   async function rpcHandler(name, args) {
     calls.push({ name, args });
     if (name === "diwan_admin_save_state") return { data: {}, error: null };
-    if (name === "diwan_committee_login") return { data: { token: "diwan-tok-1", committee: { id: "c1", name: "لجنة ١" } }, error: null };
+    if (name === "diwan_committee_load_state") return { data: { config: {}, participants: [], draws: [] }, error: null };
     throw new Error(`unexpected rpc: ${name}`);
   }
   const sandbox = loadCloudModule(rpcHandler, () => ({ data: null, error: null }));
@@ -96,18 +96,24 @@ async function testAdminGateAndCommitteeIsolation() {
   assert.strictEqual(calls.length, 0, "بلا جلسة إدارة، لا يجب استدعاء أي RPC للحفظ");
   assert.strictEqual(onErrorCalled, false, "ولا يجب استدعاء onError أيضاً (queueStateSave يتجاهل الطلب بصمت)");
 
-  // تسجيل دخول لجنة ديوان الحفاظ: توكن مستقل تماماً بمفتاح localStorage مختلف عن السنوية/المسؤول الفرعي
-  await diwan.signInCommittee("D01", "1234");
-  assert.strictEqual(sandbox.localStorage.getItem("competition.diwanCommitteeToken"), "diwan-tok-1", "توكن لجنة ديوان الحفاظ محفوظ بمفتاحه المستقل");
-  assert.strictEqual(sandbox.localStorage.getItem("competition.committeeToken"), null, "لا يمس توكن لجنة السنوية إطلاقاً");
-  assert.strictEqual(diwan.committeeContext.committee.id, "c1", "سياق لجنة ديوان الحفاظ محفوظ محلياً بشكل مستقل");
+  // بلا جلسة لجنة إطلاقاً: أي دالة لجنة بديوان الحفاظ يجب أن ترفض فوراً بلا استدعاء أي RPC
+  calls.length = 0;
+  await assert.rejects(() => diwan.loadCommitteeState(), /انتهت جلسة اللجنة/, "بلا جلسة لجنة أصلاً يُرفض الطلب فوراً");
+  assert.strictEqual(calls.length, 0, "لا يُستدعى أي RPC بلا جلسة لجنة");
 
-  console.log("diwan-competition-core.test.js: بوابة صلاحية الإدارة وعزل جلسة اللجنة — نجح");
+  // جلسة لجنة سنوية عادية (نفس تسجيل الدخول الموجود أصلاً، لا شيء إضافي): يجب أن تعمل دوال
+  // ديوان الحفاظ مباشرة بنفس التوكن — هذا هو المطلوب: "نفس اللجان يمتحنوا الطرفين".
+  sandbox.window.CloudCompetition = { ...sandbox.window.CloudCompetition, context: { kind: "committee", token: "annual-committee-token-1" }, client: sandbox.window.CloudCompetition.client };
+  await diwan.loadCommitteeState();
+  assert.strictEqual(calls.length, 1, "استُدعيت diwan_committee_load_state فعلياً");
+  assert.strictEqual(calls[0].args.p_token, "annual-committee-token-1", "استُخدم توكن جلسة اللجنة السنوية نفسه، بلا أي توكن أو تسجيل دخول منفصل لديوان الحفاظ");
+
+  console.log("diwan-competition-core.test.js: بوابة صلاحية الإدارة، ورفض بلا جلسة لجنة، واستخدام جلسة اللجنة المشتركة — نجح");
 }
 
 async function run() {
   await testDiffOnlySave();
-  await testAdminGateAndCommitteeIsolation();
+  await testAdminGateAndSharedCommitteeSession();
 }
 
 run().catch(error => {

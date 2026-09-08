@@ -185,17 +185,17 @@ window.CloudCompetition=(()=>{
   return {enabled,init,signInAdmin,requestLoginRecoveryCode,confirmLoginRecovery,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,getStateVersion,saveCompetitionState,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,setCommitteeShowScore,setCommitteeShowStatsSummary,deleteParticipantSession,pruneOldLogs,listSessions,listFinalSessions,listActiveSessions,listRecentFinalSessions,listLiveCommitteeSessions,getCommitteeSession,listCommitteeNotifications,reportCommitteeIssue,listIssueReports,resolveIssueReport,lookupChangeTimes,claimStudent,cancelCommitteeSession,createCommitteeDraw,listCommitteeUsedPositionIds,listCommitteeUsedPositionsDetailed,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,saveSession,queueSessionSave,cancelQueuedSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,setSubAdminPermissions,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listSupervisors,linkSupervisor,unlinkSupervisor,get context(){return context},get client(){return client}};
 })();
 
-// "اختبارات ديوان الحفاظ - فرع الكورة": مسار مستقل بالكامل عن المسابقة السنوية (راجع supabase/
-// diwan-al-hifadh-core.sql). يستعير نفس اتصال Supabase من CloudCompetition (نفس المشروع، جداول
-// مختلفة بادئتها diwan_) بدل فتح اتصال ثانٍ، ويستعير جلسة تسجيل دخول الإدارة نفسها (حساب admin
-// واحد يدير كلا المسارين) — فقط جلسة اللجنة مستقلة تماماً (رمز/PIN من جدول diwan_committees،
-// توكن مخزَّن بمفتاح localStorage مختلف)، لأنها فعلياً حساب مختلف عن لجان السنوية.
+// "اختبارات ديوان الحفاظ - فرع الكورة": مسار مستقل عن المسابقة السنوية من ناحية بيانات
+// المتسابقين/السحوبات فقط (diwan_state، راجع supabase/diwan-al-hifadh-core.sql). اللجان
+// مشتركة تماماً مع السنوية — طلب صريح: "نفس اللجان يلي بضيفهم من الإعدادات يقدروا يمتحنوا
+// الطرفين". يستعير نفس اتصال Supabase ونفس جلسة تسجيل دخول اللجنة/الإدارة من CloudCompetition
+// (window.CloudCompetition.context.token للجنة) بلا أي حساب أو تسجيل دخول ثانٍ إطلاقاً.
 window.DiwanCompetition=(()=>{
-  const COMMITTEE_TOKEN_KEY="competition.diwanCommitteeToken";
-  let committeeContext=null,saveTimer=null,saveGeneration=0;
+  let saveTimer=null,saveGeneration=0;
   const client=()=>window.CloudCompetition.client;
   const rpcError=error=>new Error(error?.code?error.message:"تعذر الاتصال بالخادم. تحقق من اتصال الإنترنت وحاول مجددًا");
   const isAdmin=()=>window.CloudCompetition.context?.kind==="admin";
+  const committeeToken=()=>{if(window.CloudCompetition.context?.kind!=="committee")throw new Error("انتهت جلسة اللجنة");return window.CloudCompetition.context.token};
   function timeoutSignal(ms){const controller=new AbortController();setTimeout(()=>controller.abort(),ms);return controller.signal}
   async function withRetry(fn,isStale){
     const delays=[2000,4000];
@@ -227,24 +227,14 @@ window.DiwanCompetition=(()=>{
   async function createDraw(draw){const {data,error}=await client().rpc("diwan_admin_create_draw",{p_draw:draw});if(error)throw rpcError(error);return data}
   async function deleteParticipantSession(participantId){const {error}=await client().rpc("diwan_admin_delete_participant_session",{p_participant_id:participantId});if(error)throw rpcError(error)}
 
-  async function listCommittees(){const {data,error}=await client().from("diwan_committees").select("id,name,chairman_name,member_name,login_code,member_login_code,responsible_gender,level_names,levels,active,can_edit_final,show_score,created_at").order("created_at");if(error)throw error;return data}
-  async function saveCommittee(values){const {data,error}=await client().rpc("diwan_admin_save_committee",{p_id:values.id||null,p_name:values.name,p_chairman_name:values.chairmanName,p_chairman_code:values.code,p_chairman_pin:values.pin||"",p_member_name:values.memberName||null,p_member_code:values.memberCode,p_member_pin:values.memberPin||"",p_responsible_gender:values.responsibleGender,p_level_names:values.levelNames,p_active:values.active!==false});if(error)throw rpcError(error);return data}
-  async function setCommitteeFinalEdit(id,enabled){const {error}=await client().rpc("diwan_admin_set_committee_final_edit",{p_committee_id:id,p_enabled:Boolean(enabled)});if(error)throw rpcError(error)}
-  async function setCommitteeShowScore(id,enabled){const {error}=await client().rpc("diwan_admin_set_committee_show_score",{p_committee_id:id,p_enabled:Boolean(enabled)});if(error)throw rpcError(error)}
-  async function setCommitteeActive(id,active){const {error}=await client().rpc("diwan_admin_set_committee_active",{p_committee_id:id,p_active:Boolean(active)});if(error)throw rpcError(error)}
-  async function deleteCommittee(id,purgeHistory=false){const {data,error}=await client().rpc("diwan_admin_delete_committee",{p_committee_id:id,p_purge_history:purgeHistory});if(error)throw rpcError(error);return data}
-
-  async function signInCommittee(code,pin){const {data,error}=await client().rpc("diwan_committee_login",{p_login_code:code,p_pin:pin});if(error)throw rpcError(error);localStorage.setItem(COMMITTEE_TOKEN_KEY,data.token);return committeeContext={token:data.token,committee:data.committee}}
-  async function resumeCommittee(token){const {data,error}=await client().rpc("diwan_committee_resume",{p_token:token});if(error)throw rpcError(error);return committeeContext={token,committee:data}}
-  async function signOutCommittee(){if(!committeeContext)return;try{await client().rpc("diwan_committee_logout",{p_token:committeeContext.token})}catch{}localStorage.removeItem(COMMITTEE_TOKEN_KEY);committeeContext=null}
-  async function resumeCommitteeFromStorage(){const token=localStorage.getItem(COMMITTEE_TOKEN_KEY);if(!token)return null;try{return await resumeCommittee(token)}catch{localStorage.removeItem(COMMITTEE_TOKEN_KEY);return null}}
-  async function loadCommitteeState(){const {data,error}=await client().rpc("diwan_committee_load_state",{p_token:committeeContext.token});if(error)throw rpcError(error);return {payload:data}}
-  async function listCommitteeSessions(){const {data,error}=await client().rpc("diwan_committee_list_sessions",{p_token:committeeContext.token});if(error)throw rpcError(error);return data}
-  async function claimStudent(participantId,drawId,level,levelName){const {data,error}=await client().rpc("diwan_committee_claim_student",{p_token:committeeContext.token,p_participant_id:participantId,p_draw_id:drawId,p_level:level,p_level_name:levelName||null});if(error)throw rpcError(error);return data}
-  async function saveSession(sessionId,assessment,status,score){const {data,error}=await client().rpc("diwan_committee_save_session",{p_token:committeeContext.token,p_session_id:sessionId,p_assessment:assessment,p_status:status,p_score:score});if(error)throw rpcError(error);return data}
+  // اللجنة نفسها (بيانات/صلاحيات) تُدار بالكامل من إدارة السنوية (listCommittees/saveCommittee
+  // بـwindow.CloudCompetition) — لا نسخة ثانية هنا. الدوال التالية فقط تستهلك جلسة اللجنة
+  // الحالية (window.CloudCompetition.context.token) لقراءة/كتابة بيانات ديوان الحفاظ تحديداً.
+  async function loadCommitteeState(){const {data,error}=await client().rpc("diwan_committee_load_state",{p_token:committeeToken()});if(error)throw rpcError(error);return {payload:data}}
+  async function listCommitteeSessions(){const {data,error}=await client().rpc("diwan_committee_list_sessions",{p_token:committeeToken()});if(error)throw rpcError(error);return data}
+  async function claimStudent(participantId,drawId,level,levelName){const {data,error}=await client().rpc("diwan_committee_claim_student",{p_token:committeeToken(),p_participant_id:participantId,p_draw_id:drawId,p_level:level,p_level_name:levelName||null});if(error)throw rpcError(error);return data}
+  async function saveSession(sessionId,assessment,status,score){const {data,error}=await client().rpc("diwan_committee_save_session",{p_token:committeeToken(),p_session_id:sessionId,p_assessment:assessment,p_status:status,p_score:score});if(error)throw rpcError(error);return data}
 
   return {loadState,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,deleteParticipantSession,
-    listCommittees,saveCommittee,setCommitteeFinalEdit,setCommitteeShowScore,setCommitteeActive,deleteCommittee,
-    signInCommittee,resumeCommittee,resumeCommitteeFromStorage,signOutCommittee,loadCommitteeState,listCommitteeSessions,claimStudent,saveSession,
-    get committeeContext(){return committeeContext}};
+    loadCommitteeState,listCommitteeSessions,claimStudent,saveSession};
 })();
