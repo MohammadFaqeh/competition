@@ -41,7 +41,7 @@ let integrity = {valid:false, errors:[], verseCount:0};
 let cloudEnabled=false;
 let committeeSessions=[];
 let activeCloudSession=null;
-let committeeAutoRefreshTimer=null,committeeRefreshBusy=false,committeeSessionsSignature=null;
+let committeeAutoRefreshTimer=null,committeeRefreshBusy=false,committeeSessionsSignature=null,lastCommitteeStateVersion=null;
 // نافذة "حديث" الموحّدة لكل الاستطلاع الدوري (اللجنة + الإدارة): جلسة اعتُمدت قبل أكثر من هذا
 // السقف عمليًا لا تتغيّر ثانيةً (إلا بإعادة فتحها يدويًا من رئيس اللجنة، وحينها تصير finalized_at
 // جديدة فتدخل النافذة تلقائيًا من جديد)، فلا داعي لسحبها بكل نبضة استطلاع — تبقى محفوظة محليًا
@@ -58,6 +58,12 @@ const LAST_ADMIN_VIEW_KEY="competition-last-admin-view";
 const ACTIVE_MODE_KEY="competition-active-mode";
 const LOCAL_ACCESS_KEY="competition-local-access";
 const COMMITTEE_ALERTS_KEY="competition-committee-alerts";
+// تفضيل محلي صرف بهذا الجهاز فقط (لا يُرسَل ولا يُزامَن للسحابة إطلاقاً) — طلب صريح: لا تحديث
+// تلقائي دوري (كل 9 ثوانٍ) إلا إذا فعّله المستخدم عمداً (مثلاً يوم امتحان فعلي لمتابعة اللجان
+// لحظياً)؛ افتراضياً معطّل حتى لا يستهلك داتا/رام الجهاز بلا داعٍ بالأيام العادية بلا امتحان.
+// زر «تحديث نتائج اللجان» اليدوي يبقى متاحاً دائماً بغض النظر عن هذا التفضيل.
+const LIVE_AUTOREFRESH_KEY="competition-live-autorefresh";
+function liveAutoRefreshEnabled(){return localStorage.getItem(LIVE_AUTOREFRESH_KEY)==="on"}
 const ASSESSMENT_DRAFT_PREFIX="competition-assessment-draft-";
 const IDLE_LOGOUT_MS=30*60*1000;
 const optionalScripts=new Map();
@@ -369,6 +375,9 @@ function bindEvents(){
   $("#deleteAllDrawsBtn").addEventListener("click",confirmDeleteAllDraws);
   $("#runAuditBtn").addEventListener("click",runAudit);
   $("#settingsForm").addEventListener("submit",saveSettings);
+  // تفضيل محلي مستقل عن نموذج الإعدادات (لا يُحفظ بـstate.config ولا يُزامَن للسحابة، ولا ينتظر
+  // ضغط «حفظ التغييرات») — يُطبَّق فوراً عند التبديل مباشرة على هذا الجهاز فقط.
+  $("#settingsLiveAutoRefresh")?.addEventListener("change",event=>{const enabled=event.target.checked;safeSetItem(LIVE_AUTOREFRESH_KEY,enabled?"on":"off");if(enabled)startAdminAutoRefresh();else stopAdminAutoRefresh();toast(enabled?"تم تفعيل التحديث التلقائي المباشر كل 9 ثوانٍ بهذا الجهاز":"تم إيقاف التحديث التلقائي — استخدم زر «تحديث نتائج اللجان» يدوياً عند الحاجة")});
   $("#backupBtn").addEventListener("click",downloadBackup);
   $("#restoreInput").addEventListener("change",restoreBackup);
   $("#newCycleBtn").addEventListener("click",confirmNewCycle);
@@ -782,12 +791,15 @@ async function renderCommitteeWorkspace(){let context=window.CloudCompetition.co
 function stopCommitteeAutoRefresh(){if(committeeAutoRefreshTimer)clearInterval(committeeAutoRefreshTimer);committeeAutoRefreshTimer=null;committeeRefreshBusy=false}
 function startCommitteeAutoRefresh(){stopAdminAutoRefresh();stopCommitteeAutoRefresh();committeeAutoRefreshTimer=setInterval(()=>{if(!document.hidden)refreshCommitteeChanges()},9000)}
 function stopAdminAutoRefresh(){if(adminAutoRefreshTimer)clearInterval(adminAutoRefreshTimer);adminAutoRefreshTimer=null;adminRefreshBusy=false}
-function startAdminAutoRefresh(){stopAdminAutoRefresh();adminAutoRefreshTimer=setInterval(()=>{if(!document.hidden)refreshAdminChanges()},9000)}
-// حساب الإدارة الحقيقي (kind==="admin") وحده يرجّع updated_at مع competition_state، فنقارنه
-// أول شي: لو ما تغيّر إطلاقًا منذ آخر استطلاع نتجنب كليًا استبدال/تحليل/كتابة كامل الحالة
-// (participants+draws) بالمتصفح — وهذا هو الجزء الأثقل يلي كان يتكرر كل 5 ثوان بلا داعٍ. لسا
-// لازم ندمج أي نتيجة نهائية اعتمدتها لجنة للتو (mergeFinalSessionsIntoState) حتى بهاي الحالة.
-async function refreshAdminChanges(){const kind=window.CloudCompetition.context?.kind;if(adminRefreshBusy||!["admin","supervisor"].includes(kind)||!$("#modal")?.classList.contains("hidden"))return;adminRefreshBusy=true;try{const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listRecentFinalSessions(new Date(Date.now()-LIVE_RECENT_WINDOW_MS).toISOString()),window.CloudCompetition.listCommittees()]);cloudCommittees=committees;if(!remote.payload?.config)return;if(!$("#modal")?.classList.contains("hidden")){console.warn("[examTrace] refreshAdminChanges: تم فتح مودال أثناء انتظار الشبكة، تم تجاهل الاستبدال");return}let stateChanged;if(kind==="admin"&&remote.updated_at&&remote.updated_at===lastAdminStateUpdatedAt){stateChanged=mergeFinalSessionsIntoState(sessions,committees,{replace:false})}else{const previous=JSON.stringify({participants:state.participants,draws:state.draws});if(kind==="supervisor"){state={...defaultState(),config:remote.payload.config?.competitionName?{competitionName:remote.payload.config.competitionName,adminName:state.config?.adminName}:state.config,participants:remote.payload.participants||[],draws:remote.payload.draws||[]};window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws)}else{state={...defaultState(),...remote.payload};window.CloudCompetition.markAdminKnownIds(state.participants,state.draws);safeSetItem(CLOUD_STORAGE_KEY,JSON.stringify(state));lastAdminStateUpdatedAt=remote.updated_at||null}mergeFinalSessionsIntoState(sessions,committees,{replace:false});stateChanged=previous!==JSON.stringify({participants:state.participants,draws:state.draws})}if(stateChanged)renderAll()}catch(error){console.warn("Admin auto refresh failed",error)}finally{adminRefreshBusy=false}}
+function startAdminAutoRefresh(){stopAdminAutoRefresh();if(!liveAutoRefreshEnabled())return;adminAutoRefreshTimer=setInterval(()=>{if(!document.hidden)refreshAdminChanges()},9000)}
+// نتحقق أولاً من توقيت آخر تعديل (competition_state_version — راجع competition-state-version-
+// check.sql، طلب صريح باقتصاد الداتا/الجهاز/الرام) قبل أي تنزيل: لو ما تغيّر شي إطلاقًا منذ آخر
+// استطلاع، نتجنب كليًا تنزيل/استبدال/تحليل/كتابة كامل الحالة (participants+draws، مئات العناصر)
+// عبر الشبكة — وهذا الجزء الأثقل يلي كان يتكرر كل 9 ثوانٍ بلا داعٍ طول يوم الامتحان، حتى لو
+// الدالة الجديدة غير مطبَّقة بعد على قاعدة بيانات معينة (getStateVersion ترجع null بصمت، فنرجع
+// تلقائيًا لتنزيل كامل كالسابق بلا انكسار). لسا لازم ندمج أي نتيجة نهائية اعتمدتها لجنة للتو
+// (mergeFinalSessionsIntoState) حتى بحالة عدم التغيير.
+async function refreshAdminChanges(){const kind=window.CloudCompetition.context?.kind;if(adminRefreshBusy||!["admin","supervisor"].includes(kind)||!$("#modal")?.classList.contains("hidden"))return;adminRefreshBusy=true;try{const version=await window.CloudCompetition.getStateVersion?.();const skipFetch=version!=null&&version===lastAdminStateUpdatedAt;const [remote,sessions,committees]=await Promise.all([skipFetch?Promise.resolve(null):window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listRecentFinalSessions(new Date(Date.now()-LIVE_RECENT_WINDOW_MS).toISOString()),window.CloudCompetition.listCommittees()]);cloudCommittees=committees;if(!skipFetch&&!remote.payload?.config)return;if(!$("#modal")?.classList.contains("hidden")){console.warn("[examTrace] refreshAdminChanges: تم فتح مودال أثناء انتظار الشبكة، تم تجاهل الاستبدال");return}let stateChanged;const unchanged=skipFetch||(kind==="admin"&&remote.updated_at&&remote.updated_at===lastAdminStateUpdatedAt);if(unchanged){stateChanged=mergeFinalSessionsIntoState(sessions,committees,{replace:false})}else{const previous=JSON.stringify({participants:state.participants,draws:state.draws});if(kind==="supervisor"){state={...defaultState(),config:remote.payload.config?.competitionName?{competitionName:remote.payload.config.competitionName,adminName:state.config?.adminName}:state.config,participants:remote.payload.participants||[],draws:remote.payload.draws||[]};window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws)}else{state={...defaultState(),...remote.payload};window.CloudCompetition.markAdminKnownIds(state.participants,state.draws);safeSetItem(CLOUD_STORAGE_KEY,JSON.stringify(state))}lastAdminStateUpdatedAt=version??remote.updated_at??null;mergeFinalSessionsIntoState(sessions,committees,{replace:false});stateChanged=previous!==JSON.stringify({participants:state.participants,draws:state.draws})}if(stateChanged)renderAll()}catch(error){console.warn("Admin auto refresh failed",error)}finally{adminRefreshBusy=false}}
 function participantCloudSignature(participant,draw){return JSON.stringify({level:Number(participant?.level)||0,parts:(participant?.parts||[]).map(Number).sort((a,b)=>a-b),drawId:draw?.id||null,eligibleParts:(draw?.eligibleParts||[]).map(Number).sort((a,b)=>a-b),positions:(draw?.positions||[]).map(item=>item.id)})}
 function committeeScopedState(payload){
   const merged={...defaultState(),...payload};
@@ -822,7 +834,13 @@ function describeCommitteeChange(current,previous){if(current&&previous&&Number(
 // تعتمده startCommitteeExam فقط) — فيُعاد بناء تقييم شبه فارغ ويظهر خصم/علامة خاطئة عند الاعتماد
 // رغم ظهور الخصم الصحيح أثناء التسجيل نفسه. إيقاف الاستطلاع طالما أي مودال مفتوح (تماماً كما
 // يفعل جهاز الإدارة أصلاً) يمنع الاستبدال بالكامل طوال مدة فتح شاشة الاختبار.
-async function refreshCommitteeChanges(){if(committeeRefreshBusy||window.CloudCompetition.context?.kind!=="committee"||!$("#modal")?.classList.contains("hidden"))return;committeeRefreshBusy=true;try{await window.CloudCompetition.refreshCommitteeAccess();const committee=window.CloudCompetition.context?.committee;const [remote,sessions]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listLiveCommitteeSessions(new Date(Date.now()-LIVE_RECENT_WINDOW_MS).toISOString())]);checkCommitteeBroadcast(remote.payload);if(!remote.payload?.config||!committee)return;const previousState=state,nextState=committeeScopedState(remote.payload,committee),previousById=new Map(previousState.participants.map(item=>[item.id,item])),nextById=new Map(nextState.participants.map(item=>[item.id,item])),previousDraws=new Map(previousState.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw])),nextDraws=new Map(nextState.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw])),changed=nextState.participants.filter(participant=>{const previous=previousById.get(participant.id);return !previous||participantCloudSignature(previous,previousDraws.get(participant.id))!==participantCloudSignature(participant,nextDraws.get(participant.id))}),removed=previousState.participants.filter(previous=>!nextById.has(previous.id));
+// نفس فحص التوقيت الخفيف المستخدم بـrefreshAdminChanges (راجع competition-state-version-
+// check.sql وتعليقها هناك) — أجهزة اللجان أكثر ما تستفيد منه فعليًا (غالباً هواتف/أجهزة أضعف
+// وشبكة أضعف أيام الامتحان، وعددها أكبر من جهاز إدارة واحد). لو لم يتغيّر شيء بـcompetition_state
+// إطلاقًا، نتجنب تنزيل الحمولة الكاملة وإعادة حساب nextState/changed/removed كليًا (يبقيان
+// فارغين بأمان، مطابقين تمامًا لكون previousState وnextState نفس المرجع)، وتبقى فقط جلسات
+// الاختبار الحية (أخفّ بكثير، ولازم تُفحص كل مرة لأنها تتغيّر مستقلة عن بيانات المتسابقين).
+async function refreshCommitteeChanges(){if(committeeRefreshBusy||window.CloudCompetition.context?.kind!=="committee"||!$("#modal")?.classList.contains("hidden"))return;committeeRefreshBusy=true;try{await window.CloudCompetition.refreshCommitteeAccess();const committee=window.CloudCompetition.context?.committee;const version=await window.CloudCompetition.getStateVersion?.();const skipFetch=version!=null&&version===lastCommitteeStateVersion;const [remote,sessions]=await Promise.all([skipFetch?Promise.resolve(null):window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listLiveCommitteeSessions(new Date(Date.now()-LIVE_RECENT_WINDOW_MS).toISOString())]);checkCommitteeBroadcast(skipFetch?state:remote.payload);if(!skipFetch&&(!remote.payload?.config||!committee))return;if(skipFetch&&!committee)return;if(!skipFetch)lastCommitteeStateVersion=version??lastCommitteeStateVersion;const previousState=state,nextState=skipFetch?previousState:committeeScopedState(remote.payload,committee),previousById=new Map(previousState.participants.map(item=>[item.id,item])),nextById=new Map(nextState.participants.map(item=>[item.id,item])),previousDraws=new Map(previousState.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw])),nextDraws=new Map(nextState.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw])),changed=skipFetch?[]:nextState.participants.filter(participant=>{const previous=previousById.get(participant.id);return !previous||participantCloudSignature(previous,previousDraws.get(participant.id))!==participantCloudSignature(participant,nextDraws.get(participant.id))}),removed=skipFetch?[]:previousState.participants.filter(previous=>!nextById.has(previous.id));
   // مقارنة توقيع الجلسات كمان (لا بس المتسابقين/السحوبات) — بدء/إلغاء/اعتماد اختبار عند
   // الرئيس أو العضو لا يغيّر بيانات المتسابق نفسه إطلاقاً، فبدونها كانت الشاشة لا تتحدّث
   // تلقائيًا عند الطرف الآخر إلا بتحديث يدوي للصفحة.
@@ -2206,7 +2224,7 @@ function renderCommitteeBreakdownCenterOptions(centers){
 }
 function runAudit(){const button=$("#runAuditBtn");button.disabled=true;button.textContent="جاري تنفيذ 100,000 سحب...";setTimeout(()=>{const counts=Array(30).fill(0);for(let i=0;i<100000;i++)counts[randomIndex(30)]++;const expected=100000/30;const maxDeviation=Math.max(...counts.map(n=>Math.abs(n-expected)/expected*100));const score=Math.max(0,100-maxDeviation).toFixed(1);$("#auditScore").textContent=`${score}%`;$("#auditDetail").textContent=`أقصى انحراف عن المتوسط ${maxDeviation.toFixed(2)}%`;button.disabled=false;button.innerHTML=`<i data-lucide="activity"></i> إعادة الفحص`;lucide.createIcons();toast("اكتمل اختبار العشوائية")},50)}
 
-function hydrateSettings(){$("#settingsCompetitionName").value=state.config.competitionName;$("#settingsShowFullQuran").checked=Boolean(state.config.showFullQuranStats);$("#settingsShowDraws").checked=state.config.showDrawsToCommittees!==false}
+function hydrateSettings(){$("#settingsCompetitionName").value=state.config.competitionName;$("#settingsShowFullQuran").checked=Boolean(state.config.showFullQuranStats);$("#settingsShowDraws").checked=state.config.showDrawsToCommittees!==false;if($("#settingsLiveAutoRefresh"))$("#settingsLiveAutoRefresh").checked=liveAutoRefreshEnabled()}
 // قائمة المراكز المعتمدة للاختيار عند إضافة متسابق: اتحاد المراكز المضافة يدوياً من الإعدادات
 // مع أي مركز موجود فعلاً عند متسابقين حاليين (حتى لا تفرغ القائمة عند أول استخدام).
 // قائمة المراكز مشتقة بالكامل من بيانات المتسابقين الفعلية (بلا أي إدارة يدوية منفصلة) — طلب
