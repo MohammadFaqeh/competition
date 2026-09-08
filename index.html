@@ -163,7 +163,7 @@
         <button class="nav-item active" data-view="dashboard"><i data-lucide="layout-dashboard"></i><span>نظرة عامة</span></button>
         <button class="nav-item" data-view="participants"><i data-lucide="users"></i><span>المتسابقون</span></button>
         <button class="nav-item" data-view="draw"><i data-lucide="sparkles"></i><span>إجراء السحب</span></button>
-        <button class="nav-item" data-view="other"><i data-lucide="shuffle"></i><span>سحب لغير المسابقة السنوية</span></button>
+        <button class="nav-item" data-view="diwan"><i data-lucide="book-open-check"></i><span>اختبارات ديوان الحفاظ</span></button>
         <button class="nav-item" data-view="history"><i data-lucide="history"></i><span>سجل السحوبات</span></button>
         <button class="nav-item" data-view="examDuration"><i data-lucide="timer"></i><span>مدة الاختبار</span></button>
         <button class="nav-item" data-view="monitor"><i data-lucide="eye"></i><span>مراقبة حية</span></button>
@@ -246,9 +246,14 @@
           </div>
         </section>
 
-        <section id="otherView" class="view">
-          <div class="page-head"><div><span class="eyebrow">مستقل عن المسابقة السنوية</span><h1>سحب لغير المسابقة السنوية</h1><p>إضافة متسابقين وتنفيذ سحب مواضع بنفس قواعد المسابقة، دون احتساب أي شيء ضمن إحصائيات المسابقة السنوية. محفوظ على هذا الجهاز فقط.</p></div><div class="page-actions"><button id="addOtherParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
-          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="otherParticipantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><span id="otherParticipantCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody id="otherParticipantsTable"></tbody></table></div></section>
+        <section id="diwanView" class="view">
+          <div class="page-head"><div><span class="eyebrow">مستقل تماماً عن المسابقة السنوية</span><h1>اختبارات ديوان الحفاظ - فرع الكورة</h1><p>تسجيل متسابقين وتنفيذ سحب مواضع بنفس قواعد المسابقة السنوية، ضمن إحصائيات مستقلة خاصة بديوان الحفاظ فقط.</p></div><div class="page-actions"><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استيراد Excel<input id="diwanImportInput" type="file" accept=".xlsx,.xls,.csv"></label><button id="diwanExportBtn" class="secondary-btn"><i data-lucide="file-spreadsheet"></i> تصدير Excel</button><button id="diwanBulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب لجميع المتسابقين</button><button id="addDiwanParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
+          <div class="stats-grid">
+            <article class="stat"><div class="stat-icon green"><i data-lucide="users"></i></div><div><span>إجمالي المتسابقين</span><b id="diwanStatTotal">0</b></div></article>
+            <article class="stat"><div class="stat-icon gold"><i data-lucide="clipboard-check"></i></div><div><span>امتُحن</span><b id="diwanStatExamined">0</b></div></article>
+            <article class="stat"><div class="stat-icon slate"><i data-lucide="award"></i></div><div><span>نسبة النجاح</span><b id="diwanStatPassRate">0%</b></div></article>
+          </div>
+          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanParticipantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><span id="diwanParticipantCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المستوى</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody id="diwanParticipantsTable"></tbody></table></div></section>
         </section>
 
         <section id="historyView" class="view">
@@ -302,7 +307,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260908-clean1"></script>
-  <script src="app.js?v=20260908-clean1"></script>
+  <script src="cloud.js?v=20260908-diwan1"></script>
+  <script src="app.js?v=20260908-diwan1"></script>
 </body>
 </html>
