@@ -135,10 +135,28 @@ begin
   return v_session;
 end $$;
 
+-- إلغاء اللجنة لاختبار بدأته هي بنفسها طالما لم يُعتمد بعد (status='in_progress') — يمنع إلغاء
+-- نتيجة معتمدة (لهذا تُستخدم لدالة إدارية منفصلة diwan_admin_delete_participant_session)، ويمنع
+-- لجنة من إلغاء اختبار بدأته لجنة أخرى.
+create or replace function public.diwan_committee_cancel_session(p_token text,p_participant_id text)
+returns void language plpgsql security definer set search_path=public,extensions
+as $$
+declare v_committee public.committees; v_session public.diwan_exam_sessions;
+begin
+  v_committee=public.committee_from_token(p_token);
+  if v_committee.id is null then raise exception 'انتهت جلسة اللجنة'; end if;
+  select * into v_session from public.diwan_exam_sessions where participant_id=p_participant_id for update;
+  if v_session.id is null then return; end if;
+  if v_session.committee_id<>v_committee.id then raise exception 'لا يمكن إلغاء اختبار بدأته لجنة أخرى'; end if;
+  if v_session.status='final' then raise exception 'لا يمكن إلغاء نتيجة معتمدة من هنا'; end if;
+  delete from public.diwan_exam_sessions where id=v_session.id;
+end $$;
+
 grant execute on function public.diwan_committee_load_state(text) to anon,authenticated;
 grant execute on function public.diwan_committee_list_sessions(text) to anon,authenticated;
 grant execute on function public.diwan_committee_claim_student(text,text,text,smallint,text) to anon,authenticated;
 grant execute on function public.diwan_committee_save_session(text,uuid,jsonb,text,numeric) to anon,authenticated;
+grant execute on function public.diwan_committee_cancel_session(text,text) to anon,authenticated;
 
 -- ==========================================================================
 -- الإدارة: حفظ الحالة (متسابقين+سحوبات) — يرسل فقط الفروقات (راجع cloud.js)، يحافظ على أي

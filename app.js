@@ -40,6 +40,11 @@ let cloudEnabled=false;
 let committeeSessions=[];
 let activeCloudSession=null;
 let committeeAutoRefreshTimer=null,committeeRefreshBusy=false,committeeSessionsSignature=null,lastCommitteeStateVersion=null;
+// اختبارات ديوان الحفاظ من شاشة اللجنة: تبويب مستقل بلا استطلاع دوري تلقائي (تحديث يدوي فقط،
+// طلب صريح) — نفس حساب/رمز اللجنة يمتحن الطرفين، فقط بيانات ديوان الحفاظ (diwanCommitteeScopedState)
+// منفصلة تماماً عن state (السنوية).
+let diwanCommitteeSessions=[],activeDiwanCloudSession=null,diwanCommitteeScopedState=defaultDiwanState();
+let diwanCommitteeStudentsPage=1,diwanCommitteeStudentsPageSignature="";
 // جلسة اعتُمدت قبل أكثر من 12 ساعة لا تتغيّر إلا بإعادة فتحها يدوياً — لا داعي لإعادة جلبها كل استطلاع (راجع listRecentFinalSessions/listLiveCommitteeSessions بـcloud.js).
 const LIVE_RECENT_WINDOW_MS=12*60*60*1000;
 let adminAutoRefreshTimer=null,adminRefreshBusy=false,lastAdminStateUpdatedAt=null;
@@ -206,12 +211,30 @@ async function ensureDiwanStateLoaded(){
   diwanStateLoaded=true;
   if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin"){
     try{
-      const remote=await window.DiwanCompetition.loadState();
+      const [remote,sessions]=await Promise.all([window.DiwanCompetition.loadState(),window.DiwanCompetition.listSessions()]);
       diwanState={...defaultDiwanState(),...remote.payload};
       window.DiwanCompetition.markAdminKnownIds(diwanState.participants,diwanState.draws);
+      mergeFinalDiwanSessionsIntoState(sessions);
       safeSetItem(DIWAN_STORAGE_KEY,JSON.stringify(diwanState));
     }catch(error){toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
   }
+}
+// يدمج نتائج اللجان المعتمدة (diwan_exam_sessions) داخل diwanState.participants — نفس فكرة
+// mergeFinalSessionsIntoState بالسنوية، مبسّطة (نسخة كاملة كل مرة، بلا نافذة زمنية أو تفصيل لجان).
+function mergeFinalDiwanSessionsIntoState(sessions){
+  let changed=false;
+  sessions.filter(session=>session.status==="final").forEach(session=>{
+    const participant=diwanState.participants.find(item=>item.id===session.participant_id);
+    if(!participant||participant.scoreSource==="manual")return;
+    if(participant.score===session.score&&participant.scoreSource==="electronic"&&Boolean(participant.assessment?.incomplete)===Boolean(session.assessment?.incomplete))return;
+    participant.score=session.score;
+    participant.gradedAt=session.finalized_at||new Date().toISOString();
+    participant.scoreSource="electronic";
+    participant.assessment=session.assessment||null;
+    changed=true;
+  });
+  if(changed)saveDiwanState();
+  return changed;
 }
 async function hashText(value){const bytes=new TextEncoder().encode(value);const hash=await crypto.subtle.digest("SHA-256",bytes);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function uid(prefix="ID"){const bytes=new Uint32Array(2);crypto.getRandomValues(bytes);return `${prefix}-${Date.now().toString(36).toUpperCase()}-${bytes[0].toString(36).toUpperCase()}`}
@@ -382,6 +405,10 @@ function bindEvents(){
   $("#committeeSearch").addEventListener("input",renderCommitteeStudents);
   $("#committeeStatusFilter").addEventListener("change",renderCommitteeStudents);
   $("#committeeCenterFilter").addEventListener("change",renderCommitteeStudents);
+  $$(`[data-committee-track]`).forEach(button=>button.addEventListener("click",()=>setCommitteeTrack(button.dataset.committeeTrack)));
+  $("#refreshDiwanCommitteeBtn").addEventListener("click",async()=>{if(await renderDiwanCommitteeWorkspace())toast("تم تحديث البيانات بنجاح")});
+  $("#diwanCommitteeSearch").addEventListener("input",renderDiwanCommitteeStudents);
+  $("#diwanCommitteeStatusFilter").addEventListener("change",renderDiwanCommitteeStudents);
   $("#clearCommitteeAlertsBtn").addEventListener("click",clearCommitteeAlerts);
   $("#committeeAccountForm").addEventListener("submit",linkCommitteeAccount);
   $("#cancelCommitteeEdit").addEventListener("click",resetCommitteeForm);
@@ -1394,7 +1421,7 @@ async function runDiwanBulkDraw(participants){
 async function exportDiwanParticipants(){
   if(!diwanState.participants.length)return toast("لا يوجد متسابقون لتصديرهم");
   try{await ensureXlsx()}catch(error){return toast(error.message)}
-  const rows=diwanState.participants.map(p=>({"رقم الجلوس":p.seat||"","اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","المستوى":p.levelName||`${p.level} أجزاء`,"العمر":p.age||"","العلامة":Number.isFinite(p.score)?p.score:""}));
+  const rows=diwanState.participants.map(p=>({"رقم الجلوس":p.seat||"","اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","المستوى":p.levelName||`${p.level} أجزاء`,"العمر":p.age||"","العلامة":Number.isFinite(p.score)?(p.assessment?.incomplete?"غير مكتمل":p.score):""}));
   const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rows);sheet["!cols"]=[{wch:12},{wch:32},{wch:10},{wch:22},{wch:22},{wch:10},{wch:10}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
   XLSX.utils.book_append_sheet(workbook,sheet,"متسابقو ديوان الحفاظ");
   XLSX.writeFile(workbook,`ديوان-الحفاظ-${dateStamp()}.xlsx`);toast("تم تنزيل ملف المتسابقين");
@@ -1451,7 +1478,7 @@ function renderDiwanParticipants(){
   $("#diwanStatExamined").textContent=formatNumber(examined);
   $("#diwanStatPassRate").textContent=examined?`${Math.round(passed/examined*100)}%`:"0%";
   $("#diwanParticipantsTable").closest(".table-wrap").classList.toggle("is-empty",!list.length);
-  $("#diwanParticipantsTable").innerHTML=list.length?list.map(p=>{const draw=drawByParticipant.get(p.id);return `<tr><td><strong>${escapeHtml(p.seat)}</strong></td><td><strong>${escapeHtml(p.name)}</strong></td><td>${escapeHtml(p.gender||"غير محدد")}</td><td>${p.center?escapeHtml(p.center):`<span class="missing-center-tag">⚠ بلا مركز</span>`}</td><td>${escapeHtml(p.levelName||`${p.level} أجزاء`)}</td><td><span class="state ${draw?"drawn":"pending"}">${draw?"تم السحب":"لم يُسحب بعد"}</span></td><td><div class="row-actions">${draw?`<button class="compact-btn" data-diwan-result="${p.id}"><i data-lucide="eye"></i> النتيجة</button>`:`<button class="compact-btn" data-diwan-draw="${p.id}"><i data-lucide="sparkles"></i> السحب</button>`}<button class="compact-btn" data-diwan-edit="${p.id}"><i data-lucide="pencil"></i> تعديل</button><button class="compact-btn danger-compact" data-diwan-delete="${p.id}"><i data-lucide="trash-2"></i> حذف</button></div></td></tr>`}).join(""):`<tr><td class="table-empty" colspan="7">لا يوجد متسابقون بعد</td></tr>`;
+  $("#diwanParticipantsTable").innerHTML=list.length?list.map(p=>{const draw=drawByParticipant.get(p.id),graded=Number.isFinite(p.score),status=!draw?"pending":graded?"final":"drawn",statusLabel=!draw?"لم يتم السحب بعد":!graded?"تم السحب — بانتظار العلامة":p.assessment?.incomplete?"مكتمل · غير مكتمل":`مكتمل · ${formatAssessmentNumber(p.score)}`;return `<tr><td><strong>${escapeHtml(p.seat)}</strong></td><td><strong>${escapeHtml(p.name)}</strong></td><td>${escapeHtml(p.gender||"غير محدد")}</td><td>${p.center?escapeHtml(p.center):`<span class="missing-center-tag">⚠ بلا مركز</span>`}</td><td>${escapeHtml(p.levelName||`${p.level} أجزاء`)}</td><td><span class="state ${status==="final"?"completed":status==="drawn"?"drawn":"pending"}">${statusLabel}</span></td><td><div class="row-actions">${draw?`<button class="compact-btn" data-diwan-result="${p.id}"><i data-lucide="eye"></i> النتيجة</button>`:`<button class="compact-btn" data-diwan-draw="${p.id}"><i data-lucide="sparkles"></i> السحب</button>`}<button class="compact-btn" data-diwan-edit="${p.id}"><i data-lucide="pencil"></i> تعديل</button><button class="compact-btn danger-compact" data-diwan-delete="${p.id}"><i data-lucide="trash-2"></i> حذف</button></div></td></tr>`}).join(""):`<tr><td class="table-empty" colspan="7">لا يوجد متسابقون بعد</td></tr>`;
   $$(`[data-diwan-draw]`).forEach(b=>b.onclick=()=>openDiwanPreDraw(diwanState.participants.find(p=>p.id===b.dataset.diwanDraw)));
   $$(`[data-diwan-result]`).forEach(b=>b.onclick=()=>showDiwanResult(drawByParticipant.get(b.dataset.diwanResult)));
   $$(`[data-diwan-edit]`).forEach(b=>b.onclick=()=>openDiwanParticipantModal(diwanState.participants.find(p=>p.id===b.dataset.diwanEdit)));
@@ -2010,6 +2037,229 @@ async function openAssessmentReview(draw,participant){
   $("#backToAssessment").onclick=$("#editAssessmentBtn").onclick=()=>openElectronicAssessment(draw,latest);
   $$(`[data-adopted-count]`).forEach(input=>input.addEventListener("input",()=>{const [indexText,type]=input.dataset.adoptedCount.split("|"),index=Number(indexText),position=assessment.positions[index];position.adopted=position.adopted||{};position.adopted[type]=input.value===""?null:Math.max(0,Math.round(Number(input.value))||0);saveAssessmentDraft(participant);const live=calculateFinalAssessment(assessment);$("#reviewLiveScore").textContent=formatAssessmentNumber(live.score);$("#reviewLiveOutcome").textContent=live.passed?"ناجح":"راسب";$(".assessment-review-score").classList.toggle("passed",live.passed);$(".assessment-review-score").classList.toggle("failed",!live.passed)}));
   $("#finalizeAssessmentBtn").onclick=()=>finalizeElectronicAssessment(draw,participant,calculateFinalAssessment(assessment));
+}
+
+// ==========================================================================
+// اختبارات ديوان الحفاظ من شاشة اللجنة — نفس محرك التقييم الإلكتروني بالضبط (calculateAssessment/
+// ASSESSMENT_RULES/emptyPositionAssessment/examTimerRowHtml/assessmentPositionHtml/updateAssessmentSummary
+// معاد استخدامها حرفياً بلا أي تعديل)، بس بعيداً كلياً عن state/committeeSessions السنوية —
+// diwanCommitteeScopedState/diwanCommitteeSessions/activeDiwanCloudSession مستقلة تماماً، صفر
+// خطر على تدفق اختبار السنوية الحالي. بلا تحديث حي تلقائي (تحديث يدوي فقط) وبلا تغيير موضع أثناء
+// الاختبار (رصد أساسي فقط) — نسخة أولى مقصودة، تُوسَّع لاحقاً لو احتاج ديوان الحفاظ فعلياً.
+function setCommitteeTrack(track){
+  $$(`[data-committee-track]`).forEach(button=>button.classList.toggle("is-active",button.dataset.committeeTrack===track));
+  $("#committeeAnnualPanel")?.classList.toggle("hidden",track!=="annual");
+  $("#committeeDiwanPanel")?.classList.toggle("hidden",track!=="diwan");
+  if(track==="diwan")renderDiwanCommitteeWorkspace();
+}
+function diwanCommitteeStatusOf(participant,drawByParticipant,sessionByParticipant){return !drawByParticipant.has(participant.id)?"no_draw":sessionByParticipant.get(participant.id)?.status||"pending"}
+async function renderDiwanCommitteeWorkspace(){
+  const committee=window.CloudCompetition.context?.committee;if(!committee)return false;
+  try{
+    const [remote,sessions]=await Promise.all([window.DiwanCompetition.loadCommitteeState(),window.DiwanCompetition.listCommitteeSessions()]);
+    diwanCommitteeSessions=sessions;
+    diwanCommitteeScopedState=remote.payload?.config?committeeScopedState(remote.payload):defaultDiwanState();
+    renderDiwanCommitteeStudents();
+    return true;
+  }catch(error){toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`);return false}
+}
+function renderDiwanCommitteeStudents(){
+  const committee=window.CloudCompetition.context?.committee;if(!committee)return;
+  const chairman=committee.examiner_role!=="member";
+  const query=$("#diwanCommitteeSearch").value.trim().toLowerCase();
+  const filter=$("#diwanCommitteeStatusFilter").value;
+  const drawByParticipant=new Map(diwanCommitteeScopedState.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw]));
+  const sessionByParticipant=new Map(diwanCommitteeSessions.map(session=>[session.participant_id,session]));
+  const activeSession=diwanCommitteeSessions.find(s=>s.status==="in_progress");
+  const activeParticipant=activeSession?diwanCommitteeScopedState.participants.find(p=>p.id===activeSession.participant_id):null;
+  const statusOrder={in_progress:0,pending:1,no_draw:2,final:3};
+  const statusOf=participant=>diwanCommitteeStatusOf(participant,drawByParticipant,sessionByParticipant);
+  const allEligible=diwanCommitteeScopedState.participants.filter(participant=>`${participant.name} ${participant.seat} ${participant.center}`.toLowerCase().includes(query));
+  const eligible=allEligible.filter(participant=>filter==="all"||statusOf(participant)===filter).sort((a,b)=>(statusOrder[statusOf(a)]-statusOrder[statusOf(b)])||String(a.name).localeCompare(String(b.name),"ar"));
+  $("#diwanCommitteePendingCount").textContent=formatNumber(allEligible.filter(participant=>["no_draw","pending"].includes(statusOf(participant))).length);
+  $("#diwanCommitteeActiveCount").textContent=formatNumber(allEligible.filter(participant=>statusOf(participant)==="in_progress").length);
+  $("#diwanCommitteeCompletedCount").textContent=formatNumber(allEligible.filter(participant=>statusOf(participant)==="final").length);
+  const PAGE_SIZE=15;
+  const pageSignature=JSON.stringify([query,filter]);
+  if(pageSignature!==diwanCommitteeStudentsPageSignature){diwanCommitteeStudentsPage=1;diwanCommitteeStudentsPageSignature=pageSignature}
+  const totalPages=Math.max(1,Math.ceil(eligible.length/PAGE_SIZE));
+  diwanCommitteeStudentsPage=Math.min(Math.max(1,diwanCommitteeStudentsPage),totalPages);
+  const eligiblePage=eligible.slice((diwanCommitteeStudentsPage-1)*PAGE_SIZE,diwanCommitteeStudentsPage*PAGE_SIZE);
+  renderPagerTabs("diwanCommitteeStudentsPager",diwanCommitteeStudentsPage,totalPages,page=>{diwanCommitteeStudentsPage=page;renderDiwanCommitteeStudents()});
+  $("#diwanCommitteeStudents").innerHTML=eligiblePage.length?eligiblePage.map(participant=>{
+    const draw=drawByParticipant.get(participant.id),session=sessionByParticipant.get(participant.id),status=statusOf(participant);
+    const canSeeScore=committee.show_score!==false;
+    const statusText=status==="no_draw"?"لم يتم السحب بعد":status==="final"?(session?.assessment?.incomplete?"مكتمل · غير مكتمل":canSeeScore?`مكتمل · ${session.score}`:"مكتمل · العلامة غير ظاهرة للجنة"):status==="in_progress"?"مسودة محفوظة":"جاهز للاختبار";
+    const positions=draw?`<ol class="committee-position-preview">${draw.positions.map((position,index)=>`<li><b>${index+1}</b><span>${escapeHtml(positionTitle(position))}</span><small>الجزء ${position.juz} · صفحة ${position.page}</small></li>`).join("")}</ol>`:`<div class="committee-no-draw">بانتظار قيام الإدارة بإجراء السحب لهذا المتسابق</div>`;
+    const blockedByActiveOther=Boolean(activeParticipant)&&activeParticipant.id!==participant.id;
+    const startBlockedHtml=!chairman?`<button class="secondary-btn" disabled>بانتظار البدء من رئيس اللجنة</button>`:blockedByActiveOther?`<button class="secondary-btn" disabled title="أنهوا اختبار «${escapeAttr(activeParticipant.name)}» الجاري أولاً">لجنتكم تختبر متسابقًا آخر حالياً</button>`:null;
+    const memberHasStarted=Boolean(session?.assessment?.examinerDrafts?.member&&Object.keys(session.assessment.examinerDrafts.member).length);
+    const action=!draw?`<button class="secondary-btn" disabled>بانتظار سحب الإدارة</button>`:status==="pending"?(startBlockedHtml||`<button class="primary-btn" data-diwan-committee-confirm-start="${participant.id}">البدء بالاختبار الآن</button>`):status==="in_progress"?(chairman?`<div class="committee-action-group"><button class="primary-btn" data-diwan-committee-student="${participant.id}">متابعة الرصد</button><button type="button" class="compact-btn danger-compact" data-diwan-cancel-exam="${participant.id}"><i data-lucide="rotate-ccw"></i> إلغاء الاختبار</button></div>`:`<button class="primary-btn" data-diwan-committee-student="${participant.id}">${memberHasStarted?"متابعة الرصد":"ابدأ الاختبار الآن"}</button>`):`<button class="secondary-btn" data-diwan-committee-student="${participant.id}">عرض التقييم</button>`;
+    return `<article class="committee-student ${status}"><div><h3>${escapeHtml(participant.name)}</h3><p>${escapeHtml(participant.center)} · رقم الجلوس ${escapeHtml(participant.seat)}</p><div class="committee-student-meta"><span>${participant.level} أجزاء</span>${draw?`<span>${draw.positions.length} مواضع</span>`:""}<span class="state ${status==="final"?"completed":status==="in_progress"?"drawn":status==="no_draw"?"not-drawn":""}">${statusText}</span></div>${positions}</div>${action}</article>`;
+  }).join(""):`<div class="committee-empty"><b>لا يوجد متسابقون بهذه الحالة</b><p>غيّر حالة الفرز أو عبارة البحث لعرض بقية الطلاب.</p></div>`;
+  $$(`[data-diwan-committee-student]`).forEach(button=>button.onclick=()=>startDiwanCommitteeExam(button.dataset.diwanCommitteeStudent));
+  $$(`[data-diwan-committee-confirm-start]`).forEach(button=>button.onclick=()=>openDiwanCommitteeStartConfirm(button.dataset.diwanCommitteeConfirmStart));
+  $$(`[data-diwan-cancel-exam]`).forEach(button=>button.onclick=()=>cancelDiwanCommitteeExam(button.dataset.diwanCancelExam));
+  lucide.createIcons();
+}
+function openDiwanCommitteeStartConfirm(participantId){
+  const participant=diwanCommitteeScopedState.participants.find(p=>p.id===participantId);
+  if(!participant)return toast("المتسابق غير موجود");
+  const partsText=participant.parts?.length?participant.parts.join("، "):"غير مسجّلة";
+  openModal(`<div class="modal-head"><h2>تأكيد بيانات المتسابق قبل البدء</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">يرجى التحقق من مطابقة البيانات أدناه مع بيانات الطالب الحاضر أمامكم قبل بدء الاختبار.</p><p class="field-help">الاسم: <b>${escapeHtml(participant.name)}</b></p><p class="field-help">المركز: <b>${escapeHtml(participant.center||"—")}</b></p><p class="field-help">المستوى: <b>${escapeHtml(participant.levelName||`${participant.level} أجزاء`)}</b></p><p class="field-help committee-confirm-parts">الأجزاء المشارك فيها: <b>${escapeHtml(partsText)}</b></p></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button type="button" class="primary-btn" id="diwanCommitteeConfirmStartBtn">تأكيد والبدء</button></div>`);
+  $("#diwanCommitteeConfirmStartBtn").onclick=()=>{closeModal();startDiwanCommitteeExam(participantId)};
+}
+async function startDiwanCommitteeExam(participantId){
+  const participant=diwanCommitteeScopedState.participants.find(item=>item.id===participantId);
+  const draw=diwanCommitteeScopedState.draws.find(item=>item.participantId===participantId);
+  if(!participant)return toast("المتسابق غير موجود");
+  if(!draw)return toast("بانتظار قيام الإدارة بإجراء السحب لهذا المتسابق");
+  let session=diwanCommitteeSessions.find(item=>item.participant_id===participantId);
+  try{
+    await ensureQuranReady();
+    if(!session){session=await window.DiwanCompetition.claimStudent(participant.id,draw.id,participant.level,participant.levelName);diwanCommitteeSessions.unshift(session)}
+    activeDiwanCloudSession=session;
+    if(session.assessment&&Object.keys(session.assessment).length)participant.assessment=session.assessment;
+    if(session.status==="final")return openDiwanCompletedAssessment(draw,participant,session);
+    openDiwanElectronicAssessment(draw,session);
+  }catch(error){
+    if(String(error?.message||"").includes("تعذر تحميل بيانات")){
+      openModal(`<div class="modal-head"><h2>تعذر تحميل بيانات القرآن</h2><button type="button" class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p class="form-error">${escapeHtml(error.message)}</p><p class="field-help">غالبًا بسبب ضعف أو انقطاع الاتصال بالإنترنت عند هذا الجهاز حاليًا.</p></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إغلاق</button><button type="button" id="retryStartDiwanExamBtn" class="primary-btn"><i data-lucide="refresh-cw"></i> إعادة المحاولة</button></div>`);
+      $("#retryStartDiwanExamBtn").onclick=()=>{closeModal();startDiwanCommitteeExam(participantId)};
+    }else toast(error.message);
+  }
+}
+async function cancelDiwanCommitteeExam(participantId){
+  const participant=diwanCommitteeScopedState.participants.find(item=>item.id===participantId);
+  if(!participant)return toast("المتسابق غير موجود");
+  if(!confirm(`إلغاء اختبار «${participant.name}» الجاري؟ سيُحذف كل ما سُجّل حتى الآن وتعود حالته إلى "جاهز للاختبار".`))return;
+  try{
+    await window.DiwanCompetition.cancelSession(participantId);
+    if(activeDiwanCloudSession?.participant_id===participantId)activeDiwanCloudSession=null;
+    delete participant.assessment;
+    diwanCommitteeSessions=diwanCommitteeSessions.filter(session=>session.participant_id!==participantId);
+    renderDiwanCommitteeStudents();
+    toast(`تم إلغاء اختبار ${participant.name}`);
+  }catch(error){toast(error.message)}
+}
+function ensureDiwanAssessment(participant,draw){
+  const stored=participant.assessment?.examinerDrafts?.[currentExaminerRole()]||participant.assessment,previous=stored?.drawId===draw.id?stored:null,byPosition=new Map((previous?.positions||[]).map(item=>[item.positionId,item]));
+  const assessment=previous||{id:uid("ASSESS"),drawId:draw.id,status:"draft",startedAt:new Date().toISOString(),revisions:[]};
+  assessment.positions=draw.positions.map(position=>({...emptyPositionAssessment(position),...(byPosition.get(position.id)||{})}));
+  assessment.updatedAt=new Date().toISOString();assessment.examinerRole=currentExaminerRole();
+  participant.assessment=assessment;
+  return assessment;
+}
+function saveDiwanAssessmentDraft(participant){
+  participant.assessment.status="draft";participant.assessment.updatedAt=new Date().toISOString();participant.assessment.examinerRole=currentExaminerRole();
+  if(activeDiwanCloudSession)window.DiwanCompetition.queueSessionSave(activeDiwanCloudSession.id,participant.assessment,error=>toast(`تعذر حفظ المسودة: ${error.message}`));
+}
+function openDiwanElectronicAssessment(draw,cloudSession=null,jumpToIndex=null){
+  stopExamTimerInterval();
+  activeDiwanCloudSession=cloudSession;
+  const participant=diwanCommitteeScopedState.participants.find(item=>item.id===draw.participantId);
+  if(!participant)return toast("التقييم الإلكتروني متاح للمتسابقين المسجلين فقط");
+  const assessment=ensureDiwanAssessment(participant,draw);assessment.actions=assessment.actions||[];
+  let currentIndex=jumpToIndex!=null?Math.min(Math.max(0,jumpToIndex),draw.positions.length-1):Math.min(Math.max(0,Number(assessment.currentPosition)||0),draw.positions.length-1);
+  let quranPageOffsets=draw.positions.map(()=>0);
+  let tajweedCapWarningVisible=false,tajweedCapWarningTimer=null;
+  let lastRenderedPositionIndex=null;
+  openModal(`<div class="examiner-header"><button type="button" class="icon-btn" data-close title="حفظ وخروج"><i data-lucide="x"></i></button><div><span>اختبار ${escapeHtml(participant.name)} · ديوان الحفاظ</span><small>${participant.level} أجزاء · السحب ${String(draw.sequence).padStart(4,"0")}</small></div><div class="examiner-score"><small>العلامة</small><b id="assessmentLiveScore">100</b></div></div><div id="assessmentExamScreen" class="examiner-screen"><nav id="positionStepper" class="position-stepper">${draw.positions.map((_,index)=>`<button type="button" class="${assessment.positions[index].completed?"is-done":""}" data-position-step="${index}">${index+1}</button>`).join("")}</nav><main id="activeAssessmentPosition"></main><div class="examiner-quickbar"><button type="button" id="undoAssessmentAction" class="secondary-btn"><i data-lucide="undo-2"></i> تراجع عن آخر تسجيل</button><div><span>إجمالي الخصم</span><b id="assessmentTotalDeduction">0</b></div></div><div class="examiner-navigation"><button type="button" id="previousAssessmentPosition" class="secondary-btn"><i data-lucide="arrow-right"></i> السابق</button><button type="button" id="reviewAssessmentBtn" class="primary-btn"><i data-lucide="clipboard-check"></i> مراجعة واعتماد</button><button type="button" id="nextAssessmentPosition" class="primary-btn">التالي <i data-lucide="arrow-left"></i></button></div><div id="assessmentSummaryRows" class="hidden"></div></div>`,"examiner-mode-modal");document.body.classList.add("exam-fullscreen");
+  const renderPosition=()=>{assessment.currentPosition=currentIndex;
+    const stayedOnSamePosition=lastRenderedPositionIndex===currentIndex,previousPanelScroll=stayedOnSamePosition?($(".exam-split-panel")?.scrollTop||0):0;
+    if(!stayedOnSamePosition)resetExamTimerState();
+    lastRenderedPositionIndex=currentIndex;
+    $("#activeAssessmentPosition").innerHTML=assessmentPositionHtml(assessment.positions[currentIndex],draw.positions[currentIndex],currentIndex,draw.positions.length,0,quranPageOffsets[currentIndex],0,tajweedCapWarningVisible);
+    const panel=$(".exam-split-panel");if(panel)panel.scrollTop=previousPanelScroll;
+    $$(`[data-position-step]`).forEach(button=>{const index=Number(button.dataset.positionStep);button.classList.toggle("active",index===currentIndex);button.classList.toggle("is-done",Boolean(assessment.positions[index].completed))});$("#previousAssessmentPosition").disabled=currentIndex===0;$("#nextAssessmentPosition").disabled=currentIndex===draw.positions.length-1;lucide.createIcons()};
+  const refresh=()=>{renderPosition();updateAssessmentSummary(assessment);$("#undoAssessmentAction").disabled=!assessment.actions.length;const finish=$("#finishFailedAssessment");if(finish)finish.onclick=()=>endDiwanExamNow(draw,participant,assessment)};
+  $("#assessmentExamScreen").addEventListener("click",event=>{
+    const timerButton=event.target.closest("[data-exam-timer-action]");if(timerButton){const action=timerButton.dataset.examTimerAction;if(action==="start")startExamTimer();else if(action==="stop")stopExamTimerInterval();else if(action==="zero")zeroExamTimer();else if(action==="bell")playExamTimerBell();return}
+    const quranNavButton=event.target.closest("[data-quran-page-nav]");if(quranNavButton){if(quranNavButton.disabled)return;const delta=Number(quranNavButton.dataset.quranPageNav),pageCount=new Set(drawPositionSegments(draw.positions[currentIndex]).map(segment=>segment.page)).size;quranPageOffsets[currentIndex]=Math.min(Math.max(0,(quranPageOffsets[currentIndex]||0)+delta),Math.max(0,pageCount-1));return renderPosition()}
+    const completeButton=event.target.closest("[data-toggle-complete]");if(completeButton){const index=Number(completeButton.dataset.toggleComplete),position=assessment.positions[index];position.completed=!position.completed;saveDiwanAssessmentDraft(participant);return refresh()}
+    const actionButton=event.target.closest("[data-assess-delta]");if(actionButton){
+      const index=Number(actionButton.dataset.assessIndex),type=actionButton.dataset.assessType,delta=Number(actionButton.dataset.assessDelta);
+      if(type==="positionChange")return toast("تغيير الموضع أثناء الاختبار غير متاح حالياً لاختبارات ديوان الحفاظ");
+      const position=assessment.positions[index],before=Number(position[type])||0,after=Math.max(0,before+delta);if(after===before)return;
+      if(type==="tajweed"&&delta>0&&tajweedTotalOf(assessment)>=TAJWEED_ERROR_CAP){tajweedCapWarningVisible=true;clearTimeout(tajweedCapWarningTimer);tajweedCapWarningTimer=setTimeout(()=>{tajweedCapWarningVisible=false;renderPosition()},6000);return renderPosition()}
+      position[type]=after;assessment.actions.push({positionId:position.positionId,type,delta:after-before,at:new Date().toISOString()});saveDiwanAssessmentDraft(participant);return refresh()
+    }
+    const step=event.target.closest("[data-position-step]");if(step){currentIndex=Number(step.dataset.positionStep);tajweedCapWarningVisible=false;clearTimeout(tajweedCapWarningTimer);return renderPosition()}
+  });
+  $("#assessmentExamScreen").addEventListener("input",event=>{const note=event.target.closest("[data-assess-note]");if(!note)return;assessment.positions[Number(note.dataset.assessNote)].note=note.value;saveDiwanAssessmentDraft(participant)});
+  $("#previousAssessmentPosition").onclick=()=>{if(currentIndex>0){currentIndex--;tajweedCapWarningVisible=false;clearTimeout(tajweedCapWarningTimer);renderPosition()}};
+  $("#nextAssessmentPosition").onclick=()=>{if(currentIndex<draw.positions.length-1){currentIndex++;tajweedCapWarningVisible=false;clearTimeout(tajweedCapWarningTimer);renderPosition()}};
+  $("#undoAssessmentAction").onclick=()=>{const action=assessment.actions.pop();if(!action)return;const index=assessment.positions.findIndex(position=>position.positionId===action.positionId);if(index<0)return;const position=assessment.positions[index];position[action.type]=Math.max(0,(Number(position[action.type])||0)-action.delta);currentIndex=index;saveDiwanAssessmentDraft(participant);refresh();toast("تم التراجع عن آخر تسجيل")};
+  $("#reviewAssessmentBtn").onclick=()=>openDiwanAssessmentReview(draw,participant);refresh();
+}
+async function endDiwanExamNow(draw,participant,assessment){
+  if(currentExaminerRole()!=="chairman")return;
+  if(!confirm("سيتم إنهاء الاختبار الآن دون إكمال باقي المواضع، وستُسجَّل علامة المتسابق «غير مكتمل» مباشرة بدل حساب علامة رقمية. هل تريد المتابعة؟"))return;
+  assessment.positions.forEach(position=>{if(!position.completed)position.completed=true});
+  assessment.endedEarly=true;assessment.endedEarlyAt=new Date().toISOString();assessment.incomplete=true;
+  saveDiwanAssessmentDraft(participant);
+  window.DiwanCompetition.cancelQueuedSessionSave?.();
+  await finalizeDiwanElectronicAssessment(draw,participant,calculateFinalAssessment(assessment));
+}
+async function openDiwanAssessmentReview(draw,participant){
+  const assessment=participant.assessment,result=calculateAssessment(assessment),chairman=currentExaminerRole()==="chairman";
+  const incompleteIndex=assessment.positions.findIndex(p=>!p.completed);
+  if(incompleteIndex>=0){toast(`الرجاء وضع "إنهاء هذا الموضع" على الموضع ${incompleteIndex+1} قبل المراجعة والاعتماد`);return openDiwanElectronicAssessment(draw,activeDiwanCloudSession,incompleteIndex)}
+  saveDiwanAssessmentDraft(participant);
+  window.DiwanCompetition.cancelQueuedSessionSave?.();
+  if(activeDiwanCloudSession)try{activeDiwanCloudSession=await window.DiwanCompetition.saveSession(activeDiwanCloudSession.id,assessment,"in_progress",null)}catch(error){return toast(`تعذر تثبيت الرصد: ${error.message}`)}
+  if(!chairman){
+    assessment.memberSubmittedAt=new Date().toISOString();saveDiwanAssessmentDraft(participant);
+    openModal(`<div class="modal-head"><div><span class="eyebrow">رصد عضو اللجنة · ديوان الحفاظ</span><h2>${escapeHtml(participant.name)}</h2><small>تم حفظ الرصد للرئيس</small></div><button class="icon-btn" id="backToAssessment"><i data-lucide="arrow-right"></i></button></div><div class="modal-body"><div class="assessment-review-score ${result.passed?"passed":"failed"}"><span>العلامة حسب رصدك</span><b>${formatAssessmentNumber(result.score)}</b><strong>مسودة غير معتمدة</strong></div><div class="assessment-review-grid">${Object.entries(ASSESSMENT_RULES).map(([type,rule])=>`<div><span>${rule.label}</span><b>${result.totals[type]}</b><small>خصم ${formatAssessmentNumber(result.deductions[type])}</small></div>`).join("")}</div><p class="assessment-review-note">وصل رصدك إلى رئيس اللجنة. اعتماد النتيجة النهائية متاح للرئيس فقط.</p></div><div class="modal-actions"><button id="editAssessmentBtn" class="secondary-btn">الرجوع للرصد</button><button class="primary-btn" data-close>إنهاء والعودة للقائمة</button></div>`,`examiner-mode-modal assessment-review-modal`);document.body.classList.add("exam-fullscreen");
+    $("#backToAssessment").onclick=$("#editAssessmentBtn").onclick=()=>openDiwanElectronicAssessment(draw,activeDiwanCloudSession);return;
+  }
+  let latest=activeDiwanCloudSession;
+  try{const sessions=await window.DiwanCompetition.listCommitteeSessions();latest=sessions.find(item=>item.id===activeDiwanCloudSession?.id)||latest;if(latest)activeDiwanCloudSession=latest}catch(error){console.warn("Could not refresh examiner drafts",error)}
+  const memberDraft=latest?.assessment?.examinerDrafts?.member||null;
+  const finalResult=calculateFinalAssessment(assessment);
+  const diffIndexes=memberDraft?.positions?.length?assessment.positions.map((own,index)=>positionsDiffer(own,memberDraft.positions[index])?index:-1).filter(index=>index>=0):[];
+  const diffTable=!memberDraft?.positions?.length?`<p class="committee-alerts-empty">لم يصل رصد عضو اللجنة بعد. يمكن للرئيس الاعتماد الآن أو انتظار العضو.</p>`
+    :!diffIndexes.length?`<p class="committee-alerts-empty">لا يوجد أي اختلاف بين رصد الرئيس ورصد العضو — كل المواضع متطابقة.</p>`
+    :`<p class="field-help">${diffIndexes.length} من ${assessment.positions.length} مواضع فيها اختلاف بالرصد. أدخل عدد الأخطاء المعتمد لكل نوع مختلَف عليه فقط.</p>${diffIndexes.map(index=>{const own=assessment.positions[index],member=memberDraft.positions[index];const typeRows=Object.entries(ASSESSMENT_RULES).filter(([type])=>(Number(own[type])||0)!==(Number(member[type])||0)).map(([type,rule])=>{const ownCount=Number(own[type])||0,memberCount=Number(member[type])||0,adoptedVal=own.adopted&&Number.isFinite(own.adopted[type])?own.adopted[type]:"";return `<div class="examiner-diff-type-row"><span>${rule.label}</span><b>${ownCount}</b><b>${memberCount}</b><input type="number" min="0" step="1" data-adopted-count="${index}|${type}" value="${adoptedVal}" placeholder="العدد المعتمد"></div>`}).join("");return `<div class="examiner-diff-position"><div class="examiner-diff-position-head">الموضع ${index+1}</div><div class="examiner-diff-type-head"><span>نوع الخطأ</span><span>الرئيس</span><span>العضو</span><span>المعتمد</span></div>${typeRows}</div>`}).join("")}`;
+  openModal(`<div class="modal-head"><div><span class="eyebrow">مراجعة رئيس اللجنة · ديوان الحفاظ</span><h2>${escapeHtml(participant.name)}</h2><small>اختلافات الرصد واعتماد النتيجة</small></div><button class="icon-btn" id="backToAssessment"><i data-lucide="arrow-right"></i></button></div><div class="modal-body"><div class="assessment-review-score ${finalResult.passed?"passed":"failed"}"><span>العلامة النهائية</span><b id="reviewLiveScore">${formatAssessmentNumber(finalResult.score)}</b><strong id="reviewLiveOutcome">${finalResult.passed?"ناجح":"راسب"}</strong></div><section class="examiner-comparison"><h3>مواضع الاختلاف بين الرئيس والعضو</h3>${diffTable}</section><p class="assessment-review-note">المواضع غير المختلَف عليها تُحسب من رصد الرئيس مباشرة دون تدخل.</p></div><div class="modal-actions"><button id="editAssessmentBtn" class="secondary-btn">الرجوع للتعديل</button><button id="finalizeAssessmentBtn" class="primary-btn"><i data-lucide="badge-check"></i> اعتماد النتيجة كرئيس اللجنة</button></div>`,`examiner-mode-modal assessment-review-modal`);document.body.classList.add("exam-fullscreen");
+  $("#backToAssessment").onclick=$("#editAssessmentBtn").onclick=()=>openDiwanElectronicAssessment(draw,latest);
+  $$(`[data-adopted-count]`).forEach(input=>input.addEventListener("input",()=>{const [indexText,type]=input.dataset.adoptedCount.split("|"),index=Number(indexText),position=assessment.positions[index];position.adopted=position.adopted||{};position.adopted[type]=input.value===""?null:Math.max(0,Math.round(Number(input.value))||0);saveDiwanAssessmentDraft(participant);const live=calculateFinalAssessment(assessment);$("#reviewLiveScore").textContent=formatAssessmentNumber(live.score);$("#reviewLiveOutcome").textContent=live.passed?"ناجح":"راسب";$(".assessment-review-score").classList.toggle("passed",live.passed);$(".assessment-review-score").classList.toggle("failed",!live.passed)}));
+  $("#finalizeAssessmentBtn").onclick=()=>finalizeDiwanElectronicAssessment(draw,participant,calculateFinalAssessment(assessment));
+}
+async function finalizeDiwanElectronicAssessment(draw,participant,result){
+  const button=$("#finalizeAssessmentBtn");if(button?.disabled||participant.assessment?.status==="final")return toast("هذه النتيجة معتمدة مسبقاً");
+  if(button){button.disabled=true;button.textContent="جاري اعتماد النتيجة..."}
+  window.DiwanCompetition.cancelQueuedSessionSave?.();
+  const assessment=participant.assessment,now=new Date().toISOString();assessment.status="final";assessment.finalizedAt=now;assessment.updatedAt=now;assessment.result=result;participant.score=result.score;participant.gradedAt=now;participant.scoreSource="electronic";
+  const examiningCommittee=window.CloudCompetition.context?.committee;
+  if(examiningCommittee?.id)assessment.committee={id:examiningCommittee.id,name:examiningCommittee.name};
+  if(activeDiwanCloudSession){
+    try{
+      activeDiwanCloudSession=await window.DiwanCompetition.saveSession(activeDiwanCloudSession.id,assessment,"final",result.score);
+      diwanCommitteeSessions=diwanCommitteeSessions.filter(item=>item.id!==activeDiwanCloudSession.id);diwanCommitteeSessions.unshift(activeDiwanCloudSession);
+    }catch(error){assessment.status="draft";delete participant.score;delete participant.gradedAt;delete participant.scoreSource;saveDiwanAssessmentDraft(participant);if(button){button.disabled=false;button.textContent="اعتماد النتيجة"}return toast(`لم تُعتمد النتيجة: ${error.message}`)}
+  }
+  renderDiwanCommitteeStudents();
+  const canSeeScore=window.CloudCompetition.context?.committee?.show_score!==false,incomplete=Boolean(assessment.incomplete);
+  openModal(`<div class="modal-head"><h2>${incomplete?"تم إنهاء الاختبار":"تم اعتماد النتيجة"}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="assessment-review-score ${incomplete?"incomplete":result.passed?"passed":"failed"}"><span>${escapeHtml(participant.name)}</span><b>${incomplete?"غير مكتمل":canSeeScore?formatAssessmentNumber(result.score):"—"}</b><strong>${incomplete?"أُنهي الاختبار قبل اكتماله":canSeeScore?(result.passed?"ناجح":"راسب"):"العلامة غير ظاهرة لهذه اللجنة"}</strong></div><p>${incomplete?"سُجِّلت علامة المتسابق «غير مكتمل» مع تفاصيل الأخطاء والترددات والملاحظات المسجَّلة حتى لحظة الإنهاء.":"حُفظت العلامة مع تفاصيل الأخطاء والترددات والملاحظات لكل موضع."}</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button><button id="returnDiwanCommitteeWorkspace" class="primary-btn">العودة إلى قائمة ديوان الحفاظ</button></div></div>`);
+  $("#returnDiwanCommitteeWorkspace").onclick=()=>{closeModal();activeDiwanCloudSession=null;renderDiwanCommitteeWorkspace()};
+}
+function openDiwanCompletedAssessment(draw,participant,session){
+  const assessment=session.assessment||participant.assessment||{},result=assessment.result||calculateAssessment(assessment),incomplete=Boolean(assessment.incomplete),testedAt=session.finalized_at||assessment.finalizedAt||participant.gradedAt,canEdit=Boolean(window.CloudCompetition.context?.committee?.can_edit_final),canSeeScore=window.CloudCompetition.context?.committee?.show_score!==false;
+  openModal(`<div class="modal-head"><div><span class="eyebrow">نتيجة معتمدة · ديوان الحفاظ ${canEdit?"· صلاحية التعديل مفعلة":"للعرض فقط"}</span><h2>${escapeHtml(participant.name)}</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="assessment-review-score ${incomplete?"incomplete":result.passed?"passed":"failed"}"><span>العلامة النهائية</span><b>${incomplete?"غير مكتمل":canSeeScore?formatAssessmentNumber(result.score):"—"}</b><strong>${incomplete?"أُنهي الاختبار قبل اكتماله":canSeeScore?(result.passed?"ناجح":"راسب"):"العلامة غير ظاهرة لهذه اللجنة"}</strong></div>${canSeeScore?`<div class="assessment-review-grid">${Object.entries(ASSESSMENT_RULES).map(([type,rule])=>`<div><span>${rule.label}</span><b>${result.totals?.[type]||0}</b><small>خصم ${formatAssessmentNumber(result.deductions?.[type]||0)}</small></div>`).join("")}</div>`:""}<p class="assessment-review-note">لجنة الاختبار: <b>${escapeHtml(assessment.committeeName||window.CloudCompetition.context?.committee?.name||"-")}</b><br>موعد الاختبار: <b>${testedAt?formatExamDate(testedAt):"غير مسجل"}</b></p></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button>${canEdit?`<button id="reopenDiwanFinalAssessmentBtn" class="primary-btn"><i data-lucide="file-pen-line"></i> تعديل النتيجة المعتمدة</button>`:""}</div>`,"assessment-review-modal");
+  if(canEdit)$("#reopenDiwanFinalAssessmentBtn").onclick=()=>reopenDiwanFinalAssessment(draw,participant,session);
+}
+async function reopenDiwanFinalAssessment(draw,participant,session){
+  const button=$("#reopenDiwanFinalAssessmentBtn");button.disabled=true;button.textContent="جاري فتح التعديل...";
+  try{
+    const assessment=JSON.parse(JSON.stringify(session.assessment||participant.assessment||{}));
+    assessment.status="draft";assessment.updatedAt=new Date().toISOString();assessment.revisions=assessment.revisions||[];assessment.revisions.push({type:"reopened-final",oldScore:session.score,at:assessment.updatedAt});
+    const reopened=await window.DiwanCompetition.saveSession(session.id,assessment,"in_progress",null);
+    activeDiwanCloudSession=reopened;diwanCommitteeSessions=diwanCommitteeSessions.map(item=>item.id===reopened.id?reopened:item);
+    participant.assessment=assessment;delete participant.score;delete participant.gradedAt;
+    openDiwanElectronicAssessment(draw,reopened);
+    toast("تم فتح النتيجة للتعديل");
+  }catch(error){button.disabled=false;button.textContent="تعديل النتيجة المعتمدة";toast(error.message)}
 }
 
 function formatAssessmentNumber(value){return new Intl.NumberFormat("en-US",{maximumFractionDigits:2,useGrouping:false}).format(Number(value)||0)}

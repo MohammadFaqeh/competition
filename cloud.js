@@ -226,6 +226,8 @@ window.DiwanCompetition=(()=>{
 
   async function createDraw(draw){const {data,error}=await client().rpc("diwan_admin_create_draw",{p_draw:draw});if(error)throw rpcError(error);return data}
   async function deleteParticipantSession(participantId){const {error}=await client().rpc("diwan_admin_delete_participant_session",{p_participant_id:participantId});if(error)throw rpcError(error)}
+  // قراءة مباشرة (RLS تسمح للإدارة فقط) — تجمع نتائج اللجان المعتمدة لدمجها بـdiwanState، تماماً كـmergeFinalSessionsIntoState بالسنوية.
+  async function listSessions(){const {data,error}=await client().from("diwan_exam_sessions").select("id,participant_id,draw_id,committee_id,level,level_name,status,assessment,score,started_at,updated_at,finalized_at").order("updated_at",{ascending:false});if(error)throw error;return data}
 
   // اللجنة نفسها (بيانات/صلاحيات) تُدار بالكامل من إدارة السنوية (listCommittees/saveCommittee
   // بـwindow.CloudCompetition) — لا نسخة ثانية هنا. الدوال التالية فقط تستهلك جلسة اللجنة
@@ -234,7 +236,15 @@ window.DiwanCompetition=(()=>{
   async function listCommitteeSessions(){const {data,error}=await client().rpc("diwan_committee_list_sessions",{p_token:committeeToken()});if(error)throw rpcError(error);return data}
   async function claimStudent(participantId,drawId,level,levelName){const {data,error}=await client().rpc("diwan_committee_claim_student",{p_token:committeeToken(),p_participant_id:participantId,p_draw_id:drawId,p_level:level,p_level_name:levelName||null});if(error)throw rpcError(error);return data}
   async function saveSession(sessionId,assessment,status,score){const {data,error}=await client().rpc("diwan_committee_save_session",{p_token:committeeToken(),p_session_id:sessionId,p_assessment:assessment,p_status:status,p_score:score});if(error)throw rpcError(error);return data}
+  // إلغاء اللجنة اختباراً بدأته هي بنفسها طالما لم يُعتمد بعد — مستقل عن deleteParticipantSession
+  // الإدارية أعلاه (تلك تتطلب صلاحية admin ولا يمكن للجنة استدعاءها بجلسة p_token).
+  async function cancelSession(participantId){const {error}=await client().rpc("diwan_committee_cancel_session",{p_token:committeeToken(),p_participant_id:participantId});if(error)throw rpcError(error)}
+  // مسودة تلقائية مؤجَّلة (300ms، نفس queueSessionSave بالسنوية) — cancelQueuedSessionSave تُستدعى
+  // قبل أي حفظ مباشر (اعتماد/فتح مراجعة) لمنع مسودة متأخرة من إرجاع الجلسة "قيد الاختبار" بعلامة فارغة.
+  let sessionSaveTimer=null;
+  function queueSessionSave(sessionId,assessment,onError){clearTimeout(sessionSaveTimer);const snapshot=JSON.parse(JSON.stringify(assessment));sessionSaveTimer=setTimeout(()=>saveSession(sessionId,snapshot,"in_progress",null).catch(onError||console.error),300)}
+  function cancelQueuedSessionSave(){clearTimeout(sessionSaveTimer);sessionSaveTimer=null}
 
-  return {loadState,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,deleteParticipantSession,
-    loadCommitteeState,listCommitteeSessions,claimStudent,saveSession};
+  return {loadState,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,deleteParticipantSession,listSessions,
+    loadCommitteeState,listCommitteeSessions,claimStudent,saveSession,cancelSession,queueSessionSave,cancelQueuedSessionSave};
 })();

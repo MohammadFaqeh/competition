@@ -129,27 +129,39 @@
       <div class="committee-topbar-actions"><button id="showExamInstructionsBtn" class="secondary-btn" type="button"><i data-lucide="file-text"></i> تعليمات الاختبار</button><button id="committeeLogoutBtn" class="secondary-btn"><i data-lucide="log-out"></i> خروج</button></div>
     </header>
     <main class="committee-main">
-      <div class="committee-top-row">
-        <section class="committee-alerts committee-alerts-compact" aria-labelledby="committeeAlertsTitle">
-          <div class="committee-alerts-head"><div><span class="eyebrow">آخر التحديثات</span><h2 id="committeeAlertsTitle">تنبيهات اللجنة</h2></div><button id="clearCommitteeAlertsBtn" class="text-login-btn" type="button">تحديد الكل كمقروء</button></div>
-          <div id="committeeAlertsList" class="committee-alerts-list"><p class="committee-alerts-empty">لا توجد تنبيهات جديدة.</p></div>
-        </section>
-        <section class="panel committee-pass-rate-panel hidden">
-          <div class="panel-head"><div><span class="eyebrow">من المتسابقين الذين أنهوا الاختبار عند لجنتكم</span><h3>نسبة النجاح</h3></div></div>
-          <div class="pass-rate-row committee-pass-rate-row">
-            <div class="pass-rate-ring-item"><div class="pass-rate-ring" id="committeePassRateRing"><span class="ring-value" id="committeePassRateValue">0%</span></div><span class="ring-label">النسبة</span></div>
-            <div class="committee-pass-rate-counts">
-              <div class="level-card-row"><span>عدد الممتحَنين</span><b id="committeeExaminedCount">0</b></div>
-              <div class="level-card-row"><span>الناجحون</span><b id="committeePassedCount">0</b></div>
-              <div class="level-card-row"><span>الراسبون</span><b id="committeeFailedCount">0</b></div>
-            </div>
-          </div>
-        </section>
+      <div class="monitor-role-tabs committee-track-tabs">
+        <button type="button" class="compact-btn is-active" data-committee-track="annual">المسابقة السنوية</button>
+        <button type="button" class="compact-btn" data-committee-track="diwan">اختبارات ديوان الحفاظ</button>
       </div>
-      <section class="committee-statusbar"><div><span>بانتظار الاختبار</span><b id="committeePendingCount">0</b></div><div><span>قيد الاختبار</span><b id="committeeActiveCount">0</b></div><div><span>مكتمل</span><b id="committeeCompletedCount">0</b></div><div><span>منسحب</span><b id="committeeWithdrawnCount">0</b></div></section>
-      <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="committeeSearch" placeholder="بحث باسم المتسابق أو رقم الجلوس"></div><select id="committeeStatusFilter" aria-label="فرز المتسابقين حسب الحالة"><option value="all">جميع الحالات</option><option value="no_draw">لم يتم السحب بعد</option><option value="pending">جاهز للاختبار</option><option value="in_progress">قيد الاختبار</option><option value="final">مكتمل الاختبار</option></select><select id="committeeCenterFilter" aria-label="فرز المتسابقين حسب المركز"><option value="all">المركز: الكل</option></select><button id="refreshCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
-      <section id="committeeStudents" class="committee-students"></section>
-      <nav id="committeeStudentsPager" class="pager-tabs"></nav>
+      <div id="committeeAnnualPanel">
+        <div class="committee-top-row">
+          <section class="committee-alerts committee-alerts-compact" aria-labelledby="committeeAlertsTitle">
+            <div class="committee-alerts-head"><div><span class="eyebrow">آخر التحديثات</span><h2 id="committeeAlertsTitle">تنبيهات اللجنة</h2></div><button id="clearCommitteeAlertsBtn" class="text-login-btn" type="button">تحديد الكل كمقروء</button></div>
+            <div id="committeeAlertsList" class="committee-alerts-list"><p class="committee-alerts-empty">لا توجد تنبيهات جديدة.</p></div>
+          </section>
+          <section class="panel committee-pass-rate-panel hidden">
+            <div class="panel-head"><div><span class="eyebrow">من المتسابقين الذين أنهوا الاختبار عند لجنتكم</span><h3>نسبة النجاح</h3></div></div>
+            <div class="pass-rate-row committee-pass-rate-row">
+              <div class="pass-rate-ring-item"><div class="pass-rate-ring" id="committeePassRateRing"><span class="ring-value" id="committeePassRateValue">0%</span></div><span class="ring-label">النسبة</span></div>
+              <div class="committee-pass-rate-counts">
+                <div class="level-card-row"><span>عدد الممتحَنين</span><b id="committeeExaminedCount">0</b></div>
+                <div class="level-card-row"><span>الناجحون</span><b id="committeePassedCount">0</b></div>
+                <div class="level-card-row"><span>الراسبون</span><b id="committeeFailedCount">0</b></div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <section class="committee-statusbar"><div><span>بانتظار الاختبار</span><b id="committeePendingCount">0</b></div><div><span>قيد الاختبار</span><b id="committeeActiveCount">0</b></div><div><span>مكتمل</span><b id="committeeCompletedCount">0</b></div><div><span>منسحب</span><b id="committeeWithdrawnCount">0</b></div></section>
+        <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="committeeSearch" placeholder="بحث باسم المتسابق أو رقم الجلوس"></div><select id="committeeStatusFilter" aria-label="فرز المتسابقين حسب الحالة"><option value="all">جميع الحالات</option><option value="no_draw">لم يتم السحب بعد</option><option value="pending">جاهز للاختبار</option><option value="in_progress">قيد الاختبار</option><option value="final">مكتمل الاختبار</option></select><select id="committeeCenterFilter" aria-label="فرز المتسابقين حسب المركز"><option value="all">المركز: الكل</option></select><button id="refreshCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
+        <section id="committeeStudents" class="committee-students"></section>
+        <nav id="committeeStudentsPager" class="pager-tabs"></nav>
+      </div>
+      <div id="committeeDiwanPanel" class="hidden">
+        <section class="committee-statusbar diwan-statusbar"><div><span>بانتظار الاختبار</span><b id="diwanCommitteePendingCount">0</b></div><div><span>قيد الاختبار</span><b id="diwanCommitteeActiveCount">0</b></div><div><span>مكتمل</span><b id="diwanCommitteeCompletedCount">0</b></div></section>
+        <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanCommitteeSearch" placeholder="بحث باسم المتسابق أو رقم الجلوس"></div><select id="diwanCommitteeStatusFilter" aria-label="فرز المتسابقين حسب الحالة"><option value="all">جميع الحالات</option><option value="no_draw">لم يتم السحب بعد</option><option value="pending">جاهز للاختبار</option><option value="in_progress">قيد الاختبار</option><option value="final">مكتمل الاختبار</option></select><button id="refreshDiwanCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
+        <section id="diwanCommitteeStudents" class="committee-students"></section>
+        <nav id="diwanCommitteeStudentsPager" class="pager-tabs"></nav>
+      </div>
     </main>
   </section>
 
@@ -307,7 +319,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260908-diwan2"></script>
-  <script src="app.js?v=20260908-diwan1"></script>
+  <script src="cloud.js?v=20260908-diwan3"></script>
+  <script src="app.js?v=20260908-diwan3"></script>
 </body>
 </html>

@@ -111,9 +111,36 @@ async function testAdminGateAndSharedCommitteeSession() {
   console.log("diwan-competition-core.test.js: بوابة صلاحية الإدارة، ورفض بلا جلسة لجنة، واستخدام جلسة اللجنة المشتركة — نجح");
 }
 
+async function testCommitteeCancelSession() {
+  const calls = [];
+  async function rpcHandler(name, args) {
+    calls.push({ name, args });
+    if (name === "diwan_committee_cancel_session") return { data: null, error: null };
+    throw new Error(`unexpected rpc: ${name}`);
+  }
+  const sandbox = loadCloudModule(rpcHandler, () => ({ data: null, error: null }));
+  await sandbox.window.CloudCompetition.init();
+  const diwan = sandbox.window.DiwanCompetition;
+
+  // بلا جلسة لجنة: يُرفض فوراً بلا أي RPC (نفس بوابة بقية دوال اللجنة أعلاه)
+  sandbox.window.CloudCompetition = { ...sandbox.window.CloudCompetition, context: {}, client: sandbox.window.CloudCompetition.client };
+  await assert.rejects(() => diwan.cancelSession("P1"), /انتهت جلسة اللجنة/, "بلا جلسة لجنة يُرفض الإلغاء فوراً");
+  assert.strictEqual(calls.length, 0, "لا يُستدعى أي RPC بلا جلسة لجنة");
+
+  // بجلسة لجنة سنوية: يستدعي diwan_committee_cancel_session بنفس التوكن ومعرّف المتسابق
+  sandbox.window.CloudCompetition = { ...sandbox.window.CloudCompetition, context: { kind: "committee", token: "annual-committee-token-1" }, client: sandbox.window.CloudCompetition.client };
+  await diwan.cancelSession("P42");
+  assert.strictEqual(calls.length, 1, "استُدعيت diwan_committee_cancel_session فعلياً");
+  assert.strictEqual(calls[0].args.p_token, "annual-committee-token-1", "استُخدم توكن جلسة اللجنة المشتركة نفسه");
+  assert.strictEqual(calls[0].args.p_participant_id, "P42", "أُرسل معرّف المتسابق الصحيح");
+
+  console.log("diwan-competition-core.test.js: إلغاء اللجنة لاختبارها الخاص (cancelSession) — نجح");
+}
+
 async function run() {
   await testDiffOnlySave();
   await testAdminGateAndSharedCommitteeSession();
+  await testCommitteeCancelSession();
 }
 
 run().catch(error => {
