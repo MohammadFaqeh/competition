@@ -237,6 +237,19 @@ function mergeFinalDiwanSessionsIntoState(sessions){
   if(changed)saveDiwanState();
   return changed;
 }
+// ensureDiwanStateLoaded تجيب نتائج اللجان مرة وحدة بس عند أول دخول للصفحة (تفادياً لإبطاء لوحة
+// التحكم)، فما في تحديث تلقائي بعدها — هذا الزر يعيد جلب نتائج كل اللجان يدوياً بأي وقت (نفس
+// #syncCloudBtn بالسنوية بالضبط).
+async function refreshDiwanCommitteeResults(){
+  const button=$("#diwanSyncCommitteesBtn");button.disabled=true;
+  try{
+    const sessions=await window.DiwanCompetition.listSessions();
+    mergeFinalDiwanSessionsIntoState(sessions);
+    renderDiwanParticipants();
+    toast("تم تحديث نتائج جميع اللجان");
+  }catch(error){toast(`تعذر تحديث النتائج: ${error.message}`)}
+  finally{button.disabled=false}
+}
 async function hashText(value){const bytes=new TextEncoder().encode(value);const hash=await crypto.subtle.digest("SHA-256",bytes);return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function uid(prefix="ID"){const bytes=new Uint32Array(2);crypto.getRandomValues(bytes);return `${prefix}-${Date.now().toString(36).toUpperCase()}-${bytes[0].toString(36).toUpperCase()}`}
 function randomIndex(max){if(max<=0) throw new Error("لا توجد عناصر متاحة للسحب");const range=0x100000000-(0x100000000%max);const box=new Uint32Array(1);do{crypto.getRandomValues(box)}while(box[0]>=range);return box[0]%max}
@@ -358,6 +371,7 @@ function bindEvents(){
   $("#diwanParticipantSearch").addEventListener("input",renderDiwanParticipants);
   $("#diwanBulkDrawBtn").addEventListener("click",openDiwanBulkDrawModal);
   $("#diwanExportBtn").addEventListener("click",exportDiwanParticipants);
+  $("#diwanSyncCommitteesBtn").addEventListener("click",refreshDiwanCommitteeResults);
   $("#diwanImportInput").addEventListener("change",importDiwanExcel);
   $("#drawParticipant").addEventListener("change",loadParticipantIntoDraw);
   $("#drawLevel").addEventListener("change",levelChanged);
@@ -520,7 +534,7 @@ function setupIdleLogout(){const reset=()=>{clearTimeout(idleLogoutTimer);if(!wi
 function toggleCommitteeMemberFields(){const enabled=$("#enableCommitteeMember")?.checked,fields=$("#committeeMemberFields");if(!fields)return;fields.classList.toggle("hidden",!enabled);$("#newCommitteeMemberName").required=Boolean(enabled);$("#newCommitteeMemberCode").required=Boolean(enabled);$("#newCommitteeMemberPin").required=Boolean(enabled&&!$("#newCommitteeMemberCode").dataset.existing)}
 function ensureCommitteeMemberFields(){if($("#newCommitteeMemberCode"))return;const chairmanPin=$("#newCommitteePin")?.closest("label");if(!chairmanPin)return;chairmanPin.insertAdjacentHTML("afterend",`<label class="committee-member-toggle"><input id="enableCommitteeMember" type="checkbox"> تفعيل حساب عضو اللجنة ورصده المستقل</label><div id="committeeMemberFields" class="committee-member-fields hidden"><label>اسم عضو اللجنة<input id="newCommitteeMemberName" placeholder="الاسم الثلاثي"></label><label>رمز عضو اللجنة<input id="newCommitteeMemberCode" maxlength="20" placeholder="مثال: L01-M"></label><label>PIN عضو اللجنة<input id="newCommitteeMemberPin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label></div>`);$("#enableCommitteeMember").addEventListener("change",toggleCommitteeMemberFields);toggleCommitteeMemberFields()}
 function renderCommitteeLevelOptions(){const box=$("#committeeLevelOptions");if(!box||box.children.length)return;box.innerHTML=LEVEL_CATALOG.map(l=>`<label><input type="checkbox" name="committeeLevel" value="${l.id}"> ${escapeHtml(l.label)}</label>`).join("")}
-async function setupCloudAdminPanel(){ensureCommitteeMemberFields();renderCommitteeLevelOptions();window.CloudCompetition.pruneOldLogs?.();const isMainAdmin=window.CloudCompetition.context?.profile.role==="admin";$("#cloudCommitteesPanel").classList.remove("hidden");$("#scoreComparisonPanel")?.classList.remove("hidden");$("#subAdminsPanel").classList.remove("hidden");$("#drRequestsPanel").classList.remove("hidden");$("#activityLogPanel").classList.toggle("hidden",!isMainAdmin);$("#syncCloudBtn").classList.remove("hidden");$("#supervisorsPanel").classList.toggle("hidden",!isMainAdmin);$("#sendCommitteeBroadcastBtn")?.classList.toggle("hidden",!isMainAdmin);renderDrRequests();const tasks=[renderCloudCommittees(),renderSubAdmins()];if(isMainAdmin){tasks.push(renderSupervisors());tasks.push(renderActivityLog())}await Promise.all(tasks)}
+async function setupCloudAdminPanel(){ensureCommitteeMemberFields();renderCommitteeLevelOptions();window.CloudCompetition.pruneOldLogs?.();const isMainAdmin=window.CloudCompetition.context?.profile.role==="admin";$("#cloudCommitteesPanel").classList.remove("hidden");$("#scoreComparisonPanel")?.classList.remove("hidden");$("#subAdminsPanel").classList.remove("hidden");$("#drRequestsPanel").classList.remove("hidden");$("#activityLogPanel").classList.toggle("hidden",!isMainAdmin);$("#syncCloudBtn").classList.remove("hidden");$("#diwanSyncCommitteesBtn")?.classList.remove("hidden");$("#supervisorsPanel").classList.toggle("hidden",!isMainAdmin);$("#sendCommitteeBroadcastBtn")?.classList.toggle("hidden",!isMainAdmin);renderDrRequests();const tasks=[renderCloudCommittees(),renderSubAdmins()];if(isMainAdmin){tasks.push(renderSupervisors());tasks.push(renderActivityLog())}await Promise.all(tasks)}
 async function refreshAdminCloudResults(){const button=$("#syncCloudBtn");button.disabled=true;try{await syncFinalSessionsIntoState();renderAll();toast("تم تحديث نتائج جميع اللجان")}catch(error){toast(`تعذر تحديث النتائج: ${error.message}`)}finally{button.disabled=false}}
 let cloudCommittees=[];
 // صفحات كثيرة (>7): تُختصر لأول صفحة + جوار الصفحة الحالية + آخر صفحة، مع "..." بالفجوات.
