@@ -389,6 +389,7 @@ function bindEvents(){
   $("#scoreComparisonSearch").addEventListener("input",renderScoreComparisonTable);
   $("#scoreComparisonCommitteeFilter").addEventListener("change",renderScoreComparisonTable);
   $("#refreshScoreComparisonBtn").addEventListener("click",async()=>{if(await renderScoreComparison())toast("تم تحديث البيانات بنجاح")});
+  $("#deleteAllScoreComparisonBtn").addEventListener("click",confirmDeleteAllScoreComparisonRows);
   $("#committeeBreakdownGender").addEventListener("change",()=>{committeeBreakdownGender=$("#committeeBreakdownGender").value;renderCommitteeBreakdownBody()});
   $("#exportScoreComparisonBtn").addEventListener("click",exportScoreComparison);
   $("#historySearch").addEventListener("input",renderHistory);
@@ -658,11 +659,14 @@ function populateScoreComparisonCommitteeFilter(){
   select.innerHTML=`<option value="all">اللجنة: الكل</option>`+availableCommittees.map(c=>`<option value="${c.id}">${escapeHtml(committeeLabelWithRoles(c))}</option>`).join("");
   select.value=availableCommittees.some(c=>c.id===current)?current:"all";
 }
-function renderScoreComparisonTable(){
-  const box=$("#scoreComparisonTable");if(!box)return;
+function filteredScoreComparisonRows(){
   const query=($("#scoreComparisonSearch")?.value||"").trim().toLowerCase();
   const committeeFilter=$("#scoreComparisonCommitteeFilter")?.value||"all";
-  const rows=scoreComparisonRows.filter(row=>(!query||row.name.toLowerCase().includes(query))&&(committeeFilter==="all"||row.committeeId===committeeFilter));
+  return scoreComparisonRows.filter(row=>(!query||row.name.toLowerCase().includes(query))&&(committeeFilter==="all"||row.committeeId===committeeFilter));
+}
+function renderScoreComparisonTable(){
+  const box=$("#scoreComparisonTable");if(!box)return;
+  const rows=filteredScoreComparisonRows();
   box.innerHTML=rows.length?rows.map(row=>`<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.committeeName)}</td><td>${row.chairmanScore!=null?formatAssessmentNumber(row.chairmanScore):"—"}</td><td>${row.memberScore!=null?formatAssessmentNumber(row.memberScore):"—"}</td><td>${row.finalScore!=null?formatAssessmentNumber(row.finalScore):"—"}</td><td><button type="button" class="compact-btn danger-compact" data-delete-score-comparison="${row.participantId}" data-name="${escapeAttr(row.name)}"><i data-lucide="trash-2"></i> حذف السجل</button></td></tr>`).join(""):`<tr><td colspan="6" class="table-empty">لا توجد بيانات مطابقة</td></tr>`;
   $$(`[data-delete-score-comparison]`).forEach(button=>button.onclick=async()=>{
     const participantId=button.dataset.deleteScoreComparison,name=button.dataset.name;
@@ -676,6 +680,30 @@ function renderScoreComparisonTable(){
       toast(`تم حذف سجل ${name}`)
     }catch(error){toast(error.message);button.disabled=false}
   });
+}
+// حذف مجمّع لكل السجلات الظاهرة حالياً بالجدول (بعد تطبيق البحث/فلتر اللجنة) — طلب صريح: يمسح
+// المعروض فقط، لا كل سجلات المقارنة بغض النظر عن الفلتر.
+async function confirmDeleteAllScoreComparisonRows(){
+  const rows=filteredScoreComparisonRows();
+  if(!rows.length)return toast("لا توجد سجلات مطابقة للفلتر الحالي لحذفها");
+  openModal(`<div class="modal-head"><h2>حذف كل السجلات الظاهرة</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>سيتم حذف <b>${rows.length} سجل اختبار</b> (حسب البحث/فلتر اللجنة الحالي فقط)، ويعود كل متسابق منهم إلى حالة "بانتظار العلامة".</p><p class="form-error">هذا الإجراء نهائي ولا يمكن التراجع عنه.</p><label>اكتب <b>حذف السجلات</b> للتأكيد<input id="deleteAllScoreComparisonConfirm" autocomplete="off"></label></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="deleteAllScoreComparisonNow" class="danger-btn"><i data-lucide="trash-2"></i> حذف ${rows.length} سجل</button></div>`);
+  $("#deleteAllScoreComparisonNow").onclick=async()=>{
+    if($("#deleteAllScoreComparisonConfirm").value.trim()!=="حذف السجلات")return toast("اكتب عبارة التأكيد كما تظهر");
+    const button=$("#deleteAllScoreComparisonNow");button.disabled=true;button.textContent="جارٍ الحذف...";
+    const results=await Promise.allSettled(rows.map(row=>window.CloudCompetition.deleteParticipantSession(row.participantId)));
+    let succeeded=0;
+    results.forEach((result,index)=>{
+      if(result.status!=="fulfilled")return;
+      succeeded++;
+      const participant=state.participants.find(p=>p.id===rows[index].participantId);
+      if(participant){delete participant.score;delete participant.gradedAt;delete participant.scoreSource;participant.assessment=null}
+    });
+    if(succeeded)saveState();
+    closeModal();
+    await renderScoreComparison();renderAll();
+    const failed=results.length-succeeded;
+    toast(failed?`تم حذف ${succeeded} سجل، وتعذر حذف ${failed} سجل`:`تم حذف ${succeeded} سجل بنجاح`);
+  };
 }
 async function exportScoreComparison(){
   if(!scoreComparisonRows.length)return toast("لا توجد بيانات مقارنة لتصديرها");
