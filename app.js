@@ -1522,6 +1522,21 @@ function showDiwanResult(draw){
   $(".print-footer").innerHTML=`<div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>`;
 }
 function confirmDeleteDiwanParticipant(participantId){const participant=diwanState.participants.find(p=>p.id===participantId);if(!participant)return;if(!confirm(`حذف ${participant.name} وكل سحوباته المحفوظة (كل المراحل)؟`))return;diwanState.participants=diwanState.participants.filter(p=>p.id!==participantId);diwanState.draws=diwanState.draws.filter(d=>d.participantId!==participantId);saveDiwanState();renderDiwanParticipants();toast("تم الحذف")}
+// نقل مشارك ديوان الحفاظ للجنة أخرى — يعيد استخدام resolveParticipantCommittee/cloudCommittees
+// المشتركين مع السنوية بلا أي تعديل (نفس مبدأ فرز اللجان: جنس + مستوى/levelName). إدارة فقط
+// (لا مسؤول فرعي لديوان الحفاظ حالياً).
+function openDiwanAssignCommitteeModal(participantId){
+  const participant=diwanState.participants.find(p=>p.id===participantId);if(!participant)return;
+  const {committees,currentId,currentCommittee}=resolveParticipantCommittee(participant,cloudCommittees,{includeAllGenders:true});
+  const pinnedId=participant.transferCommitteeId||null;
+  const options=committees.filter(c=>c.id!==currentId);
+  const rows=options.length?options.map(c=>`<label class="committee-member-toggle"><input type="radio" name="diwanTransferTarget" data-diwan-transfer-target="${c.id}"> ${escapeHtml(committeeLabelWithRoles(c))}</label>`).join(""):`<p>لا توجد لجان أخرى متاحة.</p>`;
+  const currentInfo=pinnedId?`اللجنة الحالية (نُقل يدويًا): <b>${escapeHtml(currentCommittee?committeeLabelWithRoles(currentCommittee):"—")}</b>`:currentCommittee?`اللجنة الحالية (حسب مرحلته الطبيعية): <b>${escapeHtml(committeeLabelWithRoles(currentCommittee))}</b>`:"لم يُنقل يدويًا ولا توجد لجنة مطابقة لمرحلته حاليًا.";
+  openModal(`<div class="modal-head"><h2>نقل ${escapeHtml(participant.name)}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">${currentInfo} اختيار لجنة أخرى ينقل المتسابق إليها فورًا ويُخفيه عن لجنته الحالية.</p><div class="committee-member-fields">${rows}</div>${pinnedId?`<button type="button" id="cancelDiwanTransferBtn" class="secondary-btn">إلغاء النقل (إعادة لمرحلته الطبيعية)</button>`:""}</div><div class="modal-actions"><button class="primary-btn" type="button" data-close>تم</button></div>`);
+  const doTransfer=async(committeeId,confirmMessage)=>{if(confirmMessage&&!confirm(confirmMessage))return openDiwanAssignCommitteeModal(participantId);try{await window.DiwanCompetition.transferParticipant(participantId,committeeId);participant.transferCommitteeId=committeeId||undefined;toast(committeeId?"تم نقل المتسابق":"تم إلغاء النقل")}catch(error){toast(error.message)}openDiwanAssignCommitteeModal(participantId)};
+  $$(`[data-diwan-transfer-target]`).forEach(input=>input.onchange=()=>{const targetId=input.dataset.diwanTransferTarget,target=committees.find(c=>c.id===targetId);doTransfer(targetId,`نقل ${participant.name} إلى ${target?committeeLabelWithRoles(target):"اللجنة المختارة"}؟ سيختفي فورًا من لجنته الحالية.`)});
+  if($("#cancelDiwanTransferBtn"))$("#cancelDiwanTransferBtn").onclick=()=>doTransfer(null,"إلغاء نقل المتسابق وإعادته لمرحلته الطبيعية؟");
+}
 async function exportDiwanParticipants(){
   if(!diwanState.participants.length)return toast("لا يوجد متسابقون لتصديرهم");
   try{await ensureXlsx()}catch(error){return toast(error.message)}
@@ -1710,7 +1725,7 @@ function renderDiwanParticipants(){
       :status==="no_draw"?(p.stage===4?`<button class="compact-btn" data-diwan-final-draw="${p.id}"><i data-lucide="sparkles"></i> السحب النهائي</button>`:`<button class="compact-btn" data-diwan-pick-juz="${p.id}"><i data-lucide="list-checks"></i> اختيار الأجزاء والسحب</button>`)
       :status==="failed"?`<button class="compact-btn" data-diwan-recommendation="${p.id}"><i data-lucide="file-text"></i> التوصية</button><button class="compact-btn" data-diwan-retry="${p.id}"><i data-lucide="rotate-ccw"></i> إعادة الاختبار</button>`
       :`<button class="compact-btn" data-diwan-result="${p.id}"><i data-lucide="eye"></i> ورقة المواضع</button>`;
-    return `<tr><td><strong>${escapeHtml(p.seat)}</strong></td><td><strong>${escapeHtml(p.name)}</strong></td><td>${escapeHtml(p.gender||"غير محدد")}</td><td>${p.center?escapeHtml(p.center):`<span class="missing-center-tag">⚠ بلا مركز</span>`}</td><td>${escapeHtml(stageLabel)}</td><td><span class="state ${stateClass}">${statusLabel}</span></td><td><div class="row-actions">${actionsHtml}<button class="compact-btn" data-diwan-history="${p.id}"><i data-lucide="history"></i> السجل</button><button class="compact-btn" data-diwan-edit="${p.id}"><i data-lucide="pencil"></i> تعديل</button><button class="compact-btn danger-compact" data-diwan-delete="${p.id}"><i data-lucide="trash-2"></i> حذف</button></div></td></tr>`;
+    return `<tr><td><strong>${escapeHtml(p.seat)}</strong></td><td><strong>${escapeHtml(p.name)}</strong></td><td>${escapeHtml(p.gender||"غير محدد")}</td><td>${p.center?escapeHtml(p.center):`<span class="missing-center-tag">⚠ بلا مركز</span>`}</td><td>${escapeHtml(stageLabel)}</td><td><span class="state ${stateClass}">${statusLabel}</span></td><td><div class="row-actions">${actionsHtml}<button class="compact-btn" data-diwan-history="${p.id}"><i data-lucide="history"></i> السجل</button><button class="compact-btn" data-diwan-transfer="${p.id}"><i data-lucide="shuffle"></i> نقل</button><button class="compact-btn" data-diwan-edit="${p.id}"><i data-lucide="pencil"></i> تعديل</button><button class="compact-btn danger-compact" data-diwan-delete="${p.id}"><i data-lucide="trash-2"></i> حذف</button></div></td></tr>`;
   }).join(""):`<tr><td class="table-empty" colspan="7">لا يوجد متسابقون بعد</td></tr>`;
   $$(`[data-diwan-pick-juz]`).forEach(b=>b.onclick=()=>openDiwanJuzPicker(diwanState.participants.find(p=>p.id===b.dataset.diwanPickJuz)));
   $$(`[data-diwan-final-draw]`).forEach(b=>b.onclick=()=>startDiwanFinalDraw(diwanState.participants.find(p=>p.id===b.dataset.diwanFinalDraw)));
@@ -1719,6 +1734,7 @@ function renderDiwanParticipants(){
   $$(`[data-diwan-certificate]`).forEach(b=>b.onclick=()=>{const p=diwanState.participants.find(x=>x.id===b.dataset.diwanCertificate);downloadDiwanCertificate(p,currentDiwanDraw(p,diwanState.draws))});
   $$(`[data-diwan-recommendation]`).forEach(b=>b.onclick=()=>{const p=diwanState.participants.find(x=>x.id===b.dataset.diwanRecommendation);downloadDiwanRecommendation(p,currentDiwanDraw(p,diwanState.draws))});
   $$(`[data-diwan-history]`).forEach(b=>b.onclick=()=>openDiwanAttemptHistory(diwanState.participants.find(p=>p.id===b.dataset.diwanHistory)));
+  $$(`[data-diwan-transfer]`).forEach(b=>b.onclick=()=>openDiwanAssignCommitteeModal(b.dataset.diwanTransfer));
   $$(`[data-diwan-edit]`).forEach(b=>b.onclick=()=>openDiwanParticipantModal(diwanState.participants.find(p=>p.id===b.dataset.diwanEdit)));
   $$(`[data-diwan-delete]`).forEach(b=>b.onclick=()=>confirmDeleteDiwanParticipant(b.dataset.diwanDelete));
   lucide.createIcons();

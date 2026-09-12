@@ -201,12 +201,37 @@ async function testGetSessionAndReplacePosition() {
   console.log("diwan-competition-core.test.js: مزامنة جلسة العضو (getSession) وتغيير الموضع (replacePosition) — نجح");
 }
 
+async function testTransferParticipant() {
+  const calls = [];
+  async function rpcHandler(name, args) {
+    calls.push({ name, args });
+    if (name === "diwan_admin_transfer_participant") return { data: {}, error: null };
+    throw new Error(`unexpected rpc: ${name}`);
+  }
+  const sandbox = loadCloudModule(rpcHandler, () => ({ data: null, error: null }));
+  await sandbox.window.CloudCompetition.init();
+  sandbox.window.CloudCompetition = { ...sandbox.window.CloudCompetition, context: { kind: "admin" }, client: sandbox.window.CloudCompetition.client };
+  const diwan = sandbox.window.DiwanCompetition;
+
+  await diwan.transferParticipant("P1", "committee-uuid-1");
+  assert.strictEqual(calls.length, 1, "استُدعيت diwan_admin_transfer_participant فعلياً");
+  assert.strictEqual(calls[0].args.p_participant_id, "P1");
+  assert.strictEqual(calls[0].args.p_committee_id, "committee-uuid-1");
+
+  calls.length = 0;
+  await diwan.transferParticipant("P1", null);
+  assert.strictEqual(calls[0].args.p_committee_id, null, "إلغاء النقل يرسل p_committee_id بقيمة null (إعادة للمرحلة الطبيعية)");
+
+  console.log("diwan-competition-core.test.js: نقل مشارك ديوان الحفاظ للجنة أخرى (transferParticipant) — نجح");
+}
+
 async function run() {
   await testDiffOnlySave();
   await testAdminGateAndSharedCommitteeSession();
   await testCommitteeCancelSession();
   await testClaimStudentIncludesStage();
   await testGetSessionAndReplacePosition();
+  await testTransferParticipant();
 }
 
 run().catch(error => {

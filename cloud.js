@@ -225,6 +225,7 @@ window.DiwanCompetition=(()=>{
   function queueStateSave(payload,onError,onSuccess){if(!isAdmin())return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));const myGeneration=++saveGeneration;saveTimer=setTimeout(()=>withRetry(()=>saveState(snapshot),()=>myGeneration!==saveGeneration).then(()=>{if(myGeneration===saveGeneration)onSuccess?.()}).catch(error=>{if(myGeneration===saveGeneration)(onError||console.error)(error)}),450)}
 
   async function createDraw(draw){const {data,error}=await client().rpc("diwan_admin_create_draw",{p_draw:draw});if(error)throw rpcError(error);return data}
+  async function transferParticipant(participantId,committeeId){const {data,error}=await client().rpc("diwan_admin_transfer_participant",{p_participant_id:participantId,p_committee_id:committeeId});if(error)throw rpcError(error);return data}
   // يحذف محاولة/جلسة بعينها (draw_id) لا كل تاريخ المشارك — كل مرحلة/إعادة محاولة سحب وجلسة مستقلان الآن.
   async function deleteParticipantDraw(drawId){const {error}=await client().rpc("diwan_admin_delete_participant_draw",{p_draw_id:drawId});if(error)throw rpcError(error)}
   // قراءة مباشرة (RLS تسمح للإدارة فقط) — تجمع نتائج اللجان المعتمدة لدمجها بـdiwanState، تماماً كـmergeFinalSessionsIntoState بالسنوية.
@@ -251,6 +252,6 @@ window.DiwanCompetition=(()=>{
   function queueSessionSave(sessionId,assessment,onError){clearTimeout(sessionSaveTimer);const snapshot=JSON.parse(JSON.stringify(assessment));sessionSaveTimer=setTimeout(()=>saveSession(sessionId,snapshot,"in_progress",null).catch(onError||console.error),300)}
   function cancelQueuedSessionSave(){clearTimeout(sessionSaveTimer);sessionSaveTimer=null}
 
-  return {loadState,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,deleteParticipantDraw,listSessions,
+  return {loadState,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,transferParticipant,deleteParticipantDraw,listSessions,
     loadCommitteeState,listCommitteeSessions,claimStudent,saveSession,cancelSession,getSession,replacePosition,queueSessionSave,cancelQueuedSessionSave};
 })();

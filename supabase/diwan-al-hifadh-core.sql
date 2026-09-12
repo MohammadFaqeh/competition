@@ -9,6 +9,10 @@
 -- كامل ولا تُمحى أبداً)، بعلامة نجاح 80 (مختلفة عن السنوية)، بدل قيد "جلسة واحدة لكل مشارك مدى
 -- الحياة" بالنسخة الأولى. نفّذ هذا الملف كاملاً من SQL Editor — يُسقط جدول diwan_exam_sessions
 -- القديم بالكامل (فارغ فعلياً) ويعيد إنشاءه بالشكل الجديد.
+--
+-- ملاحظة: diwan_admin_transfer_participant يستدعي public.record_transfer_notifications
+-- (المعرَّفة بملف committee-transfer-notifications.sql) — تأكد من تنفيذ ذلك الملف قبل هذا (أو
+-- على الأقل قبل استخدام ميزة "نقل" مشارك ديوان الحفاظ فعلياً؛ لن يفشل إنشاء الدالة نفسها بغيابه).
 
 create extension if not exists pgcrypto;
 
@@ -344,3 +348,49 @@ begin
   delete from public.diwan_exam_sessions where draw_id=p_draw_id;
 end $$;
 grant execute on function public.diwan_admin_delete_participant_draw(text) to authenticated;
+
+-- نقل مشارك يدوياً للجنة أخرى غير لجنته الطبيعية (نفس فكرة admin_transfer_participant بالسنوية،
+-- المصدر: participant-transfer.sql/committee-transfer-notifications.sql) — يضبط transferCommitteeId
+-- (نفس الحقل الذي تقرأه committeeScopedState أصلاً بلا أي تعديل عليها). لو كان له سحب/جلسة جارية
+-- (in_progress) بمرحلته الحالية تحديداً، تُحذف تلك الجلسة فقط (لا تاريخه) ليبدأها من جديد عند
+-- اللجنة الجديدة. يُرفض النقل لو كانت جلسة مرحلته الحالية معتمدة أصلاً (final).
+create or replace function public.diwan_admin_transfer_participant(p_participant_id text,p_committee_id uuid)
+returns jsonb language plpgsql security definer set search_path=public,extensions
+as $$
+declare v_payload jsonb; v_participant jsonb; v_to_name text; v_current_stage int; v_current_draw_id text; v_session public.diwan_exam_sessions;
+begin
+  if public.current_user_role() is distinct from 'admin' then raise exception 'هذه العملية للمدير فقط'; end if;
+  select payload into v_payload from public.diwan_state where id=1 for update;
+  v_payload=coalesce(v_payload,'{}'::jsonb);
+  select item into v_participant from jsonb_array_elements(coalesce(v_payload->'participants','[]')) item
+    where item->>'id'=p_participant_id limit 1;
+  if v_participant is null then raise exception 'المتسابق غير موجود'; end if;
+  if p_committee_id is not null then
+    select name into v_to_name from public.committees where id=p_committee_id and active;
+    if v_to_name is null then raise exception 'اللجنة الهدف غير موجودة أو غير مفعّلة'; end if;
+  end if;
+  v_current_stage=coalesce((v_participant->>'stage')::int,1);
+  select item->>'id' into v_current_draw_id from jsonb_array_elements(coalesce(v_payload->'draws','[]')) item
+    where item->>'participantId'=p_participant_id and (item->>'stage')::int=v_current_stage
+    order by (item->>'createdAt') desc limit 1;
+  if v_current_draw_id is not null then
+    select * into v_session from public.diwan_exam_sessions where draw_id=v_current_draw_id;
+    if v_session.id is not null and v_session.status='final' then
+      raise exception 'لا يمكن نقل متسابق اعتُمدت نتيجة مرحلته الحالية بالفعل';
+    end if;
+    if v_session.id is not null then delete from public.diwan_exam_sessions where id=v_session.id; end if;
+  end if;
+  v_payload=jsonb_set(v_payload,'{participants}',(
+    select jsonb_agg(case when item->>'id'=p_participant_id
+      then jsonb_set(item,'{transferCommitteeId}',coalesce(to_jsonb(p_committee_id::text),'null'::jsonb),true)
+      else item end)
+    from jsonb_array_elements(v_payload->'participants') item
+  ),true);
+  update public.diwan_state set payload=v_payload,updated_at=now(),updated_by=auth.uid() where id=1;
+  insert into public.audit_log(actor_id,action,entity_type,entity_id,details)
+    values(auth.uid(),'transfer_diwan_participant','participant',p_participant_id,
+      jsonb_build_object('participant_name',v_participant->>'name','to_committee_id',p_committee_id,'to_committee_name',v_to_name));
+  perform public.record_transfer_notifications(p_participant_id,v_participant->>'name',null,p_committee_id);
+  return v_payload;
+end $$;
+grant execute on function public.diwan_admin_transfer_participant(text,uuid) to authenticated;
