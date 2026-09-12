@@ -135,6 +135,7 @@ async function run() {
   vm.runInContext('mergeFinalDiwanSessionsIntoState([__s]);', Object.assign(sandbox, { __s: finalPassSession }));
   assert.strictEqual(stage4Participant.stage, 4, "المرحلة تبقى 4 (لا رقم وهمي 5)");
   assert.strictEqual(stage4Participant.certified, true, "certified=true بعد اجتياز الاختبار النهائي");
+  assert.strictEqual(stage4Participant.certificateNumber, 1, "أول شهادة حافظ تأخذ الرقم التسلسلي 1");
   assert.strictEqual(sandbox.diwanParticipantStatusOf(stage4Participant), "certified", "الحالة المشتقة: حافظ معتمد");
 
   // 7) إحصائيات renderDiwanParticipants: نسبة النجاح مبنية على عدد المعتمدين (certified) لا على مقارنة علامة فردية
@@ -144,7 +145,32 @@ async function run() {
   assert.strictEqual(queryElement("#diwanStatExamined").textContent, "2", "كلاهما له علامة مسجَّلة (DP1=60 بعد الرسوب، DP3=92)");
   assert.strictEqual(queryElement("#diwanStatPassRate").textContent, "50%", "معتمد واحد (DP3) من أصل 2 = 50%");
 
-  console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=80");
+  // 8) دوال توليد الشهادات/التوصيات (الجزء النقي منها — بلا html2canvas/jsPDF غير المتاحين هنا)
+  assert.strictEqual(sandbox.diwanGenderWord({ gender: "أنثى" }, "الحافظ", "الحافظة"), "الحافظة", "الأنثى تأخذ الصيغة المؤنثة");
+  assert.strictEqual(sandbox.diwanGenderWord({ gender: "ذكر" }, "الحافظ", "الحافظة"), "الحافظ", "الذكر يأخذ الصيغة المذكّرة");
+  assert.strictEqual(sandbox.diwanGenderWord({}, "الحافظ", "الحافظة"), "الحافظ", "الافتراضي مذكّر عند غياب الجنس");
+  assert.strictEqual(sandbox.formatDiwanCertDate(new Date(2026, 0, 5).toISOString()), "05/01/2026", "تنسيق التاريخ DD/MM/YYYY");
+  assert.strictEqual((sandbox.diwanJuzGridHtml(new Set([1, 5, 30])).match(/class="marked"/g) || []).length, 3, "3 أجزاء مُظلَّلة بالضبط لمجموعة {1,5,30}");
+  assert.ok(sandbox.diwanJuzGridHtml(new Set()).includes(">30<"), "الشبكة تغطي الأجزاء الثلاثين كاملة");
+
+  const historyParticipant = { id: "DP4", name: "منى", gender: "أنثى", stage: 3, usedJuz: [], parts: [], level: 10, seat: "004", center: "مركز" };
+  vm.runInContext('diwanState.participants.push(__p);', Object.assign(sandbox, { __p: historyParticipant }));
+  const historyDraw1 = { id: "DDRAW-H1", participantId: "DP4", stage: 1, eligibleParts: [1,2,3,4,5,6,7,8,9,10], positions: [], createdAt: new Date().toISOString() };
+  const historyDraw2 = { id: "DDRAW-H2", participantId: "DP4", stage: 2, eligibleParts: [11,12,13,14,15,16,17,18,19,20], positions: [], createdAt: new Date().toISOString() };
+  vm.runInContext('diwanState.draws.push(__d1, __d2);', Object.assign(sandbox, { __d1: historyDraw1, __d2: historyDraw2 }));
+  const historySession1 = { participant_id: "DP4", draw_id: historyDraw1.id, stage: 1, status: "final", score: 85, finalized_at: new Date().toISOString(), assessment: {} };
+  const historySession2 = { participant_id: "DP4", draw_id: historyDraw2.id, stage: 2, status: "final", score: 90, finalized_at: new Date().toISOString(), assessment: {} };
+  vm.runInContext('diwanAdminSessions = [__s1, __s2];', Object.assign(sandbox, { __s1: historySession1, __s2: historySession2 }));
+
+  const foundSession = sandbox.diwanSessionForDraw(historyDraw2);
+  assert.strictEqual(foundSession.score, 90, "diwanSessionForDraw يجد الجلسة الصحيحة بمعرّف السحب (draw_id)");
+
+  const cumulativeThroughStage2 = sandbox.diwanCumulativeJuzThroughStage(historyParticipant, 2);
+  assert.strictEqual(JSON.stringify([...cumulativeThroughStage2].sort((a, b) => a - b)), JSON.stringify(Array.from({ length: 20 }, (_, i) => i + 1)), "اتحاد أجزاء كل محاولة ناجحة حتى المرحلة 2 (20 جزءاً)");
+  const cumulativeStage1Only = sandbox.diwanCumulativeJuzThroughStage(historyParticipant, 1);
+  assert.strictEqual(cumulativeStage1Only.size, 10, "الاقتصار على المرحلة 1 فقط يعطي 10 أجزاء لا 20");
+
+  console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=80، ودوال توليد الشهادات/التوصيات");
 }
 
 run().catch(error => {
