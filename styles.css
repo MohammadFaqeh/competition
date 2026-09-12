@@ -402,6 +402,7 @@ main{padding:var(--sp-6) var(--sp-6) var(--sp-7);flex:1}
 .state{font-size:10px;padding:5px 9px;border-radius:15px;background:#eef1ef;color:var(--muted);font-weight:700}
 .state.completed{background:var(--green-50);color:var(--green-800)}
 .state.drawn{background:var(--gold-soft);color:var(--gold-600)}
+.state.failed{background:var(--red-soft);color:var(--red)}
 .empty-state{display:grid;place-items:center;text-align:center;color:var(--caption);font-size:13px}
 
 .mini-bars{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;align-items:end;height:188px;padding-top:10px}
@@ -737,6 +738,13 @@ body.exam-fullscreen .color-mode-toggle{display:none}
 .committee-level-options label{display:flex;align-items:center;gap:7px;padding:9px 11px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:11px;line-height:1.35}
 .committee-level-options input{width:16px;height:16px;margin:0;flex:0 0 auto}
 @media(max-width:640px){.committee-level-options{grid-template-columns:1fr}}
+.diwan-juz-grid{display:grid;gap:8px;margin-top:12px}
+.diwan-juz-row{display:grid;grid-template-columns:repeat(10,1fr);gap:6px}
+.diwan-juz-cell{height:38px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-weight:700;cursor:pointer}
+.diwan-juz-cell:hover:not(:disabled){border-color:var(--green-600)}
+.diwan-juz-cell.is-selected{background:var(--green-600);border-color:var(--green-700);color:#fff}
+.diwan-juz-cell.is-used{background:var(--line-soft);color:#9aa39c;cursor:not-allowed}
+@media(max-width:640px){.diwan-juz-row{grid-template-columns:repeat(5,1fr)}}
 .field-help{color:var(--muted);font-size:10px;margin:10px 0}
 .committee-confirm-parts{font-size:15px}.committee-confirm-parts b{font-size:19px;font-weight:800;color:var(--ink);line-height:1.9}.committees-list{display:grid;gap:7px;margin-top:12px}.committee-row{display:flex;flex-direction:column;gap:6px;padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:9px}.committee-row-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.committee-row b{display:block;font-size:13px}.committee-row small{display:block;color:var(--muted);font-size:10.5px;line-height:1.45}.committee-row.inactive{opacity:.6}.committee-row.just-saved{animation:committeeRowSaved 1.6s var(--ease)}
 @keyframes committeeRowSaved{0%{box-shadow:0 0 0 3px var(--green-600,var(--green-800))}70%{box-shadow:0 0 0 3px var(--green-600,var(--green-800))}100%{box-shadow:none}}.committee-levels-badges{display:flex;flex-wrap:wrap;gap:6px}.committee-levels-badges span{padding:3px 9px;border-radius:999px;background:var(--green-100);color:var(--green-800);font-size:9.5px;font-weight:700}.managed-centers-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.managed-center-tag{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--green-100);color:var(--green-800);font-size:11px;font-weight:600}.managed-center-tag button{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;opacity:.7}.managed-center-tag button:hover{opacity:1}.managed-center-tag button svg{width:12px;height:12px}

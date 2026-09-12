@@ -127,14 +127,38 @@ async function testCommitteeCancelSession() {
   await assert.rejects(() => diwan.cancelSession("P1"), /انتهت جلسة اللجنة/, "بلا جلسة لجنة يُرفض الإلغاء فوراً");
   assert.strictEqual(calls.length, 0, "لا يُستدعى أي RPC بلا جلسة لجنة");
 
-  // بجلسة لجنة سنوية: يستدعي diwan_committee_cancel_session بنفس التوكن ومعرّف المتسابق
+  // بجلسة لجنة سنوية: يستدعي diwan_committee_cancel_session بنفس التوكن ومعرّف السحب (draw_id لا
+  // participant_id — نفس المشارك قد يملك محاولات/جلسات سابقة أخرى يجب ألا تتأثر بالإلغاء).
   sandbox.window.CloudCompetition = { ...sandbox.window.CloudCompetition, context: { kind: "committee", token: "annual-committee-token-1" }, client: sandbox.window.CloudCompetition.client };
-  await diwan.cancelSession("P42");
+  await diwan.cancelSession("DDRAW-42");
   assert.strictEqual(calls.length, 1, "استُدعيت diwan_committee_cancel_session فعلياً");
   assert.strictEqual(calls[0].args.p_token, "annual-committee-token-1", "استُخدم توكن جلسة اللجنة المشتركة نفسه");
-  assert.strictEqual(calls[0].args.p_participant_id, "P42", "أُرسل معرّف المتسابق الصحيح");
+  assert.strictEqual(calls[0].args.p_draw_id, "DDRAW-42", "أُرسل معرّف السحب الصحيح");
 
   console.log("diwan-competition-core.test.js: إلغاء اللجنة لاختبارها الخاص (cancelSession) — نجح");
+}
+
+async function testClaimStudentIncludesStage() {
+  const calls = [];
+  async function rpcHandler(name, args) {
+    calls.push({ name, args });
+    if (name === "diwan_committee_claim_student") return { data: { id: "S1", draw_id: args.p_draw_id, stage: args.p_stage, status: "in_progress" }, error: null };
+    throw new Error(`unexpected rpc: ${name}`);
+  }
+  const sandbox = loadCloudModule(rpcHandler, () => ({ data: null, error: null }));
+  await sandbox.window.CloudCompetition.init();
+  const diwan = sandbox.window.DiwanCompetition;
+  sandbox.window.CloudCompetition = { ...sandbox.window.CloudCompetition, context: { kind: "committee", token: "annual-committee-token-1" }, client: sandbox.window.CloudCompetition.client };
+
+  const session = await diwan.claimStudent("P1", "DDRAW-1", 2, 10, "المستوى العاشر");
+  assert.strictEqual(calls.length, 1, "استُدعيت diwan_committee_claim_student فعلياً");
+  assert.strictEqual(calls[0].args.p_participant_id, "P1");
+  assert.strictEqual(calls[0].args.p_draw_id, "DDRAW-1");
+  assert.strictEqual(calls[0].args.p_stage, 2, "رقم المرحلة يُرسل صراحة (نظام مراحل متعددة، لا مرة واحدة لكل مشارك)");
+  assert.strictEqual(calls[0].args.p_level, 10);
+  assert.strictEqual(session.stage, 2);
+
+  console.log("diwan-competition-core.test.js: claimStudent يرسل رقم المرحلة (p_stage) — نجح");
 }
 
 async function testGetSessionAndReplacePosition() {
@@ -181,6 +205,7 @@ async function run() {
   await testDiffOnlySave();
   await testAdminGateAndSharedCommitteeSession();
   await testCommitteeCancelSession();
+  await testClaimStudentIncludesStage();
   await testGetSessionAndReplacePosition();
 }
 

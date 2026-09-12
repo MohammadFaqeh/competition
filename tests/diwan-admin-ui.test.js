@@ -1,6 +1,7 @@
-// اختبار آلي لمنطق واجهة إدارة "اختبارات ديوان الحفاظ" (app.js): إضافة متسابق، سحب فردي
-// (makeDiwanDraw يعيد استخدام مواضع القرآن العالمية candidates بلا أي تعديل)، وحساب إحصائيات
-// renderDiwanParticipants (إجمالي/امتُحن/نسبة نجاح). diwanState منفصل تماماً عن state (السنوية).
+// اختبار آلي لمنطق الإدارة بنظام "اختبارات ديوان الحفاظ" الجديد (مراحل متتالية ١→٢→٣→نهائي):
+// drawOnePositionPerJuz (موضع واحد من كل جزء مختار)، makeDiwanStageDraw (١٠ مواضع لمراحل ١-٣)،
+// makeDiwanFinalDraw (١٨ موضعاً: ٦ من كل ثلث)، ترقية/إبقاء المرحلة عبر mergeFinalDiwanSessionsIntoState
+// حسب DIWAN_PASS_SCORE=80 (لا PASS_SCORE=75 السنوي)، وإحصائيات renderDiwanParticipants.
 // شغّله: node tests/diwan-admin-ui.test.js
 "use strict";
 const fs = require("fs");
@@ -64,42 +65,86 @@ vm.createContext(sandbox);
 vm.runInContext(appSrc, sandbox, { filename: "app.js" });
 
 async function run() {
-  // مواضع مصطنعة (لا حاجة لبيانات القرآن الحقيقية لاختبار منطق الاختيار نفسه) — 5 أجزاء بموضع
-  // واحد لكل جزء، تطابق أصغر مستوى حقيقي بـLEVEL_CATALOG (5 أجزاء، LEVEL_QUESTIONS[5]=3 أسئلة).
-  const fakeCandidates = [1, 2, 3, 4, 5].map(juz => ({ id: `pos-${juz}`, juz, page: juz, words: 40, lineCount: 8, startKey: `${juz}:1`, endKey: `${juz}:5` }));
+  // مواضع مصطنعة تغطي الـ30 جزءاً كاملة (موضعان لكل جزء) — كافية لاختبار مراحل ١-٣ (10 أجزاء)
+  // والاختبار النهائي (30 جزءاً موزّعة على 3 مجموعات ثابتة).
+  const fakeCandidates = [];
+  for (let juz = 1; juz <= 30; juz++) {
+    for (let n = 1; n <= 2; n++) fakeCandidates.push({ id: `pos-${juz}-${n}`, juz, page: juz, words: 40, lineCount: 8, startKey: `${juz}:1`, endKey: `${juz}:5` });
+  }
   vm.runInContext('candidates = __c;', Object.assign(sandbox, { __c: fakeCandidates }));
   sandbox.ensureQuranReady = async () => vm.runInContext("candidates", sandbox);
   sandbox.window.CloudCompetition = { context: {} }; // وضع محلي (operationMode !=="cloud")
 
   vm.runInContext('diwanState = defaultDiwanState();', sandbox);
 
-  // 1) إضافة متسابق ديوان الحفاظ مستقل تماماً عن state.participants (السنوية)
-  const participant = { id: "DP1", name: "أحمد", seat: "001", gender: "ذكر", center: "مجتمع محلي", age: 12, level: 5, levelName: "المستوى السابع - أ (حفظ 5 أجزاء للأقل من 15 سنة)", parts: [1, 2, 3, 4, 5], createdAt: new Date().toISOString() };
+  // 1) drawOnePositionPerJuz: موضع واحد بالضبط من كل جزء مختار، بلا تكرار جزء، وخطأ عند نقص المجموعة
+  const juzPool10 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const positions10 = sandbox.drawOnePositionPerJuz(juzPool10, 10);
+  assert.strictEqual(positions10.length, 10, "10 مواضع من 10 أجزاء مختارة");
+  assert.strictEqual(new Set(positions10.map(p => p.juz)).size, 10, "كل موضع من جزء مختلف (لا تكرار جزء)");
+  assert.ok(positions10.every(p => juzPool10.includes(p.juz)), "كل المواضع من الأجزاء العشرة المختارة فقط");
+  assert.throws(() => sandbox.drawOnePositionPerJuz([1, 2], 5), /لا توجد مواضع كافية/, "خطأ واضح عند طلب عدد أكبر من الأجزاء المتاحة");
+
+  // 2) إضافة متسابق ديوان الحفاظ — يبدأ دائماً بالمرحلة 1، مستقل تماماً عن state.participants (السنوية)
+  const participant = { id: "DP1", name: "أحمد", seat: "001", gender: "ذكر", center: "مجتمع محلي", age: 12, stage: 1, usedJuz: [], parts: [], level: 10, createdAt: new Date().toISOString() };
   vm.runInContext('diwanState.participants.push(__p);', Object.assign(sandbox, { __p: participant }));
   assert.strictEqual(vm.runInContext("diwanState.participants.length", sandbox), 1, "المتسابق أُضيف لـdiwanState");
   assert.strictEqual(vm.runInContext("state.participants.length", sandbox), 0, "state (السنوية) لم يتأثر إطلاقاً");
 
-  // 2) سحب فردي: يعيد استخدام candidates العالمية بلا أي منع تكرار
-  const draw = await sandbox.makeDiwanDraw(participant, [1, 2, 3, 4, 5]);
-  assert.strictEqual(draw.participantId, "DP1", "السحب مرتبط بالمتسابق الصحيح");
-  assert.strictEqual(draw.positions.length, 3, "3 مواضع (LEVEL_QUESTIONS[5]=3) من أصل 5 أجزاء محفوظة");
-  assert.ok(draw.positions.every(p => [1, 2, 3, 4, 5].includes(p.juz)), "كل المواضع المختارة من أجزاء المتسابق فقط");
-  assert.ok(draw.id.startsWith("DDRAW-"), "معرّف السحب ببادئة ديوان الحفاظ المستقلة (DDRAW) لا بادئة السنوية");
+  // 3) makeDiwanStageDraw: سحب مرحلة ١ (10 مواضع، جزء واحد من كل جزء مختار)
+  const stageDraw = await sandbox.makeDiwanStageDraw(participant, juzPool10);
+  assert.strictEqual(stageDraw.participantId, "DP1", "السحب مرتبط بالمتسابق الصحيح");
+  assert.strictEqual(stageDraw.stage, 1, "السحب مُعلَّم بمرحلة المتسابق الحالية");
+  assert.strictEqual(stageDraw.positions.length, 10, "10 مواضع لمرحلة من 10 أجزاء (لا نسبة LEVEL_QUESTIONS السنوية)");
+  assert.ok(stageDraw.id.startsWith("DDRAW-"), "معرّف السحب ببادئة ديوان الحفاظ المستقلة (DDRAW)");
+  participant.parts = juzPool10;
+  vm.runInContext('diwanState.draws.push(__d);', Object.assign(sandbox, { __d: stageDraw }));
 
-  vm.runInContext('diwanState.draws.push(__d);', Object.assign(sandbox, { __d: draw }));
+  // 4) makeDiwanFinalDraw: القرآن كامل تلقائياً — 18 موضعاً (6 من كل ثلث)، بلا اختيار أجزاء يدوي
+  const finalParticipant = { id: "DP2", name: "سارة", seat: "002", gender: "أنثى", center: "مركز آخر", age: 20, stage: 4, usedJuz: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20], parts: [], level: 30, createdAt: new Date().toISOString() };
+  const finalDraw = await sandbox.makeDiwanFinalDraw(finalParticipant);
+  assert.strictEqual(finalDraw.stage, 4, "سحب المرحلة النهائية مُعلَّم بالمرحلة 4");
+  assert.strictEqual(finalDraw.positions.length, 18, "18 موضعاً بالضبط (6+6+6)");
+  const bandCounts = [[1,10],[11,20],[21,30]].map(([from,to]) => finalDraw.positions.filter(p => p.juz >= from && p.juz <= to).length);
+  assert.deepStrictEqual(bandCounts, [6, 6, 6], "6 مواضع بالضبط من كل ثلث من القرآن");
 
-  // 3) إحصائيات renderDiwanParticipants: قبل أي علامة يجب أن تكون نسبة النجاح 0%، ثم تتحدّث بعد التسجيل
+  // 5) mergeFinalDiwanSessionsIntoState: نجاح (>=80) يرحّل الأجزاء إلى usedJuz ويرقّي المرحلة؛ رسوب يبقيها كما هي
+  const passSession = { participant_id: "DP1", draw_id: stageDraw.id, stage: 1, status: "final", score: 85, finalized_at: new Date().toISOString(), assessment: {} };
+  vm.runInContext('mergeFinalDiwanSessionsIntoState([__s]);', Object.assign(sandbox, { __s: passSession }));
+  assert.strictEqual(participant.stage, 2, "المرحلة ترقّت إلى 2 بعد نجاح بعلامة 85 (>= DIWAN_PASS_SCORE=80)");
+  assert.deepStrictEqual([...participant.usedJuz].sort((a,b)=>a-b), juzPool10, "الأجزاء العشرة المُمتحَنة انتقلت إلى usedJuz");
+  assert.strictEqual(JSON.stringify(participant.parts), "[]", "الأجزاء المختارة تُصفَّر استعداداً لاختيار جديد بالمرحلة التالية");
+
+  // إعادة إرسال نفس الجلسة (draw_id نفسه) لا يجب أن تُرقّي المرحلة مرتين (idempotency عبر lastGradedDrawId)
+  vm.runInContext('mergeFinalDiwanSessionsIntoState([__s]);', Object.assign(sandbox, { __s: passSession }));
+  assert.strictEqual(participant.stage, 2, "لا ترقية مضاعفة لنفس الجلسة المُعالَجة مسبقاً");
+
+  const stage2Draw = { id: "DDRAW-STAGE2", participantId: "DP1", stage: 2, positions: [], createdAt: new Date().toISOString() };
+  vm.runInContext('diwanState.draws.push(__d);', Object.assign(sandbox, { __d: stage2Draw }));
+  const failSession = { participant_id: "DP1", draw_id: stage2Draw.id, stage: 2, status: "final", score: 60, finalized_at: new Date().toISOString(), assessment: {} };
+  vm.runInContext('mergeFinalDiwanSessionsIntoState([__s]);', Object.assign(sandbox, { __s: failSession }));
+  assert.strictEqual(participant.stage, 2, "الرسوب (60 < 80) يبقي المتسابق بنفس المرحلة");
+  assert.strictEqual(sandbox.diwanParticipantStatusOf(participant), "failed", "الحالة المشتقة: راسب لأن آخر جلسة لمرحلته الحالية مُعتمدة برسوب");
+
+  // 6) نجاح المرحلة 4 (النهائي) يُعلّم certified بدل ترقية المرحلة لرقم وهمي 5
+  const stage4Participant = { id: "DP3", name: "خالد", seat: "003", gender: "ذكر", center: "مركز", age: 22, stage: 4, usedJuz: Array.from({length:20},(_,i)=>i+1), parts: Array.from({length:30},(_,i)=>i+1), level: 30, createdAt: new Date().toISOString() };
+  vm.runInContext('diwanState.participants.push(__p);', Object.assign(sandbox, { __p: stage4Participant }));
+  const stage4Draw = { id: "DDRAW-FINAL", participantId: "DP3", stage: 4, positions: [], createdAt: new Date().toISOString() };
+  vm.runInContext('diwanState.draws.push(__d);', Object.assign(sandbox, { __d: stage4Draw }));
+  const finalPassSession = { participant_id: "DP3", draw_id: stage4Draw.id, stage: 4, status: "final", score: 92, finalized_at: new Date().toISOString(), assessment: {} };
+  vm.runInContext('mergeFinalDiwanSessionsIntoState([__s]);', Object.assign(sandbox, { __s: finalPassSession }));
+  assert.strictEqual(stage4Participant.stage, 4, "المرحلة تبقى 4 (لا رقم وهمي 5)");
+  assert.strictEqual(stage4Participant.certified, true, "certified=true بعد اجتياز الاختبار النهائي");
+  assert.strictEqual(sandbox.diwanParticipantStatusOf(stage4Participant), "certified", "الحالة المشتقة: حافظ معتمد");
+
+  // 7) إحصائيات renderDiwanParticipants: نسبة النجاح مبنية على عدد المعتمدين (certified) لا على مقارنة علامة فردية
+  // (DP2/finalParticipant لم يُضَف لـdiwanState.participants فعلياً — استُخدم فقط لاختبار makeDiwanFinalDraw بمعزل)
   sandbox.renderDiwanParticipants();
-  assert.strictEqual(queryElement("#diwanStatTotal").textContent, "1", "إجمالي المتسابقين = 1");
-  assert.strictEqual(queryElement("#diwanStatExamined").textContent, "0", "لا أحد امتُحن بعد (لا لجان/تصحيح إلكتروني بهذه المرحلة)");
-  assert.strictEqual(queryElement("#diwanStatPassRate").textContent, "0%", "نسبة النجاح 0% قبل أي علامة");
+  assert.strictEqual(queryElement("#diwanStatTotal").textContent, "2", "إجمالي المتسابقين = 2 (DP1 وDP3)");
+  assert.strictEqual(queryElement("#diwanStatExamined").textContent, "2", "كلاهما له علامة مسجَّلة (DP1=60 بعد الرسوب، DP3=92)");
+  assert.strictEqual(queryElement("#diwanStatPassRate").textContent, "50%", "معتمد واحد (DP3) من أصل 2 = 50%");
 
-  participant.score = 88;
-  sandbox.renderDiwanParticipants();
-  assert.strictEqual(queryElement("#diwanStatExamined").textContent, "1", "امتُحن = 1 بعد تسجيل علامة حقيقية");
-  assert.strictEqual(queryElement("#diwanStatPassRate").textContent, "100%", "نسبة النجاح 100% (علامة 88 >= 75)");
-
-  console.log("diwan-admin-ui.test.js: كل الحالات نجحت — سحب مستقل تماماً عن السنوية، وإحصائيات ديوان الحفاظ صحيحة");
+  console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=80");
 }
 
 run().catch(error => {
