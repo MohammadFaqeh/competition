@@ -1,5 +1,5 @@
--- تنظيف تلقائي لسجلات النشاط/الإشعارات المساعدة بعد 48 ساعة — طلب صريح: "أي سجل نشاط
--- موجود بالموقع، خليه يحتفظ ببيانات 48 ساعة بعدين يُحذف — قصدي سجل نشاط مش البيانات الحقيقية".
+-- تنظيف تلقائي لسجلات النشاط/الإشعارات المساعدة بعد 24 ساعة — طلب صريح: "خلي السجل كحد أقصى
+-- يحتفظ بنشاط آخر 24 ساعة، الباقي يُحذف" (كان سابقاً 48 ساعة، عُدِّل بطلب لاحق).
 --
 -- الجداول الثلاثة أدناه سجلات مساعدة بحتة (تدقيق/تنبيه/توقيت عرض) — حذف صف قديم منها لا يمس
 -- أي بيانات فعلية بالمسابقة (لا نتائج، لا متسابقين، لا سحوبات، لا حسابات لجان):
@@ -19,8 +19,8 @@ create or replace function public.prune_old_logs()
 returns void language plpgsql security definer set search_path=public
 as $$
 begin
-  delete from public.audit_log where created_at < now() - interval '48 hours';
-  delete from public.committee_notifications where created_at < now() - interval '48 hours';
-  delete from public.participant_change_log where changed_at < now() - interval '48 hours';
+  delete from public.audit_log where created_at < now() - interval '24 hours';
+  delete from public.committee_notifications where created_at < now() - interval '24 hours';
+  delete from public.participant_change_log where changed_at < now() - interval '24 hours';
 end $$;
 grant execute on function public.prune_old_logs() to anon,authenticated;
