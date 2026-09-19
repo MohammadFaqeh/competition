@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260919-cert6">
+  <link rel="stylesheet" href="styles.css?v=20260919-cert8">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -44,7 +44,7 @@
         </article>
         <article class="gateway-option local-option">
           <div class="gateway-icon"><i data-lucide="flask-conical"></i></div>
-          <div><span>للتجربة والتدريب فقط</span><h2>اختبار تجريبي</h2><p>بلا تسجيل دخول، برمز PIN مشترك فقط — بيانات لحظية تُحذف تفاصيلها فور اعتماد العلامة.</p></div>
+          <div><span>للتجربة والتدريب فقط</span><h2>اختبار تجريبي</h2><p>بلا تسجيل دخول وبلا رمز إلزامي — يمكنك وضع رمز PIN خاص بك اختيارياً، وتبقى بياناتك على جهازك فقط — بيانات لحظية تُحذف تفاصيلها فور اعتماد العلامة.</p></div>
           <button id="openTrialModeBtn" class="secondary-btn wide" type="button" onclick="openTrialScreen()">فتح القسم التجريبي</button>
         </article>
       </div>
@@ -177,7 +177,7 @@
       <b>اختبار تجريبي</b>
     </div>
     <div class="trial-standalone-body">
-      <div class="page-head"><div><span class="eyebrow">حساب دخول مشترك · بيانات لحظية غير مرتبطة بأي دورة</span><h1>اختبار تجريبي</h1><p>قسم تدريبي مستقل: أضف متسابقاً، اختر أي عدد من الأجزاء وأي عدد من المواضع داخل كل جزء، ثم اعتمد العلامة. تُحذف كل تفاصيل السحب والتقييم فور الاعتماد، ويبقى الاسم والمستوى والعلامة فقط. كل من يُضاف هنا يظهر تلقائياً ضمن "لجنة اختبار مؤقتة".</p></div><div class="page-actions"><button id="trialChangePinBtn" class="secondary-btn"><i data-lucide="key-round"></i> تغيير رمز الدخول</button><button id="addTrialParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
+      <div class="page-head"><div><span class="eyebrow">رمز PIN اختياري · بيانات محلية على هذا الجهاز فقط، غير مرتبطة بأي دورة</span><h1>اختبار تجريبي</h1><p>قسم تدريبي مستقل: أضف متسابقاً، اختر أي عدد من الأجزاء وأي عدد من المواضع داخل كل جزء، ثم اعتمد العلامة. تُحذف كل تفاصيل السحب والتقييم فور الاعتماد، ويبقى الاسم والمستوى والعلامة فقط. كل من يُضاف هنا يظهر تلقائياً ضمن "لجنة اختبار مؤقتة".</p></div><div class="page-actions"><button id="trialChangePinBtn" class="secondary-btn"><i data-lucide="key-round"></i> رمز الدخول (اختياري)</button><button id="addTrialParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
       <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="trialParticipantSearch" placeholder="بحث بالاسم أو رقم الجلوس"></div><span id="trialParticipantCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>المستوى</th><th>اللجنة</th><th>الحالة</th><th>العلامة</th><th>الإجراءات</th></tr></thead><tbody id="trialParticipantsTable"></tbody></table></div></section>
     </div>
   </section>
@@ -347,7 +347,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260919-cert6"></script>
-  <script src="app.js?v=20260919-cert6"></script>
+  <script src="cloud.js?v=20260919-cert8"></script>
+  <script src="app.js?v=20260919-cert8"></script>
 </body>
 </html>

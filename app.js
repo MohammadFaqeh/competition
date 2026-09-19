@@ -3104,10 +3104,10 @@ function defaultTrialState(){return {config:{accessPinHash:null},participants:[]
 function loadTrialState(){try{return {...defaultTrialState(),...JSON.parse(localStorage.getItem(TRIAL_STORAGE_KEY)||"null")}}catch{return defaultTrialState()}}
 function saveTrialState(){safeSetItem(TRIAL_STORAGE_KEY,JSON.stringify(trialState))}
 function trialAccessGranted(){return sessionStorage.getItem(TRIAL_ACCESS_KEY)==="granted"}
-// أول دخول للقسم قبل ضبط أي رمز يطلب تعيين واحد فوراً (المدير الرئيسي عادة) — بعدها أي جهاز/تبويب
-// يفتح بنفس الرمز المشترك، بلا جلسة خادم واحدة فتسمح بتعدد الاختبارات المفتوحة بنفس الوقت.
+// الرمز اختياري: بلا رمز يُفتح القسم مباشرة، ومن يضع رمزاً يُطلب منه عند كل جلسة. الرمز والبيانات محليان
+// (localStorage) لكل جهاز/متصفح على حدة، ولا شيء منها يُرسل لأي خادم ولا يُشارك مع غيره.
 function ensureTrialAccessThenRender(){
-  if(!trialState.config.accessPinHash)return openTrialSetPinModal();
+  if(!trialState.config.accessPinHash)return renderTrialParticipants();
   if(trialAccessGranted())return renderTrialParticipants();
   openTrialUnlockModal();
 }
@@ -3126,17 +3126,22 @@ function closeTrialScreen(){
 }
 function openTrialSetPinModal(){
   const hasPin=Boolean(trialState.config.accessPinHash);
-  openModal(`<div class="modal-head"><h2>${hasPin?"تغيير رمز الدخول":"تفعيل القسم التجريبي"}</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">هذا القسم للاختبار التجريبي فقط، ونتائجه لا تُحتسب بأي دورة. ${hasPin?"يمكن تغيير رمز الدخول المشترك بأي وقت.":"عيّن رمز دخول (PIN) مشترك يُستخدم لفتح هذا القسم من أي جهاز أو تبويب."}</p><label>رمز PIN (٤ خانات أو أكثر)<input id="trialSetPin" type="password" inputmode="numeric" minlength="4" autocomplete="off"></label></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button id="trialSetPinBtn" class="primary-btn">حفظ${hasPin?"":" وفتح القسم"}</button></div>`);
+  openModal(`<div class="modal-head"><h2>${hasPin?"تغيير رمز الدخول":"وضع رمز دخول (اختياري)"}</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">هذا القسم للاختبار التجريبي فقط، ونتائجه لا تُحتسب بأي دورة. ${hasPin?"يمكنك تغيير رمزك، أو ترك الخانة فارغة لإلغاء الرمز فيُفتح القسم بدونه.":"القسم يعمل بدون رمز. إن أردت حمايته، ضع رمز PIN خاصاً بك؛ يُحفظ على هذا الجهاز وهذا المتصفح فقط، فلكل شخص أو جهاز رمزه وبياناته الخاصة."}</p><label>رمز PIN (٤ خانات أو أكثر${hasPin?" — فارغ لإلغاء الرمز":""})<input id="trialSetPin" type="password" inputmode="numeric" minlength="4" autocomplete="off"></label></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button id="trialSetPinBtn" class="primary-btn">حفظ</button></div>`);
   $("#trialSetPinBtn").onclick=async()=>{
     const pin=$("#trialSetPin").value.trim();
+    if(!pin){
+      if(!hasPin)return closeModal();
+      trialState.config.accessPinHash=null;saveTrialState();
+      closeModal();toast("تم إلغاء الرمز — يفتح القسم التجريبي بدونه");return;
+    }
     if(pin.length<4)return toast("الرمز يجب أن يكون ٤ خانات على الأقل");
     trialState.config.accessPinHash=await hashText(pin);saveTrialState();
     sessionStorage.setItem(TRIAL_ACCESS_KEY,"granted");
-    closeModal();renderTrialParticipants();toast(hasPin?"تم تغيير رمز الدخول":"تم تفعيل القسم التجريبي");
+    closeModal();toast(hasPin?"تم تغيير رمز الدخول":"تم وضع رمز الدخول — سيُطلب عند فتح القسم لاحقاً");
   };
 }
 function openTrialUnlockModal(){
-  openModal(`<div class="modal-head"><h2>الدخول للقسم التجريبي</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><label>رمز الدخول (PIN)<input id="trialUnlockPin" type="password" inputmode="numeric" autocomplete="off"></label><p id="trialUnlockError" class="form-error hidden">رمز غير صحيح</p></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button id="trialUnlockBtn" class="primary-btn">دخول</button></div>`);
+  openModal(`<div class="modal-head"><h2>الدخول للقسم التجريبي</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><label>رمز الدخول (PIN)<input id="trialUnlockPin" type="password" inputmode="numeric" autocomplete="off"></label><p id="trialUnlockError" class="form-error hidden">رمز غير صحيح</p></div><div class="modal-actions"><button type="button" id="trialForgotPinBtn" class="secondary-btn">نسيت الرمز؟</button><button type="button" class="secondary-btn" data-close>إلغاء</button><button id="trialUnlockBtn" class="primary-btn">دخول</button></div>`);
   const submit=async()=>{
     const ok=await hashText($("#trialUnlockPin").value)===trialState.config.accessPinHash;
     if(!ok){$("#trialUnlockError").classList.remove("hidden");return}
@@ -3144,6 +3149,12 @@ function openTrialUnlockModal(){
     closeModal();renderTrialParticipants();
   };
   $("#trialUnlockBtn").onclick=submit;
+  // الرمز محلي ومشفّر ولا يمكن استرجاعه: النسيان = إعادة ضبط القسم التجريبي على هذا الجهاز فقط (بيانات تجريبية مؤقتة أصلاً).
+  $("#trialForgotPinBtn").onclick=()=>{
+    if(!confirm("سيتم مسح بيانات القسم التجريبي على هذا الجهاز فقط (المتسابقون التجريبيون والرمز) لتعيين رمز جديد. بيانات المسابقة الحقيقية لا تتأثر. هل تريد المتابعة؟"))return;
+    trialState=defaultTrialState();saveTrialState();sessionStorage.removeItem(TRIAL_ACCESS_KEY);
+    closeModal();ensureTrialAccessThenRender();
+  };
   $("#trialUnlockPin").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();submit()}});
 }
 function nextTrialSeat(){return String(trialState.participants.length+1).padStart(3,"0")}
