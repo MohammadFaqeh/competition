@@ -173,6 +173,14 @@ p{margin:0}
   width:min(1020px,100%);min-height:600px;display:grid;grid-template-columns:1.05fr 1fr;
   background:var(--surface);box-shadow:var(--shadow-lg);border-radius:var(--radius-lg);overflow:hidden;
 }
+/* شاشة الاختبار التجريبي المستقلة — بلا تسجيل دخول، تخطيط عادي (شريط علوي + محتوى صفحة) بدل
+   تمركز البطاقة الواحدة المعتاد بشاشات الدخول، فتُلغى قواعد .auth-screen الافتراضية هون. */
+.trial-standalone-screen{display:block;min-height:100vh;padding:0;background:var(--canvas)}
+.trial-standalone-topbar{display:flex;align-items:center;gap:12px;padding:14px 24px;background:var(--green-950);color:#fff;position:sticky;top:0;z-index:5}
+.trial-standalone-topbar .icon-btn{background:rgba(255,255,255,.12);color:#fff}
+.trial-standalone-topbar b{font-size:15px}
+.trial-standalone-logo{width:30px;height:30px;border-radius:6px;object-fit:cover}
+.trial-standalone-body{width:min(1100px,100%);margin:0 auto;padding:var(--sp-6)}
 .auth-brand{
   padding:var(--sp-8) var(--sp-7);
   background:linear-gradient(165deg,var(--green-900),var(--green-950));
@@ -744,7 +752,10 @@ body.exam-fullscreen .color-mode-toggle{display:none}
 .diwan-juz-cell{height:38px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-weight:700;cursor:pointer}
 .diwan-juz-cell:hover:not(:disabled){border-color:var(--green-600)}
 .diwan-juz-cell.is-selected{background:var(--green-600);border-color:var(--green-700);color:#fff}
-.diwan-juz-cell.is-used{background:var(--line-soft);color:#9aa39c;cursor:not-allowed}
+.diwan-juz-cell{position:relative}
+.diwan-juz-cell.is-used{background:var(--gold-soft);color:var(--gold-600);border-style:dashed}
+.diwan-juz-cell.is-used::after{content:"سبق";position:absolute;bottom:2px;inset-inline:0;font-size:8px;line-height:1;text-align:center}
+.diwan-juz-cell.is-used.is-selected{background:var(--green-600);border-color:var(--green-700);color:#fff;border-style:solid}
 @media(max-width:640px){.diwan-juz-row{grid-template-columns:repeat(5,1fr)}}
 .trial-juz-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:38px;padding:6px 2px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
 .trial-juz-cell.is-selected{border-color:var(--green-600)}
@@ -1011,37 +1022,26 @@ img,svg{max-width:100%}
 .association-card-sheet .assoc-committee-members{flex:1;display:flex;flex-direction:column;gap:4px}
 .association-card-sheet .assoc-committee-members b{border-bottom:1px dotted #999;padding-bottom:2px}
 
-/* شهادة حافظ (المرحلة النهائية) — القالب الرسمي كخلفية كاملة الصفحة + نصوص متراكبة بمواقع
-   تقديرية على الخطوط المنقّطة (قابلة لتعديل دقيق لاحقاً بعد أول معاينة فعلية). */
-.diwan-hafiz-cert-sheet{width:760px!important;height:1139px!important;padding:0!important;overflow:hidden!important}
-.diwan-hafiz-cert-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.diwan-hafiz-cert-field{position:absolute;right:20%;width:60%;text-align:center;font-family:'Tajawal',sans-serif;font-weight:700;color:#1a1a1a}
-.diwan-hafiz-cert-name{top:54.8%;font-size:23px}
-.diwan-hafiz-cert-center{top:59.8%;font-size:19px}
-.diwan-hafiz-cert-date{top:79.3%;right:10%;width:26%;font-size:14px}
-.diwan-hafiz-cert-number{top:83.6%;right:8%;width:22%;font-size:12px}
-.diwan-hafiz-cert-serial{top:86.2%;right:8%;width:22%;font-size:12px}
-
-/* شهادات المراحل ١-٣ والتوصيات — تصميم مستقل بنفس هوية الألوان (أخضر/ذهبي) وشعاري ديوان
-   الحافظات + الجمعية، بنمط بطاقة الجمعية (assoc-parts-grid) لعرض الأجزاء المُظلَّلة. */
-.diwan-stage-cert-sheet,.diwan-recommendation-sheet{border:6px double var(--green-800);padding:22px!important}
-.diwan-cert-header{display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:2px solid var(--green-800);padding-bottom:10px;margin-bottom:14px}
-.diwan-cert-logo{width:64px;height:64px;object-fit:contain}
-.diwan-cert-header-text{flex:1;text-align:center;color:var(--green-900)}
-.diwan-cert-header-text b{display:block;font-size:16px}
-.diwan-cert-header-text span{font-size:11px;color:#555}
-.diwan-cert-title{text-align:center;font-size:22px;font-weight:800;color:var(--green-800);margin:6px 0 18px;padding:10px;background:var(--green-50);border-radius:8px}
-.diwan-cert-body{font-size:13px;line-height:2;color:#222;margin-bottom:16px;text-align:justify}
-.diwan-cert-parts{margin-bottom:16px}
-.diwan-cert-parts>span{display:block;font-size:10px;color:#444;margin-bottom:6px;font-weight:700}
-.diwan-cert-parts-grid span{height:24px;font-size:10px}
-.diwan-cert-score-row{display:flex;align-items:center;justify-content:space-around;border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:16px;font-size:12px;text-align:center}
-.diwan-cert-score-row b{display:block;font-size:18px;margin-top:4px;color:var(--green-800)}
-.diwan-cert-recommendation{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:16px}
-.diwan-cert-recommendation>span{display:block;font-weight:700;font-size:11px;color:#444;margin-bottom:6px}
-.diwan-cert-recommendation ul{margin:0;padding-inline-start:20px;font-size:12px;line-height:1.9}
-.diwan-cert-note-empty{margin:0;font-size:11px;color:#777}
-.diwan-cert-footer{display:flex;justify-content:space-between;font-size:10px;color:#555;border-top:1px dashed var(--line);padding-top:10px}
+/* مستندات ديوان الحفاظ (شهادة حافظ / توصية اللجنة): القالب الرسمي (assets/diwan-*.jpg) خلفية كاملة الصفحة
+   + حقول متراكبة بإحداثيات القالب نفسه بنسب مئوية (راجع DIWAN_DOC_* في app.js). ٧٩٤×١١٢٢ = نسبة القالب ١٢٤١×١٧٥٤ (A4). */
+.diwan-doc-sheet{width:794px!important;height:1122px!important;padding:0!important;overflow:hidden!important;border:0!important;background:#faf7eb!important}
+.diwan-doc-bg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.diwan-doc-field{position:absolute;display:flex;align-items:center;justify-content:center;box-sizing:border-box;overflow:hidden;white-space:nowrap;direction:rtl;font-family:'Tajawal',sans-serif;font-weight:700;color:#1a1a1a;font-size:16px;line-height:1}
+.diwan-doc-value{font-size:17px}
+.diwan-doc-small{font-size:13px}
+.diwan-doc-cell{border:1.5px solid #163726;border-radius:7px;background:#f9f7eb;color:#163726;font:700 14px Georgia,'Times New Roman',serif}
+.diwan-doc-cell.marked{background:#163726;border-color:#b69045;color:#e2c27a}
+.diwan-doc-subtitle{background:#163726;color:#f0ebdc;font-size:15px;font-weight:500}
+.diwan-doc-rec-box{justify-content:flex-start;align-items:flex-start;white-space:normal;overflow:visible}
+.diwan-doc-rec-list{list-style:none;margin:0;padding:0;width:100%}
+.diwan-doc-rec-list li{height:36.5px;line-height:36.5px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.diwan-doc-rec-num{display:inline-block;width:24px;font-weight:800;color:#163726}
+/* محرّر توصية اللجنة بنافذة رئيس اللجنة: نقاط مرقّمة، كل نقطة حقل مستقل مع زر حذف */
+.diwan-rec-list{margin:0 0 10px;padding-inline-start:24px;display:grid;gap:8px}
+.diwan-rec-list li{display:list-item;padding-inline-start:4px}
+.diwan-rec-list li::marker{font-weight:700;color:var(--green-800)}
+.diwan-rec-list li>input{width:calc(100% - 44px);vertical-align:middle}
+.diwan-rec-list li>.icon-btn{vertical-align:middle;margin-inline-start:6px}
 @page{size:A4 portrait;margin:11mm 13mm}
 @media print{
   html,body{background:#fff!important;width:100%;min-height:0}
@@ -1101,3 +1101,33 @@ img,svg{max-width:100%}
 .local-mode-notice button{border:0;border-radius:8px;padding:8px 11px;background:#765b14;color:#fff;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
 .local-branch-app #cloudCommitteesPanel,.local-branch-app #syncCloudBtn{display:none!important}
 @media(max-width:760px){.gateway-back-button{top:10px;right:10px;padding:7px}.gateway-back-button span{display:none}.gateway-screen{padding:0}.gateway-card{min-height:100dvh;border-radius:0;padding:22px 16px}.gateway-intro .auth-logo{width:84px;height:84px}.gateway-options{grid-template-columns:1fr}.gateway-option{padding:18px}.local-mode-notice{margin:8px 9px 0;align-items:flex-start}.local-mode-notice button{display:none}}
+/* شاشة متسابقي ديوان الحفاظ: أربعة صناديق للمراحل (الأول/الثاني/الثالث/القرآن كاملاً) بدل الجدول */
+.diwan-stage-board{display:grid;grid-template-columns:1fr;gap:16px;padding:16px}
+@media(min-width:900px){.diwan-stage-board{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1750px){.diwan-stage-board{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.diwan-stage-box{display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-top:4px solid var(--green-600);border-radius:12px;background:var(--surface)}
+.diwan-stage-box.stage-4{border-top-color:var(--gold-600)}
+.diwan-stage-head{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--green-50)}
+.diwan-stage-head h3{margin:0;font-size:16px}
+.diwan-stage-head small{color:var(--muted);font-size:11px}
+.diwan-stage-num{width:38px;height:38px;flex:0 0 auto;border-radius:50%;background:var(--green-800);color:#fff;display:grid;place-items:center;font-weight:800}
+.diwan-stage-box.stage-4 .diwan-stage-num{background:var(--gold-600)}
+.diwan-stage-count{margin-inline-start:auto;font-size:22px;color:var(--green-800)}
+.diwan-stage-chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px 0}
+.diwan-stage-chip{font-size:10px;padding:4px 8px;border-radius:12px;background:#eef1ef;color:var(--muted);font-weight:700}
+.diwan-stage-chip.is-pending{background:var(--gold-soft);color:var(--gold-600)}
+.diwan-stage-chip.is-failed{background:var(--red-soft);color:var(--red)}
+.diwan-stage-chip.is-certified{background:var(--green-50);color:var(--green-800)}
+.diwan-stage-list{display:grid;gap:10px;align-content:start;padding:12px 16px 16px;max-height:560px;overflow:auto}
+.diwan-stage-empty{margin:0;padding:24px 8px;text-align:center;color:var(--muted);font-size:12px}
+.diwan-card{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.diwan-card.is-failed{border-color:var(--red)}
+.diwan-card.is-certified{border-color:var(--green-600)}
+.diwan-card-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.diwan-card-top b{font-size:14px}
+.diwan-card-seat{font-size:11px;color:var(--muted);white-space:nowrap}
+.diwan-card-meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--muted)}
+.diwan-card-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.diwan-move-options{display:grid;gap:8px}
+.diwan-move-option{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.diwan-move-option small{color:var(--muted)}

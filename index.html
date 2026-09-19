@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260914-trial1">
+  <link rel="stylesheet" href="styles.css?v=20260919-cert5">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -41,6 +41,11 @@
           <div><span>استخدام مستقل</span><h2>تشغيل محلي لفرع آخر</h2><p>استيراد Excel، السحب والتقييم وتصدير النتائج. تبقى البيانات على هذا الجهاز فقط.</p></div>
           <button id="openLocalModeBtn" class="secondary-btn wide" type="button" onclick="openLocalMode()">بدء الاستخدام المحلي</button>
           <small><i data-lucide="hard-drive-download"></i> احفظ نسخة احتياطية دورياً؛ حذف بيانات المتصفح قد يفقد البيانات.</small>
+        </article>
+        <article class="gateway-option local-option">
+          <div class="gateway-icon"><i data-lucide="flask-conical"></i></div>
+          <div><span>للتجربة والتدريب فقط</span><h2>اختبار تجريبي</h2><p>بلا تسجيل دخول، برمز PIN مشترك فقط — بيانات لحظية تُحذف تفاصيلها فور اعتماد العلامة.</p></div>
+          <button id="openTrialModeBtn" class="secondary-btn wide" type="button" onclick="openTrialScreen()">فتح القسم التجريبي</button>
         </article>
       </div>
       <div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>
@@ -165,6 +170,18 @@
     </main>
   </section>
 
+  <section id="trialStandaloneScreen" class="auth-screen hidden trial-standalone-screen">
+    <div class="trial-standalone-topbar">
+      <button id="trialBackBtn" class="icon-btn" type="button" title="رجوع"><i data-lucide="arrow-right"></i></button>
+      <img class="trial-standalone-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
+      <b>اختبار تجريبي</b>
+    </div>
+    <div class="trial-standalone-body">
+      <div class="page-head"><div><span class="eyebrow">حساب دخول مشترك · بيانات لحظية غير مرتبطة بأي دورة</span><h1>اختبار تجريبي</h1><p>قسم تدريبي مستقل: أضف متسابقاً، اختر أي عدد من الأجزاء وأي عدد من المواضع داخل كل جزء، ثم اعتمد العلامة. تُحذف كل تفاصيل السحب والتقييم فور الاعتماد، ويبقى الاسم والمستوى والعلامة فقط. كل من يُضاف هنا يظهر تلقائياً ضمن "لجنة اختبار مؤقتة".</p></div><div class="page-actions"><button id="trialChangePinBtn" class="secondary-btn"><i data-lucide="key-round"></i> تغيير رمز الدخول</button><button id="addTrialParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
+      <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="trialParticipantSearch" placeholder="بحث بالاسم أو رقم الجلوس"></div><span id="trialParticipantCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>المستوى</th><th>اللجنة</th><th>الحالة</th><th>العلامة</th><th>الإجراءات</th></tr></thead><tbody id="trialParticipantsTable"></tbody></table></div></section>
+    </div>
+  </section>
+
   <div id="app" class="app hidden">
     <aside class="sidebar">
       <div class="sidebar-brand">
@@ -176,7 +193,6 @@
         <button class="nav-item" data-view="participants"><i data-lucide="users"></i><span>المتسابقون</span></button>
         <button class="nav-item" data-view="draw"><i data-lucide="sparkles"></i><span>إجراء السحب</span></button>
         <button class="nav-item" data-view="diwan"><i data-lucide="book-open-check"></i><span>اختبارات ديوان الحفاظ</span></button>
-        <button class="nav-item" data-view="trial"><i data-lucide="flask-conical"></i><span>اختبار تجريبي</span></button>
         <button class="nav-item" data-view="history"><i data-lucide="history"></i><span>سجل السحوبات</span></button>
         <button class="nav-item" data-view="examDuration"><i data-lucide="timer"></i><span>مدة الاختبار</span></button>
         <button class="nav-item" data-view="monitor"><i data-lucide="eye"></i><span>مراقبة حية</span></button>
@@ -262,18 +278,13 @@
         </section>
 
         <section id="diwanView" class="view">
-          <div class="page-head"><div><span class="eyebrow">مستقل تماماً عن المسابقة السنوية</span><h1>اختبارات ديوان الحفاظ - فرع الكورة</h1><p>تصديق حفظ القرآن الكريم كاملاً عبر أربع مراحل متتالية (١، ٢، ٣، النهائي) — كل مرحلة ١٠ أجزاء جديدة عدا النهائي (القرآن كاملاً)، بعلامة نجاح ٨٠.</p></div><div class="page-actions"><button id="diwanSyncCommitteesBtn" class="secondary-btn hidden"><i data-lucide="refresh-cw"></i> تحديث نتائج اللجان</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استيراد Excel<input id="diwanImportInput" type="file" accept=".xlsx,.xls,.csv"></label><button id="diwanExportBtn" class="secondary-btn"><i data-lucide="file-spreadsheet"></i> تصدير Excel</button><button id="diwanBulkPdfBtn" class="secondary-btn"><i data-lucide="files"></i> حفظ PDF</button><button id="addDiwanParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
+          <div class="page-head"><div><span class="eyebrow">مستقل تماماً عن المسابقة السنوية</span><h1>اختبارات ديوان الحفاظ - فرع الكورة</h1><p>تصديق حفظ القرآن الكريم كاملاً عبر أربع مراحل متتالية (١، ٢، ٣، النهائي) — كل مرحلة ١٠ أجزاء تختارها الإدارة عدا النهائي (القرآن كاملاً)، بعلامة نجاح ٨٥. الانتقال بين المراحل تلقائي حسب العلامة، ويمكن للإدارة نقل أي متسابق إلى أي مرحلة يدوياً.</p></div><div class="page-actions"><button id="diwanSyncCommitteesBtn" class="secondary-btn hidden"><i data-lucide="refresh-cw"></i> تحديث نتائج اللجان</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استيراد Excel<input id="diwanImportInput" type="file" accept=".xlsx,.xls,.csv"></label><button id="diwanExportBtn" class="secondary-btn"><i data-lucide="file-spreadsheet"></i> تصدير Excel</button><button id="diwanBulkPdfBtn" class="secondary-btn"><i data-lucide="files"></i> حفظ PDF</button><button id="addDiwanParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
           <div class="stats-grid">
             <article class="stat"><div class="stat-icon green"><i data-lucide="users"></i></div><div><span>إجمالي المتسابقين</span><b id="diwanStatTotal">0</b></div></article>
             <article class="stat"><div class="stat-icon gold"><i data-lucide="clipboard-check"></i></div><div><span>امتُحن</span><b id="diwanStatExamined">0</b></div></article>
             <article class="stat"><div class="stat-icon slate"><i data-lucide="award"></i></div><div><span>نسبة الحفّاظ المعتمدين</span><b id="diwanStatPassRate">0%</b></div></article>
           </div>
-          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanParticipantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="diwanStatusFilter"><option value="all">جميع الحالات</option></select><select id="diwanGenderFilter"><option value="all">الجنس: الكل</option></select><select id="diwanCenterFilter"><option value="all">المركز: الكل</option></select><select id="diwanStageFilter"><option value="all">المرحلة: الكل</option></select><select id="diwanCommitteeFilter"><option value="all">اللجنة: الكل</option></select><span id="diwanParticipantCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>الجنس</th><th>المركز</th><th>المرحلة</th><th>اللجنة</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody id="diwanParticipantsTable"></tbody></table></div></section>
-        </section>
-
-        <section id="trialView" class="view">
-          <div class="page-head"><div><span class="eyebrow">حساب دخول مشترك · بيانات لحظية غير مرتبطة بأي دورة</span><h1>اختبار تجريبي</h1><p>قسم تدريبي مستقل: أضف متسابقاً، اختر أي عدد من الأجزاء وأي عدد من المواضع داخل كل جزء، ثم اعتمد العلامة. تُحذف كل تفاصيل السحب والتقييم فور الاعتماد، ويبقى الاسم والمستوى والعلامة فقط. كل من يُضاف هنا يظهر تلقائياً ضمن "لجنة اختبار مؤقتة".</p></div><div class="page-actions"><button id="trialChangePinBtn" class="secondary-btn"><i data-lucide="key-round"></i> تغيير رمز الدخول</button><button id="addTrialParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
-          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="trialParticipantSearch" placeholder="بحث بالاسم أو رقم الجلوس"></div><span id="trialParticipantCount" class="filter-result-count">0 متسابق</span></div><div class="table-wrap"><table><thead><tr><th>رقم الجلوس</th><th>اسم المتسابق</th><th>المستوى</th><th>اللجنة</th><th>الحالة</th><th>العلامة</th><th>الإجراءات</th></tr></thead><tbody id="trialParticipantsTable"></tbody></table></div></section>
+          <section class="panel table-panel"><div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanParticipantSearch" placeholder="بحث بالاسم أو رقم الجلوس أو المركز"></div><select id="diwanStatusFilter"><option value="all">جميع الحالات</option></select><select id="diwanGenderFilter"><option value="all">الجنس: الكل</option></select><select id="diwanCenterFilter"><option value="all">المركز: الكل</option></select><select id="diwanCommitteeFilter"><option value="all">اللجنة: الكل</option></select><span id="diwanParticipantCount" class="filter-result-count">0 متسابق</span></div><div id="diwanStageBoard" class="diwan-stage-board"></div></section>
         </section>
 
         <section id="historyView" class="view">
@@ -327,7 +338,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260914-trial1"></script>
-  <script src="app.js?v=20260914-trial1"></script>
+  <script src="cloud.js?v=20260919-cert5"></script>
+  <script src="app.js?v=20260919-cert5"></script>
 </body>
 </html>
