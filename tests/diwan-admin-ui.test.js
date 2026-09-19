@@ -212,8 +212,18 @@ async function run() {
   {
     sandbox.renderDiwanParticipants();
     const boardHtml = queryElement("#diwanStageBoard").innerHTML;
-    assert.strictEqual((boardHtml.match(/class="diwan-stage-box stage-/g) || []).length, 4, "أربعة صناديق للمراحل");
-    assert.ok(boardHtml.includes("data-diwan-move-stage"), "زر النقل اليدوي لمرحلة موجود لكل متسابق");
+    assert.strictEqual((boardHtml.match(/data-open-stage="/g) || []).length, 4, "أربعة صناديق ملخّص للمراحل");
+    assert.ok(!boardHtml.includes("data-diwan-move-stage") && !boardHtml.includes("خالد"), "الصناديق أعداد فقط بلا بطاقات متسابقين");
+    sandbox.openDiwanStage(4);
+    const stagePageHtml = queryElement("#diwanStageParticipants").innerHTML;
+    assert.ok(stagePageHtml.includes("خالد") && stagePageHtml.includes("data-diwan-move-stage"), "صفحة المرحلة تعرض متسابقيها ببطاقات فيها زر النقل اليدوي لمرحلة");
+    assert.ok(!stagePageHtml.includes("أحمد"), "صفحة المرحلة 4 لا تعرض متسابقي مراحل أخرى");
+    sandbox.closeDiwanStage();
+    queryElement("#diwanParticipantSearch").value = "خالد";
+    sandbox.renderDiwanParticipants();
+    assert.ok(queryElement("#diwanSearchResults").innerHTML.includes("خالد"), "البحث السريع يعرض النتيجة من أي مرحلة");
+    queryElement("#diwanParticipantSearch").value = "";
+    sandbox.renderDiwanParticipants();
     const pm = { id: "DP9", name: "سلمى", seat: "009", serialNumber: "S-009", gender: "أنثى", center: "مركز", stage: 2, usedJuz: [1,2,3,4,5,6,7,8,9,10], parts: [11,12,13,14,15,16,17,18,19,20], level: 10, createdAt: new Date().toISOString() };
     vm.runInContext('diwanState.participants.push(__p);', Object.assign(sandbox, { __p: pm }));
     const dOld = { id: "DDRAW-M1", participantId: "DP9", stage: 1, eligibleParts: [1,2,3,4,5,6,7,8,9,10], createdAt: "2026-01-01T00:00:00Z" };

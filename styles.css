@@ -1104,8 +1104,9 @@ img,svg{max-width:100%}
 /* شاشة متسابقي ديوان الحفاظ: أربعة صناديق للمراحل (الأول/الثاني/الثالث/القرآن كاملاً) بدل الجدول */
 .diwan-stage-board{display:grid;grid-template-columns:1fr;gap:16px;padding:16px}
 @media(min-width:900px){.diwan-stage-board{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(min-width:1750px){.diwan-stage-board{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.diwan-stage-box{display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-top:4px solid var(--green-600);border-radius:12px;background:var(--surface)}
+@media(min-width:1500px){.diwan-stage-board{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.diwan-stage-box{display:flex;flex-direction:column;overflow:hidden;width:100%;padding:0;font:inherit;color:inherit;text-align:start;cursor:pointer;border:1px solid var(--line);border-top:4px solid var(--green-600);border-radius:12px;background:var(--surface);transition:transform .15s,box-shadow .15s}
+.diwan-stage-box:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
 .diwan-stage-box.stage-4{border-top-color:var(--gold-600)}
 .diwan-stage-head{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--green-50)}
 .diwan-stage-head h3{margin:0;font-size:16px}
@@ -1131,3 +1132,12 @@ img,svg{max-width:100%}
 .diwan-move-options{display:grid;gap:8px}
 .diwan-move-option{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
 .diwan-move-option small{color:var(--muted)}
+.diwan-stage-titles{display:flex;flex-direction:column;gap:2px}
+.diwan-stage-titles strong{font-size:16px}
+.diwan-stage-open{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding:12px 16px;border-top:1px solid var(--line);color:var(--green-800);font-size:12px;font-weight:700}
+.diwan-stage-participants{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-content:start;padding:16px}
+.diwan-stage-participants .diwan-stage-empty{grid-column:1/-1}
+.diwan-stage-page-head{display:flex;align-items:center;gap:16px;padding:16px;border-bottom:1px solid var(--line)}
+.diwan-stage-page-head h2{margin:0;font-size:20px}
+.diwan-stage-page-head small{color:var(--muted)}
+.diwan-card-stage{font-weight:800;color:var(--green-800)}
