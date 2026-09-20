@@ -1777,17 +1777,19 @@ function diwanHafizCertificateHtml(participant,draw,session,logos={}){
       </div>
       <div class="hc-rule"><i></i></div>
       <div class="hc-title">${female?"شهادة حافظة":"شهادة حافظ"}</div>
+      <div class="hc-mid">
       <div class="hc-info">
-        ${cell(female?"اسم الطالبة":"اسم الطالب",name,"hc-span",fit(participant.name,16,470,11))}
+        ${cell(female?"اسم الطالبة":"اسم الطالب",name,"hc-span",fit(participant.name,16,520,11))}
         ${cell("الرقم",escapeHtml(participant.seat||""))}${cell("المركز",center,"",fit(participant.center,16,190,10))}
         ${cell("المستوى",level,"",fit(diwanDocLevelText(draw),16,190,10))}${cell("تاريخ الاختبار",`<bdi dir="ltr">${date.day}/${date.month}/${date.year}</bdi>`)}
       </div>
-      <div class="hc-section">الأجزاء المشمولة في الاختبار</div>
-      <div class="hc-parts">${parts}</div>
       <div class="hc-score">
         <div class="hc-score-row"><span>العلامة:</span><b dir="ltr">${score}${incomplete?"":` <em>/ 100</em>`}</b></div>
         <div class="hc-score-row"><span>النتيجة:</span><strong class="hc-badge${incomplete?" is-warn":""}">${incomplete?"غير مكتمل":"ناجح"}</strong></div>
       </div>
+      </div>
+      <div class="hc-section">الأجزاء المشمولة في الاختبار</div>
+      <div class="hc-parts">${parts}</div>
       <div class="hc-stars"><i>✦</i><i>✦</i><i>✦</i></div>
       <p class="hc-body">${body}</p>
       <p class="hc-place">في دير أبي سعيد بتاريخ: <b><bdi dir="ltr">${date.day}/${date.month}/${date.year}</bdi></b></p>
@@ -1820,7 +1822,7 @@ async function downloadDiwanDocumentPdf(html,filenamePrefix){
     const wrapper=document.createElement("div");wrapper.innerHTML=html;
     const clone=wrapper.firstElementChild;document.body.appendChild(clone);
     // ننتظر الخطوط والصور قبل الالتقاط، وإلا يُلتقط النص بخط بديل أو الخلفية ناقصة.
-    try{await document.fonts?.ready}catch{}
+    try{await Promise.all(["400 20px 'HC Amiri'","700 20px 'HC Amiri'","500 14px 'HC Tajawal'","700 16px 'HC Tajawal'","800 30px 'HC Tajawal'"].map(font=>document.fonts.load(font,"بسم الله 0123")));await document.fonts.ready}catch{}
     await Promise.all([...clone.querySelectorAll("img")].map(img=>img.decode?img.decode().catch(()=>{}):null));
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     // دقة عالية: القالب الأصلي 1241×1754 (150dpi)، والصفحة 794px عرضاً، فمقياس ٤ يعطي ~3176px (نص حاد عند التكبير/الطباعة). الجوال بمقياس ٣ حتى لا يتجاوز حد الـcanvas.
@@ -1828,7 +1830,7 @@ async function downloadDiwanDocumentPdf(html,filenamePrefix){
     const canvas=await window.html2canvas(clone,{scale:captureScale,useCORS:false,allowTaint:false,backgroundColor:"#ffffff",logging:false});
     clone.remove();
     if(!canvas.width||!canvas.height)throw new Error("تعذر إنشاء المستند");
-    const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
+    const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:canvas.width>canvas.height?"landscape":"portrait",unit:"mm",format:"a4",compress:true});
     pdf.addImage(canvas.toDataURL("image/jpeg",.97),"JPEG",0,0,pdf.internal.pageSize.getWidth(),pdf.internal.pageSize.getHeight(),undefined,"SLOW");
     const blob=pdf.output("blob");if(!blob.size)throw new Error("تم إنشاء ملف فارغ");
     const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${filenamePrefix}-${dateStamp()}.pdf`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
