@@ -202,7 +202,12 @@ async function run() {
     assert.strictEqual((finalCert.match(/hc-part is-marked/g) || []).length, 30, "الاختبار النهائي: كل الأجزاء الثلاثين مظلَّلة");
     assert.ok(!finalCert.includes(">0007<") && finalCert.includes(">S-007<"), "لا يُطبع رقم شهادة؛ الرقم التسلسلي وحده يظهر");
     const recHtml = sandbox.diwanRecommendationHtml(p, { stage: 2, eligibleParts: tenParts }, { status: "final", score: 70, assessment: { recommendation: ["نقطة أولى", "نقطة ثانية"] } }, "data:,");
-    assert.ok(recHtml.includes('<span class="diwan-doc-rec-num">1.</span>نقطة أولى') && recHtml.includes('<span class="diwan-doc-rec-num">2.</span>نقطة ثانية'), "التوصية تُطبع كنقاط مرقّمة");
+    assert.ok(recHtml.includes('<span class="hc-rec-num">1.</span>نقطة أولى') && recHtml.includes('<span class="hc-rec-num">2.</span>نقطة ثانية'), "التوصية تُطبع كنقاط مرقّمة");
+    // توصية الإدارة (draw.adminRecommendation) تُقدَّم على توصية اللجنة، وتُستخدم حتى لو نسيتها اللجنة
+    const recAdmin = sandbox.diwanRecommendationHtml(p, { stage: 2, eligibleParts: tenParts, adminRecommendation: ["نقطة الإدارة"] }, { status: "final", score: 70, assessment: { recommendation: ["نقطة اللجنة"] } }, "data:,");
+    assert.ok(recAdmin.includes("نقطة الإدارة") && !recAdmin.includes("نقطة اللجنة"), "توصية الإدارة تحل محل توصية اللجنة");
+    const recForgot = sandbox.diwanRecommendationHtml(p, { stage: 2, eligibleParts: tenParts, adminRecommendation: ["كتبتها الإدارة"] }, { status: "final", score: 70, assessment: {} }, "data:,");
+    assert.ok(recForgot.includes("كتبتها الإدارة"), "تُطبع توصية الإدارة حين لا توجد توصية من اللجنة");
     assert.ok(recHtml.includes("الاختبار الثاني"), "عنوان الاختبار الفرعي بقالب التوصية يتبع مرحلة المحاولة");
     const recIncomplete = sandbox.diwanRecommendationHtml(p, { stage: 4, eligibleParts: [1] }, { status: "final", score: 100, assessment: { incomplete: true } }, "data:,");
     assert.ok(recIncomplete.includes("غير مكتمل"), "«غير مكتمل» يظهر بدل الرقم الداخلي");

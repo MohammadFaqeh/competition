@@ -1209,3 +1209,19 @@ img,svg{max-width:100%}
 .hc-foot-sign{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .hc-foot-sign small{font-size:12px}
 .hc-foot-sign b{font:800 21px 'HC Tajawal',sans-serif}
+
+/* توصية اللجنة (نفس قالب الشهادة الأفقي) */
+.hc-rec .hc-title{height:62px;flex-direction:column;gap:0;line-height:1.25}
+.hc-title-sub{font:500 15px 'HC Tajawal',sans-serif;color:#f0ebdc}
+.hc-rec .hc-mid{margin-top:12px}
+.hc-rec .hc-section{margin-top:10px}
+.hc-rec .hc-parts{grid-template-rows:30px 30px;margin-top:6px}
+.hc-badge.is-outline{background:#faf7eb;color:#163726;border-color:#b8903f}
+.hc-rec-box{list-style:none;margin:10px 0 0;padding:6px 18px;background:#eee6d2;border:1px solid #b8903f;border-radius:10px}
+.hc-rec-box li{height:28px;line-height:27px;border-bottom:1px dotted #9a7430;font:500 15px 'HC Tajawal',sans-serif;color:#1a1a1a;white-space:nowrap;overflow:hidden}
+.hc-rec-box li:last-child{border-bottom:0}
+.hc-rec-num{display:inline-block;width:26px;font-weight:800;color:#163726}
+.hc-blank-row{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:8px}
+.hc-blank-row.is-one{grid-template-columns:1fr;margin-top:2px}
+.hc-blank-row p{display:flex;align-items:flex-end;gap:8px;margin:0;font-size:14px;height:24px}
+.hc-blank-row p i{flex:1;border-bottom:1px dotted #9a7430;height:16px}
