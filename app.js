@@ -1752,18 +1752,50 @@ function diwanDocScoreHtml(session,geometry){
 function diwanDocSerialHtml(participant){
   return diwanDocBox(638,1598,190,34,escapeHtml(diwanSerialOf(participant)),"diwan-doc-value diwan-doc-small");
 }
-// شهادة النجاح: قالب «عشرة أجزاء» لمراحل ١-٣ وقالب «القرآن كاملاً» للاختبار النهائي، والأجزاء المظلَّلة من سحب المحاولة نفسها.
-function diwanHafizCertificateHtml(participant,draw,session,backgroundDataUrl){
-  const geometry=DIWAN_DOC_GEOMETRY.certificate,date=diwanDocDateParts(session?.finalized_at);
-  return `<div class="pdf-export-sheet diwan-doc-sheet">
-    <img class="diwan-doc-bg" src="${escapeAttr(backgroundDataUrl)}" alt="">
-    ${diwanDocInfoTableHtml(participant,draw,session,geometry)}
-    ${diwanDocPartsGridHtml(new Set(draw?.eligibleParts||[]),geometry.grid)}
-    ${diwanDocScoreHtml(session,geometry)}
-    ${diwanDocBox(200,991,247,42,escapeHtml(participant.name),"diwan-doc-value",diwanDocFitStyle(participant.name,17,247,9))}
-    ${diwanDocBox(846,1063,192,42,escapeHtml(participant.center||""),"diwan-doc-value",diwanDocFitStyle(participant.center,17,192,9))}
-    ${diwanDocBox(583,1225,50,40,date.day,"diwan-doc-value")}${diwanDocBox(526,1225,48,40,date.month,"diwan-doc-value")}${diwanDocBox(442,1225,66,40,date.year,"diwan-doc-value")}
-    ${diwanDocSerialHtml(participant)}
+// شهادة الحافظ: HTML/CSS خالص (بلا صورة خلفية) بنفس تصميم القالب القديم — النص والحدود والشبكة متجهية فتخرج حادّة، وتُملأ الحقول مباشرة بلا إحداثيات.
+// الصياغة تتبع جنس المشارك (الطالبة/الطالب…)، والأجزاء المظلَّلة من سحب المحاولة نفسها. logos = {association, diwan} بصيغة data URL.
+function diwanHafizCertificateHtml(participant,draw,session,logos={}){
+  const female=participant.gender!=="ذكر",isFinal=draw?.stage===4,date=diwanDocDateParts(session?.finalized_at);
+  const marked=new Set(draw?.eligibleParts||[]);
+  const fit=(text,base,width,min=10)=>`font-size:${Math.max(min,base*Math.min(1,(width-10)/(Math.max(String(text||"").length,1)*base*.56))).toFixed(1)}px`;
+  const cell=(label,value,extraClass="",style="")=>`<div class="hc-label">${label}</div><div class="hc-value ${extraClass}" style="${style}">${value}</div>`;
+  const name=escapeHtml(participant.name||""),center=escapeHtml(participant.center||""),level=escapeHtml(diwanDocLevelText(draw));
+  const incomplete=Boolean(session?.assessment?.incomplete);
+  const score=incomplete?"غير مكتمل":formatAssessmentNumber(session?.score);
+  const parts=Array.from({length:30},(_,index)=>{const n=index+1,row=n<=15?1:2,col=n<=15?n:n-15;return `<i class="hc-part${marked.has(n)?" is-marked":""}" style="grid-row:${row};grid-column:${col}">${n}</i>`}).join("");
+  const body=isFinal
+    ?`تشهد جمعيّة المحافظة على القرآن الكريم / فرع الكورة أنّ ${female?"الطالبة":"الطالب"}: <u class="hc-fill" style="${fit(participant.name,19,340,13)}">${name}</u>، من مركز: <u class="hc-fill" style="${fit(participant.center,19,190,12)}">${center}</u>، قد أتمّ${female?"ت":""} متطلبات الحصول على شهادة الحافظ لكتاب الله غيباً عن ظهر قلب، ونوصي ${female?"الحافظة":"الحافظ"} بتقوى الله والتخلّق بأخلاق القرآن الكريم.`
+    :`تشهد جمعيّة المحافظة على القرآن الكريم / فرع الكورة أنّ ${female?"الطالبة":"الطالب"}: <u class="hc-fill" style="${fit(participant.name,19,340,13)}">${name}</u>، من مركز: <u class="hc-fill" style="${fit(participant.center,19,190,12)}">${center}</u>، قد أتمّ${female?"ت":""} متطلبات الحصول على شهادة حفظ عشرة أجزاء، ونوصي${female?"ها":"ه"} بتقوى الله والتخلّق بأخلاق القرآن الكريم.`;
+  return `<div class="pdf-export-sheet diwan-doc-sheet hc-sheet">
+    <div class="hc-frame"></div>
+    <div class="hc-inner">
+      <div class="hc-bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+      <div class="hc-head">
+        ${logos.association?`<img class="hc-logo" src="${escapeAttr(logos.association)}" alt="">`:`<span class="hc-logo"></span>`}
+        <div class="hc-head-text"><small>المملكة الأردنية الهاشمية</small><b>جمعيّة المحافظة على القرآن الكريم</b><span>فرع لواء الكورة — ${female?"ديوان الحافظات":"ديوان الحفاظ"}</span></div>
+        ${logos.diwan?`<img class="hc-logo hc-logo-diwan" src="${escapeAttr(logos.diwan)}" alt="">`:`<span class="hc-logo"></span>`}
+      </div>
+      <div class="hc-rule"><i></i></div>
+      <div class="hc-title">${female?"شهادة حافظة":"شهادة حافظ"}</div>
+      <div class="hc-info">
+        ${cell(female?"اسم الطالبة":"اسم الطالب",name,"hc-span",fit(participant.name,16,470,11))}
+        ${cell("الرقم",escapeHtml(participant.seat||""))}${cell("المركز",center,"",fit(participant.center,16,190,10))}
+        ${cell("المستوى",level,"",fit(diwanDocLevelText(draw),16,190,10))}${cell("تاريخ الاختبار",`<bdi dir="ltr">${date.day}/${date.month}/${date.year}</bdi>`)}
+      </div>
+      <div class="hc-section">الأجزاء المشمولة في الاختبار</div>
+      <div class="hc-parts">${parts}</div>
+      <div class="hc-score">
+        <div class="hc-score-row"><span>العلامة:</span><b dir="ltr">${score}${incomplete?"":` <em>/ 100</em>`}</b></div>
+        <div class="hc-score-row"><span>النتيجة:</span><strong class="hc-badge${incomplete?" is-warn":""}">${incomplete?"غير مكتمل":"ناجح"}</strong></div>
+      </div>
+      <div class="hc-stars"><i>✦</i><i>✦</i><i>✦</i></div>
+      <p class="hc-body">${body}</p>
+      <p class="hc-place">في دير أبي سعيد بتاريخ: <b><bdi dir="ltr">${date.day}/${date.month}/${date.year}</bdi></b></p>
+      <div class="hc-foot">
+        <div class="hc-foot-numbers"><p><span>رقم الشهادة:</span><b></b></p><p><span>الرقم التسلسلي:</span><b>${escapeHtml(diwanSerialOf(participant))}</b></p></div>
+        <div class="hc-foot-sign"><small>مدير الفرع</small><b>قيس العوايشة</b></div>
+      </div>
+    </div>
   </div>`;
 }
 // توصية اللجنة: نقاط مرقّمة (حتى ٥) على أسطر الصندوق المنقّط بالقالب، والأجزاء المظلَّلة هي أجزاء المحاولة.
@@ -1803,13 +1835,33 @@ async function downloadDiwanDocumentPdf(html,filenamePrefix){
     toast("تم تنزيل المستند");
   }catch(error){toast(`تعذر إنشاء المستند: ${error.message}`)}
 }
+// شعار الديوان JPG بخلفية بيضاء: نحوّل الأبيض إلى شفافية ناعمة كي يندمج مع لون الشهادة بلا مربع أبيض حوله.
+function whiteToTransparentDataUrl(src){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{try{
+      const canvas=document.createElement("canvas");canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+      const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0);
+      const frame=ctx.getImageData(0,0,canvas.width,canvas.height),px=frame.data;
+      for(let i=0;i<px.length;i+=4){
+        const alpha=255-Math.min(px[i],px[i+1],px[i+2]);
+        if(alpha<=0){px[i+3]=0;continue}
+        const k=255/alpha;
+        px[i]=Math.max(0,Math.min(255,255-(255-px[i])*k));px[i+1]=Math.max(0,Math.min(255,255-(255-px[i+1])*k));px[i+2]=Math.max(0,Math.min(255,255-(255-px[i+2])*k));px[i+3]=alpha;
+      }
+      ctx.putImageData(frame,0,0);resolve(canvas.toDataURL("image/png"));
+    }catch{resolve(src)}};
+    img.onerror=()=>resolve(src);
+    img.src=src;
+  });
+}
 async function downloadDiwanCertificate(participant,draw){
   if(!participant||!draw)return toast("تعذر تحديد السحب المطلوب");
   const session=diwanSessionForDraw(draw);
   if(!session||session.status!=="final"||session.assessment?.incomplete||Number(session.score)<DIWAN_PASS_SCORE)return toast("لا توجد نتيجة ناجحة معتمدة لهذه المحاولة");
   const safeName=String(participant.name||"مشارك").replace(/[\\/:*?"<>|]/g,"-");
-  const bg=await preloadImageAsDataUrl(DIWAN_DOC_TEMPLATES.certificate[draw.stage===4?"final":"stage"]);
-  await downloadDiwanDocumentPdf(diwanHafizCertificateHtml(participant,draw,session,bg),draw.stage===4?`شهادة-حافظ-${safeName}`:`شهادة-${DIWAN_STAGE_LABELS[draw.stage]}-${safeName}`);
+  const [association,diwan]=await Promise.all([preloadImageAsDataUrl("assets/association-logo.png"),preloadImageAsDataUrl("assets/diwan-logo.jpg").then(whiteToTransparentDataUrl)]);
+  await downloadDiwanDocumentPdf(diwanHafizCertificateHtml(participant,draw,session,{association,diwan}),draw.stage===4?`شهادة-حافظ-${safeName}`:`شهادة-${DIWAN_STAGE_LABELS[draw.stage]}-${safeName}`);
 }
 async function downloadDiwanRecommendation(participant,draw,sessionOverride=null){
   if(!participant||!draw)return toast("تعذر تحديد السحب المطلوب");

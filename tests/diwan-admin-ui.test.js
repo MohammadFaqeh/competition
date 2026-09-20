@@ -195,11 +195,11 @@ async function run() {
     const stageDraw10 = { id: "DDRAW-T10", participantId: "DP7", stage: 1, eligibleParts: tenParts, createdAt: new Date().toISOString() };
     const stageCert = sandbox.diwanHafizCertificateHtml(p3, stageDraw10, { score: 91, finalized_at: "2026-03-05T10:00:00Z" }, "data:image/png;base64,AA==");
     assert.ok(stageCert.includes(">S-007<"), "الرقم التسلسلي يظهر بخانته بالشهادة");
-    assert.strictEqual((stageCert.match(/diwan-doc-cell marked/g) || []).length, 10, "تُظلَّل بالضبط الأجزاء العشرة المسجَّلة بسحب الاختبار");
-    assert.ok(/diwan-doc-cell marked[^>]*>30</.test(stageCert) && !/diwan-doc-cell marked[^>]*>1</.test(stageCert), "الجزء 30 مظلَّل والجزء 1 لا");
+    assert.strictEqual((stageCert.match(/hc-part is-marked/g) || []).length, 10, "تُظلَّل بالضبط الأجزاء العشرة المسجَّلة بسحب الاختبار");
+    assert.ok(/hc-part is-marked[^>]*>30</.test(stageCert) && !/hc-part is-marked[^>]*>1</.test(stageCert), "الجزء 30 مظلَّل والجزء 1 لا");
     assert.ok(stageCert.includes("دعاء") && stageCert.includes("05/03/2026") && stageCert.includes("مركز"), "الاسم والتاريخ والمركز تُعبَّأ");
     const finalCert = sandbox.diwanHafizCertificateHtml({ ...p3, certificateNumber: 7 }, { stage: 4, eligibleParts: Array.from({length:30},(_,i)=>i+1) }, { score: 90, finalized_at: "2026-03-05T10:00:00Z" }, "data:,");
-    assert.strictEqual((finalCert.match(/diwan-doc-cell marked/g) || []).length, 30, "الاختبار النهائي: كل الأجزاء الثلاثين مظلَّلة");
+    assert.strictEqual((finalCert.match(/hc-part is-marked/g) || []).length, 30, "الاختبار النهائي: كل الأجزاء الثلاثين مظلَّلة");
     assert.ok(!finalCert.includes(">0007<") && finalCert.includes(">S-007<"), "لا يُطبع رقم شهادة؛ الرقم التسلسلي وحده يظهر");
     const recHtml = sandbox.diwanRecommendationHtml(p, { stage: 2, eligibleParts: tenParts }, { status: "final", score: 70, assessment: { recommendation: ["نقطة أولى", "نقطة ثانية"] } }, "data:,");
     assert.ok(recHtml.includes('<span class="diwan-doc-rec-num">1.</span>نقطة أولى') && recHtml.includes('<span class="diwan-doc-rec-num">2.</span>نقطة ثانية'), "التوصية تُطبع كنقاط مرقّمة");
