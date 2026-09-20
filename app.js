@@ -196,7 +196,7 @@ async function init(){
       else showScreen("setupScreen");
     }else{
       $("#loadingScreen").classList.add("hidden");
-      if(operationMode==="gateway")showScreen("gatewayScreen");
+      if(operationMode==="gateway"&&$("#trialStandaloneScreen").classList.contains("hidden"))showScreen("gatewayScreen");
     }
   }catch(error){
     $("#loadingScreen").classList.remove("hidden");
@@ -234,7 +234,7 @@ async function ensureDiwanStateLoaded(){
       diwanAdminSessions=sessions;
       mergeFinalDiwanSessionsIntoState(sessions);
       safeSetItem(DIWAN_STORAGE_KEY,JSON.stringify(diwanState));
-    }catch(error){toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
+    }catch(error){diwanStateLoaded=false;toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
   }
 }
 // آخر سحب للمشارك بمرحلته الحالية تحديداً — قد يملك المشارك سحوباً أقدم من مراحل سابقة (نجح
@@ -284,10 +284,10 @@ function mergeFinalDiwanSessionsIntoState(sessions){
 // يعمل فقط أثناء فتح صفحة ديوان الحفاظ مع تفعيل «التحديث التلقائي المباشر»: يجلب النتائج الجديدة ويدمجها (نقل تلقائي بين المراحل) دون رسائل.
 let diwanQuietRefreshBusy=false;
 async function refreshDiwanResultsQuietly(){
-  if(diwanQuietRefreshBusy||!diwanStateLoaded||!$("#diwanView")?.classList.contains("active-view")||!$("#modal")?.classList.contains("hidden"))return;
+  if(diwanQuietRefreshBusy||document.hidden||!diwanStateLoaded||!$("#diwanView")?.classList.contains("active-view"))return;
   if(!(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin"))return;
   diwanQuietRefreshBusy=true;
-  try{const sessions=await window.DiwanCompetition.listSessions();diwanAdminSessions=sessions;if(mergeFinalDiwanSessionsIntoState(sessions))renderDiwanParticipants()}
+  try{const sessions=await window.DiwanCompetition.listSessions();diwanAdminSessions=sessions;if(mergeFinalDiwanSessionsIntoState(sessions)&&$("#modal")?.classList.contains("hidden"))renderDiwanParticipants()}
   catch(error){console.warn("Diwan quiet refresh failed",error)}
   finally{diwanQuietRefreshBusy=false}
 }
@@ -393,7 +393,10 @@ function bindEvents(){
     if(committeeAutoRefreshTimer)refreshCommitteeChanges();
     if(adminAutoRefreshTimer)refreshAdminChanges();
     if(issueReportsPollTimer)renderIssueReports();
+    refreshDiwanResultsQuietly();
   });
+  // نتائج لجان ديوان الحفاظ تُجلب دورياً طالما صفحة الديوان مفتوحة (بغض النظر عن إعداد التحديث المباشر) حتى تظهر العلامة ويتم الترحيل للمرحلة التالية فور اعتماد اللجنة.
+  setInterval(refreshDiwanResultsQuietly,8000);
   $$('[data-back-gateway]').forEach(button=>button.addEventListener("click",returnToGateway));
   $("#localBackupShortcut").addEventListener("click",downloadBackup);
   $("#setupForm").addEventListener("submit",setupApp);
@@ -539,7 +542,7 @@ function returnToGateway(){sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionSto
 async function openKouraMode(){operationMode="cloud";sessionStorage.setItem(ACTIVE_MODE_KEY,"cloud");state=loadState(CLOUD_STORAGE_KEY);applyModeBranding();$("#app").classList.remove("local-branch-app");const startup=await initializeCloud();if(!startup?.enabled){sessionStorage.removeItem(ACTIVE_MODE_KEY);return toast("تعذر الاتصال بنظام فرع الكورة حالياً")}cloudEnabled=true;if(startup.context)return enterCloudContext(startup.context);showScreen("cloudLoginScreen")}
 function openLocalMode(){operationMode="local";sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.removeItem(LOCAL_ACCESS_KEY);state=loadState(LOCAL_STORAGE_KEY);applyModeBranding();$("#app").classList.add("local-branch-app");if(!state.config){$("#setupCompetitionName").value="مسابقة تحفيظ القرآن الكريم";$("#setupAdminName").value="";showScreen("setupScreen")}else{$("#loginCompetitionName").textContent=state.config.competitionName;showScreen("loginScreen")}}
 function logout(){if(operationMode==="cloud")return cloudLogout();sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionStorage.removeItem(LOCAL_ACCESS_KEY);$("#app").classList.add("hidden");showScreen("gatewayScreen")}
-function showScreen(id){["gatewayScreen","setupScreen","loginScreen","cloudLoginScreen"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id));$("#committeeApp").classList.toggle("hidden",id!=="committeeApp");if(id)dockColorModeToggle(false);if(id&&!applyingBrowserHistory)recordBrowserRoute({surface:id==="committeeApp"?"committee":"screen",screen:id})}
+function showScreen(id){if(!$("#trialStandaloneScreen").classList.contains("hidden")){closeTrialAssessmentIfOpen();$("#trialStandaloneScreen").classList.add("hidden")}["gatewayScreen","setupScreen","loginScreen","cloudLoginScreen"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id));$("#committeeApp").classList.toggle("hidden",id!=="committeeApp");if(id)dockColorModeToggle(false);if(id&&!applyingBrowserHistory)recordBrowserRoute({surface:id==="committeeApp"?"committee":"screen",screen:id})}
 function currentViewKey(){return operationMode==="local"?`${LAST_ADMIN_VIEW_KEY}.local`:`${LAST_ADMIN_VIEW_KEY}.cloud`}
 function currentListUi(){return {participantSearch:$("#participantSearch")?.value||"",participantFilter:$("#participantFilter")?.value||"all",participantGenderFilter:$("#participantGenderFilter")?.value||"all",participantCenterFilter:$("#participantCenterFilter")?.value||"all",participantLevelFilter:$("#participantLevelFilter")?.value||"all",participantCommitteeFilter:$("#participantCommitteeFilter")?.value||"all",historySearch:$("#historySearch")?.value||"",committeeSearch:$("#committeeSearch")?.value||"",committeeStatusFilter:$("#committeeStatusFilter")?.value||"all",scrollY:Math.max(0,window.scrollY||0)}}
 // فلاتر جدول المتسابقين تبقى محفوظة دائماً عبر localStorage (طبقة ثانية فوق history.state، الذي يتصفّر عند تحديث الصفحة).
@@ -1784,12 +1787,17 @@ async function downloadDiwanDocumentPdf(html,filenamePrefix){
     await ensurePdfLibraries();
     const wrapper=document.createElement("div");wrapper.innerHTML=html;
     const clone=wrapper.firstElementChild;document.body.appendChild(clone);
+    // ننتظر الخطوط والصور قبل الالتقاط، وإلا يُلتقط النص بخط بديل أو الخلفية ناقصة.
+    try{await document.fonts?.ready}catch{}
+    await Promise.all([...clone.querySelectorAll("img")].map(img=>img.decode?img.decode().catch(()=>{}):null));
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    const canvas=await window.html2canvas(clone,{scale:2,useCORS:false,allowTaint:false,backgroundColor:"#ffffff",logging:false});
+    // دقة عالية: القالب الأصلي 1241×1754 (150dpi)، والصفحة 794px عرضاً، فمقياس ٤ يعطي ~3176px (نص حاد عند التكبير/الطباعة). الجوال بمقياس ٣ حتى لا يتجاوز حد الـcanvas.
+    const captureScale=window.matchMedia?.("(pointer:coarse)").matches?3:4;
+    const canvas=await window.html2canvas(clone,{scale:captureScale,useCORS:false,allowTaint:false,backgroundColor:"#ffffff",logging:false});
     clone.remove();
     if(!canvas.width||!canvas.height)throw new Error("تعذر إنشاء المستند");
     const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
-    pdf.addImage(canvas.toDataURL("image/jpeg",.92),"JPEG",0,0,pdf.internal.pageSize.getWidth(),pdf.internal.pageSize.getHeight());
+    pdf.addImage(canvas.toDataURL("image/jpeg",.97),"JPEG",0,0,pdf.internal.pageSize.getWidth(),pdf.internal.pageSize.getHeight(),undefined,"SLOW");
     const blob=pdf.output("blob");if(!blob.size)throw new Error("تم إنشاء ملف فارغ");
     const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`${filenamePrefix}-${dateStamp()}.pdf`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
     toast("تم تنزيل المستند");
@@ -1820,11 +1828,11 @@ function openDiwanAttemptHistory(participant){
     const session=sessionsByDrawId.get(draw.id);
     const stageLabel=DIWAN_STAGE_LABELS[draw.stage]||`مرحلة ${draw.stage}`;
     const passed=session?.status==="final"&&!session.assessment?.incomplete&&Number(session.score)>=DIWAN_PASS_SCORE;
-    const scoreText=!session?"بانتظار اللجنة":session.status!=="final"?"قيد الاختبار":session.assessment?.incomplete?"غير مكتمل":`${formatAssessmentNumber(session.score)} · ${passed?"ناجح":"راسب"}`;
+    const scoreText=!session?`<span class="state">بانتظار اللجنة</span>`:session.status!=="final"?`<span class="state drawn">قيد الاختبار</span>`:session.assessment?.incomplete?`<span class="state failed">غير مكتمل</span>`:`<b class="diwan-history-score">${formatAssessmentNumber(session.score)}</b> <span class="state ${passed?"completed":"failed"}">${passed?"ناجح":"راسب"}</span>`;
     const actionHtml=session?.status!=="final"?"":passed?`<button class="compact-btn" data-diwan-history-cert="${index}"><i data-lucide="award"></i> الشهادة</button>`:`<button class="compact-btn" data-diwan-history-rec="${index}"><i data-lucide="file-text"></i> التوصية</button>`;
-    return `<tr><td>${escapeHtml(stageLabel)}</td><td>${formatDate(draw.createdAt)}</td><td>${scoreText}</td><td>${actionHtml}</td></tr>`;
+    return `<tr><td class="nowrap">${escapeHtml(stageLabel)}</td><td class="nowrap">${formatDate(draw.createdAt)}</td><td class="nowrap">${scoreText}</td><td>${actionHtml}</td></tr>`;
   }).join("");
-  openModal(`<div class="modal-head"><h2>سجل محاولات ${escapeHtml(participant.name)}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="table-wrap"><table><thead><tr><th>المرحلة</th><th>تاريخ السحب</th><th>النتيجة</th><th>مستند</th></tr></thead><tbody>${rows||`<tr><td colspan="4" class="table-empty">لا يوجد سحب بعد</td></tr>`}</tbody></table></div></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button></div>`);
+  openModal(`<div class="modal-head"><h2>سجل محاولات ${escapeHtml(participant.name)}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="table-wrap"><table class="diwan-history-table"><thead><tr><th>المرحلة</th><th>تاريخ السحب</th><th>النتيجة</th><th>مستند</th></tr></thead><tbody>${rows||`<tr><td colspan="4" class="table-empty">لا يوجد سحب بعد</td></tr>`}</tbody></table></div></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button></div>`,"diwan-history-modal");
   $$(`[data-diwan-history-cert]`).forEach(button=>button.onclick=()=>downloadDiwanCertificate(participant,drawsForParticipant[Number(button.dataset.diwanHistoryCert)]));
   $$(`[data-diwan-history-rec]`).forEach(button=>button.onclick=()=>downloadDiwanRecommendation(participant,drawsForParticipant[Number(button.dataset.diwanHistoryRec)]));
   lucide.createIcons();
@@ -3087,7 +3095,7 @@ function downloadBackup(){downloadFile(`نسخة-المسابقة-${dateStamp()}
 async function restoreBackup(event){try{const parsed=JSON.parse(await event.target.files[0].text());if(!parsed.data?.config||!Array.isArray(parsed.data.draws))throw new Error();state=parsed.data;saveState();renderAll();hydrateSettings();toast("تمت استعادة النسخة الاحتياطية")}catch{toast("ملف النسخة الاحتياطية غير صالح")}event.target.value=""}
 function confirmNewCycle(){openModal(`<div class="modal-head"><h2>بدء دورة مسابقة جديدة</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>سيتم مسح المتسابقين وسجل السحوبات من الجهاز، وستبقى إعدادات الدخول. نزّل نسخة احتياطية أولاً للاحتفاظ بسجل الدورة الحالية.</p><label>اكتب كلمة <b>دورة جديدة</b> للتأكيد<input id="cycleConfirm" autocomplete="off"></label></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="confirmCycleBtn" class="danger-btn">بدء الدورة الجديدة</button></div>`);$("#confirmCycleBtn").onclick=()=>{if($("#cycleConfirm").value.trim()!=="دورة جديدة")return toast("اكتب عبارة التأكيد كما تظهر");state.participants=[];state.draws=[];state.resets.push({at:new Date().toISOString(),by:state.config.adminName});saveState();closeModal();renderAll();navigate("dashboard");toast("بدأت دورة جديدة")}}
 
-function openModal(html,extra=""){document.body.classList.remove("exam-fullscreen");const wasHidden=$("#modal").classList.contains("hidden");$("#modalContent").className=`modal-card ${extra}`;$("#modalContent").innerHTML=html;$("#modal").classList.remove("hidden");if(wasHidden&&!applyingBrowserHistory&&history.state?.marker===HISTORY_MARKER){const entry={...history.state,modal:true,ui:currentListUi()};history.pushState(entry,"",location.href)}$$(`[data-close]`,$("#modalContent")).forEach(b=>b.onclick=closeModal);lucide.createIcons()}
+function openModal(html,extra=""){document.body.classList.remove("exam-fullscreen");$$("details.row-actions-more[open]").forEach(d=>d.removeAttribute("open"));const wasHidden=$("#modal").classList.contains("hidden");$("#modalContent").className=`modal-card ${extra}`;$("#modalContent").innerHTML=html;$("#modal").classList.remove("hidden");if(wasHidden&&!applyingBrowserHistory&&history.state?.marker===HISTORY_MARKER){const entry={...history.state,modal:true,ui:currentListUi()};history.pushState(entry,"",location.href)}$$(`[data-close]`,$("#modalContent")).forEach(b=>b.onclick=closeModal);lucide.createIcons()}
 function closeModal(){stopMemberPositionSync();document.body.classList.remove("exam-fullscreen");$("#modal").classList.add("hidden");$("#modalContent").innerHTML="";if(!applyingBrowserHistory&&history.state?.marker===HISTORY_MARKER&&history.state.modal){const entry={...history.state};delete entry.modal;history.replaceState(entry,"",location.href)}}
 function toast(message,duration=2600){const el=$("#toast");el.textContent=message;el.classList.remove("hidden");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add("hidden"),duration)}
 function downloadFile(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -3122,7 +3130,8 @@ function ensureTrialAccessThenRender(){
 // شاشة مستقلة تماماً عن كل مسارات تسجيل الدخول (لا حساب إدارة ولا وضع محلي) — تُفتح من بوابة
 // الدخول الأولى مباشرة، لمشاركة رابط الاختبار التجريبي مع آخرين بلا إعطائهم حساب الإدارة.
 function openTrialScreen(){
-  $("#gatewayScreen").classList.add("hidden");
+  ["gatewayScreen","setupScreen","loginScreen","cloudLoginScreen","loadingScreen"].forEach(id=>$("#"+id).classList.add("hidden"));
+  $("#committeeApp").classList.add("hidden");
   $("#trialStandaloneScreen").classList.remove("hidden");
   ensureTrialAccessThenRender();
   lucide.createIcons();
@@ -3216,8 +3225,17 @@ function openTrialDrawConfigurator(participant){
     $$(`[data-juz-inc]`).forEach(button=>button.onclick=()=>{const juz=Number(button.dataset.juzInc);config.set(juz,(config.get(juz)||0)+1);render()});
     $$(`[data-juz-dec]`).forEach(button=>button.onclick=()=>{const juz=Number(button.dataset.juzDec);const next=(config.get(juz)||0)-1;if(next<=0)config.delete(juz);else config.set(juz,next);render()});
   };
-  openModal(`<div class="modal-head"><h2>إعداد سحب تجريبي — ${escapeHtml(participant.name)}</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">اختر الأجزاء المطلوبة، وحدّد عدد المواضع داخل كل جزء (بلا حد أقصى) — يمكن اختيار أكثر من موضع بنفس الجزء.</p><div id="trialJuzGrid" class="diwan-juz-grid"></div><p id="trialJuzSummary" class="field-help"></p><p id="trialJuzError" class="form-error hidden"></p></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button id="confirmTrialDraw" class="primary-btn"><i data-lucide="sparkles"></i> تنفيذ السحب</button></div>`);
+  openModal(`<div class="modal-head"><h2>إعداد سحب تجريبي — ${escapeHtml(participant.name)}</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">اختر الأجزاء المطلوبة، وحدّد عدد المواضع داخل كل جزء (بلا حد أقصى) — يمكن اختيار أكثر من موضع بنفس الجزء.</p><div id="trialJuzGrid" class="diwan-juz-grid"></div><div class="trial-unify-row"><label for="trialUnifyCount">توحيد عدد المواضع لكل الأجزاء المختارة</label><input id="trialUnifyCount" type="number" inputmode="numeric" min="1" step="1" placeholder="مثال: 3"><button type="button" id="trialUnifyApply" class="secondary-btn">تطبيق</button></div><p id="trialJuzSummary" class="field-help"></p><p id="trialJuzError" class="form-error hidden"></p></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button id="confirmTrialDraw" class="primary-btn"><i data-lucide="sparkles"></i> تنفيذ السحب</button></div>`);
   render();
+  const applyUnify=()=>{
+    const error=$("#trialJuzError"),count=Math.floor(Number($("#trialUnifyCount").value));
+    if(!config.size){error.textContent="اختر الأجزاء أولاً ثم طبّق العدد الموحّد";return error.classList.remove("hidden")}
+    if(!Number.isFinite(count)||count<1){error.textContent="اكتب عدد مواضع صحيحاً (١ فأكثر)";return error.classList.remove("hidden")}
+    error.classList.add("hidden");
+    [...config.keys()].forEach(juz=>config.set(juz,count));render();
+  };
+  $("#trialUnifyApply").onclick=applyUnify;
+  $("#trialUnifyCount").onkeydown=event=>{if(event.key==="Enter"){event.preventDefault();applyUnify()}};
   $("#confirmTrialDraw").onclick=async()=>{
     const button=$("#confirmTrialDraw"),error=$("#trialJuzError");
     if(!config.size){error.textContent="اختر جزءاً واحداً على الأقل";return error.classList.remove("hidden")}
