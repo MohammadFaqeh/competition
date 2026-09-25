@@ -322,7 +322,7 @@ async function run() {
     assert.deepStrictEqual(femaleScope.participants.map(p => p.id), ["F1"], "لجنة إناث بمستوى آخر ترى المتسابقة، لا المنقولة للجنة أخرى ولا الذكر");
     assert.deepStrictEqual(femaleScope.draws.map(d => d.id), ["D1"], "وسحبها معها");
     sandbox.window.CloudCompetition.context = { committee: { id: "MC", responsibleGender: "ذكر", levels: [5], levelNames: [] } };
-    assert.deepStrictEqual(sandbox.diwanCommitteeScope(payload).participants.map(p => p.id), ["M1"], "لجنة ذكور بمستوى آخر ترى الذكور فقط");
+    assert.strictEqual(sandbox.diwanCommitteeScope(payload).participants.length, 0, "لجنة ذكور بمستوى غير مطابق: بلا تغيير عن السابق (الإناث فقط لكل اللجان)");
     sandbox.window.CloudCompetition.context = { committee: { id: "NC", responsibleGender: "", levels: [5], levelNames: [] } };
     assert.strictEqual(sandbox.diwanCommitteeScope(payload).participants.length, 0, "لجنة بلا جنس محدد: على الفرز المعتاد");
     // من امتحنتها لجنة أخرى تظهر «امتُحنت عند …» بلا زر بدء؛ غيرها جاهزة للاختبار

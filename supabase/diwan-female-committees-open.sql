@@ -1,6 +1,6 @@
--- ديوان الحفاظ: متسابقو الديوان متاحون لكل لجان جنسهم (إناث/ذكور) بغض النظر عن مستويات اللجنة، وكل لجنة تختار من تمتحن.
+-- ديوان الحفاظ: متسابقات الديوان (أنثى) متاحات لكل لجان الإناث بغض النظر عن مستويات اللجنة، وكل لجنة تختار من تمتحن.
 -- إعادة تعريف diwan_committee_claim_student من diwan-al-hifadh-core.sql (النسخة الوحيدة/الأحدث) بنفس كل الفحوص حرفياً،
--- مع إضافة شرط واحد لفحص المستوى: جنس اللجنة = جنس المتسابق وغير منقول يدوياً للجنة أخرى،
+-- مع إضافة شرط واحد لفحص المستوى: لجنة إناث + متسابقة أنثى غير منقولة يدوياً للجنة أخرى (الذكور بلا أي تغيير)،
 -- ومنع بدء اختبار متسابق سجّلته الإدارة منسحبًا. آمن لإعادة التشغيل أكثر من مرة.
 -- تُشغَّل مرة واحدة من Supabase → SQL Editor.
 
@@ -30,7 +30,7 @@ begin
   if v_withdrawn='true' then raise exception 'هذا المتسابق منسحب — لا يمكن بدء اختباره'; end if;
   if not (p_level=any(v_committee.levels))
      and coalesce(v_transfer_committee_id,'')<>v_committee.id::text
-     and not (v_gender in ('أنثى','ذكر') and v_committee.responsible_gender=v_gender and coalesce(v_transfer_committee_id,'')='') then
+     and not (v_committee.responsible_gender='أنثى' and v_gender='أنثى' and coalesce(v_transfer_committee_id,'')='') then
     raise exception 'هذا المستوى غير مخصص لهذه اللجنة';
   end if;
   select * into v_session from public.diwan_exam_sessions where draw_id=p_draw_id;

@@ -2804,13 +2804,13 @@ function diwanCommitteeStatusOf(participant,draw,sessionByDrawId){
   if(!draw)return "no_draw";
   return sessionByDrawId.get(draw.id)?.status||"pending";
 }
-// متسابقو ديوان الحفاظ يظهرون لكل لجان جنسهم (إناث لكل لجان الإناث، ذكور لكل لجان الذكور) بغض النظر عن مستويات اللجنة،
-// وكل لجنة تختار من تمتحن؛ المنقول يدوياً للجنة أخرى يبقى عندها فقط. نفس القاعدة بـdiwan-female-committees-open.sql.
+// متسابقات ديوان الحفاظ يظهرن لكل لجان الإناث (بغض النظر عن مستويات اللجنة) وكل لجنة تختار من تمتحن؛ المنقولة يدوياً للجنة
+// أخرى تبقى عندها فقط. الذكور ولجان الذكور على الفرز المعتاد (committeeScopedState). نفس القاعدة بـdiwan-female-committees-open.sql.
 function diwanCommitteeScope(payload){
   const scoped=committeeScopedState(payload),committee=window.CloudCompetition.context?.committee;
-  const gender=committee?.responsibleGender;if(gender!=="أنثى"&&gender!=="ذكر")return scoped;
+  if(committee?.responsibleGender!=="أنثى")return scoped;
   const merged={...defaultState(),...payload},shownIds=new Set(scoped.participants.map(p=>p.id));
-  const participants=merged.participants.filter(p=>shownIds.has(p.id)||(p.gender===gender&&(!p.transferCommitteeId||p.transferCommitteeId===committee.id)));
+  const participants=merged.participants.filter(p=>shownIds.has(p.id)||(p.gender==="أنثى"&&(!p.transferCommitteeId||p.transferCommitteeId===committee.id)));
   const participantIds=new Set(participants.map(p=>p.id));
   return {...merged,participants,draws:merged.draws.filter(draw=>participantIds.has(draw.participantId))};
 }
