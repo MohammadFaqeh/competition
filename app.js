@@ -2469,7 +2469,8 @@ function canonicalHeader(value){const header=normalizeHeader(value);if(header===
 function pickColumn(row,names){for(const name of names){const key=normalizeHeader(name);if(row[key]!==undefined&&row[key]!=="")return row[key]}return ""}
 function normalizeDigits(value){return String(value??"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d))}
 function normalizeGender(value){const gender=normalizeHeader(value);if(["ذكر","ذكور","male","m"].includes(gender))return "ذكر";if(["انثى","اناث","female","f"].includes(gender))return "أنثى";return "غير محدد"}
-function parsePartSpec(value){const text=normalizeDigits(value);const parts=new Set();for(const token of text.split(/[,،;\s\/.]+/).filter(Boolean)){const range=token.match(/^(\d+)\s*[-_]\s*(\d+)$/);if(range){const a=Number(range[1]),b=Number(range[2]);for(let n=Math.min(a,b);n<=Math.max(a,b);n++)if(n>=1&&n<=30)parts.add(n)}else{const n=Number(token);if(n>=1&&n<=30)parts.add(n)}}return [...parts].sort((a,b)=>a-b)}
+// يقرأ الأجزاء من أي صيغة: «1-5، 13-17» أو «1 - 5 ؛ 13–17» أو أرقام مفردة — بأي فاصل وأي شكل شَرطة (- – — − ـ ~)، ويتجاهل محارف الاتجاه المخفية التي يضيفها Excel للنص العربي. النطاق «1-5» = 1،2،3،4،5.
+function parsePartSpec(value){const text=normalizeDigits(value).replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\u061C\uFEFF]/g,"");const parts=new Set(),add=n=>{if(n>=1&&n<=30)parts.add(n)};for(const match of text.matchAll(/(\d+)(?:\s*[-_\u2010-\u2015\u2212\u0640~]+\s*(\d+))?/g)){const a=Number(match[1]);if(match[2]===undefined){add(a);continue}const b=Number(match[2]);for(let n=Math.max(1,Math.min(a,b));n<=Math.min(30,Math.max(a,b));n++)add(n)}return [...parts].sort((a,b)=>a-b)}
 function parseCsvLine(line){const result=[];let value="",quoted=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'&&line[i+1]==='"'){value+='"';i++}else if(c==='"')quoted=!quoted;else if(c===","&&!quoted){result.push(value);value=""}else value+=c}result.push(value);return result}
 
 function buildPartsGrid(){updateAvailability()}
@@ -2775,12 +2776,22 @@ function diwanCommitteeStatusOf(participant,draw,sessionByDrawId){
   if(!draw)return "no_draw";
   return sessionByDrawId.get(draw.id)?.status||"pending";
 }
+// متسابقات ديوان الحفاظ يظهرن لكل لجان الإناث (بغض النظر عن مستويات اللجنة) وكل لجنة تختار من تمتحن؛ المنقولة يدوياً للجنة
+// أخرى تبقى عندها فقط. الذكور ولجان الذكور على الفرز المعتاد (committeeScopedState). نفس القاعدة بـdiwan-female-committees-open.sql.
+function diwanCommitteeScope(payload){
+  const scoped=committeeScopedState(payload),committee=window.CloudCompetition.context?.committee;
+  if(committee?.responsibleGender!=="أنثى")return scoped;
+  const merged={...defaultState(),...payload},shownIds=new Set(scoped.participants.map(p=>p.id));
+  const participants=merged.participants.filter(p=>shownIds.has(p.id)||(p.gender==="أنثى"&&(!p.transferCommitteeId||p.transferCommitteeId===committee.id)));
+  const participantIds=new Set(participants.map(p=>p.id));
+  return {...merged,participants,draws:merged.draws.filter(draw=>participantIds.has(draw.participantId))};
+}
 async function renderDiwanCommitteeWorkspace(){
   const committee=window.CloudCompetition.context?.committee;if(!committee)return false;
   try{
     const [remote,sessions]=await Promise.all([window.DiwanCompetition.loadCommitteeState(),window.DiwanCompetition.listCommitteeSessions()]);
     diwanCommitteeSessions=sessions;
-    diwanCommitteeScopedState=remote.payload?.config?committeeScopedState(remote.payload):defaultDiwanState();
+    diwanCommitteeScopedState=remote.payload?.config?diwanCommitteeScope(remote.payload):defaultDiwanState();
     renderDiwanCommitteeStudents();
     return true;
   }catch(error){toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`);return false}

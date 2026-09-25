@@ -302,6 +302,30 @@ async function run() {
     assert.strictEqual(vm.runInContext('diwanState.participants.length + diwanState.draws.length', sandbox), 0, "حذف الجميع يحذف المتسابقين وسحوباتهم");
   }
 
+  // 10ب) قراءة الأجزاء بأي صيغة يكتبها Excel: «1-5،13-17» مع شَرطات/فواصل مختلفة ومحارف اتجاه مخفية
+  {
+    const expected = [1,2,3,4,5,13,14,15,16,17];
+    for (const text of ["1-5،13-17", "1-5؛13-17", "1–5،13–17", "‏1-5‏،‏13-17", "1-5؜،13-17", "1 - 5 ، 13 - 17", "1ـ5،13ـ17", "١-٥،١٣-١٧", "1,2,3,4,5,13,14,15,16,17"])
+      assert.deepStrictEqual([...sandbox.parsePartSpec(text)], expected, `قراءة الأجزاء من «${text}»`);
+  }
+
+  // 11) متسابقات الديوان يظهرن لكل لجان الإناث بغض النظر عن مستوى اللجنة؛ المنقولة يدوياً للجنة أخرى لا؛ الذكور على الفرز المعتاد
+  {
+    const payload = { config: {}, participants: [
+      { id: "F1", name: "حلا", gender: "أنثى", level: 10 },
+      { id: "F2", name: "منقولة", gender: "أنثى", level: 10, transferCommitteeId: "OTHER" },
+      { id: "M1", name: "عمر", gender: "ذكر", level: 10 },
+    ], draws: [{ id: "D1", participantId: "F1" }, { id: "D3", participantId: "M1" }] };
+    const saved = sandbox.window.CloudCompetition.context;
+    sandbox.window.CloudCompetition.context = { committee: { id: "FC", responsibleGender: "أنثى", levels: [5], levelNames: [] } };
+    const femaleScope = sandbox.diwanCommitteeScope(payload);
+    assert.deepStrictEqual(femaleScope.participants.map(p => p.id), ["F1"], "لجنة إناث بمستوى آخر ترى المتسابقة، لا المنقولة للجنة أخرى ولا الذكر");
+    assert.deepStrictEqual(femaleScope.draws.map(d => d.id), ["D1"], "وسحبها معها");
+    sandbox.window.CloudCompetition.context = { committee: { id: "MC", responsibleGender: "ذكر", levels: [5], levelNames: [] } };
+    assert.strictEqual(sandbox.diwanCommitteeScope(payload).participants.length, 0, "لجنة ذكور بمستوى غير مطابق: بلا تغيير عن السابق");
+    sandbox.window.CloudCompetition.context = saved;
+  }
+
   console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=85، ودوال توليد الشهادات/التوصيات");
 }
 
