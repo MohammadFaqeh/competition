@@ -323,6 +323,22 @@ async function run() {
     assert.deepStrictEqual(femaleScope.draws.map(d => d.id), ["D1"], "وسحبها معها");
     sandbox.window.CloudCompetition.context = { committee: { id: "MC", responsibleGender: "ذكر", levels: [5], levelNames: [] } };
     assert.strictEqual(sandbox.diwanCommitteeScope(payload).participants.length, 0, "لجنة ذكور بمستوى غير مطابق: بلا تغيير عن السابق");
+    // من امتحنتها لجنة أخرى تظهر «امتُحنت عند …» بلا زر بدء؛ غيرها جاهزة للاختبار
+    sandbox.window.CloudCompetition.context = { kind: "committee", committee: { id: "FC", responsibleGender: "أنثى", levels: [5], levelNames: [], examiner_role: "chairman" } };
+    const tState = { ...vm.runInContext("defaultDiwanState()", sandbox), participants: [
+      { id: "T1", name: "حلا", gender: "أنثى", stage: 1, level: 10, seat: "1", center: "مركز" },
+      { id: "T2", name: "سارة", gender: "أنثى", stage: 1, level: 10, seat: "2", center: "مركز" },
+    ], draws: [
+      { id: "TD1", participantId: "T1", stage: 1, positions: [], createdAt: "2026-09-01T00:00:00Z" },
+      { id: "TD2", participantId: "T2", stage: 1, positions: [], createdAt: "2026-09-01T00:00:00Z" },
+    ] };
+    vm.runInContext('diwanCommitteeScopedState = __s; diwanCommitteeSessions = []; diwanCommitteeTakenDraws = new Map([["TD1", { draw_id: "TD1", status: "final", committee_name: "لجنة ٢" }]]);', Object.assign(sandbox, { __s: tState }));
+    queryElement("#diwanCommitteeSearch").value = ""; queryElement("#diwanCommitteeStatusFilter").value = "all";
+    sandbox.renderDiwanCommitteeStudents();
+    const listHtml = queryElement("#diwanCommitteeStudents").innerHTML;
+    assert.ok(listHtml.includes("امتُحنت عند لجنة ٢") && !listHtml.includes('data-diwan-committee-confirm-start="T1"'), "المتسابقة الممتحنة عند لجنة أخرى تظهر كذلك بلا زر بدء");
+    assert.ok(listHtml.includes('data-diwan-committee-confirm-start="T2"'), "غيرها يبقى جاهزاً للاختبار");
+    assert.strictEqual(queryElement("#diwanCommitteePendingCount").textContent, "1", "لا تُحسب الممتحنة عند لجنة أخرى ضمن «بانتظار الاختبار»");
     sandbox.window.CloudCompetition.context = saved;
   }
 

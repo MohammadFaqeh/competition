@@ -41,3 +41,17 @@ begin
 end $$;
 
 grant execute on function public.diwan_committee_claim_student(text,text,text,smallint,smallint,text) to anon,authenticated;
+
+-- السحوبات التي بدأتها/اعتمدتها لجان أخرى — ليرى الجميع فوراً أن المتسابقة امتُحنت (أو قيد الاختبار) عند لجنة أخرى فلا تُمتحن مرتين.
+-- قراءة فقط: رقم السحب والحالة واسم اللجنة، بلا علامات ولا تقييم.
+create or replace function public.diwan_committee_taken_draws(p_token text)
+returns table(draw_id text,status text,committee_name text) language plpgsql security definer set search_path=public,extensions
+as $$
+declare v_committee public.committees;
+begin
+  v_committee=public.committee_from_token(p_token);
+  if v_committee.id is null then raise exception 'انتهت جلسة اللجنة'; end if;
+  return query select es.draw_id,es.status,c.name from public.diwan_exam_sessions es join public.committees c on c.id=es.committee_id where es.committee_id<>v_committee.id;
+end $$;
+
+grant execute on function public.diwan_committee_taken_draws(text) to anon,authenticated;

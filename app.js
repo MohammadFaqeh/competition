@@ -59,7 +59,7 @@ let committeeAutoRefreshTimer=null,committeeRefreshBusy=false,committeeSessionsS
 // اختبارات ديوان الحفاظ من شاشة اللجنة: تبويب مستقل بلا استطلاع دوري تلقائي (تحديث يدوي فقط،
 // طلب صريح) — نفس حساب/رمز اللجنة يمتحن الطرفين، فقط بيانات ديوان الحفاظ (diwanCommitteeScopedState)
 // منفصلة تماماً عن state (السنوية).
-let diwanCommitteeSessions=[],activeDiwanCloudSession=null,diwanCommitteeScopedState=defaultDiwanState();
+let diwanCommitteeSessions=[],diwanCommitteeTakenDraws=new Map(),diwanCommitteeRefreshSignature="",activeDiwanCloudSession=null,diwanCommitteeScopedState=defaultDiwanState();
 let diwanCommitteeStudentsPage=1,diwanCommitteeStudentsPageSignature="";
 // جلسة اعتُمدت قبل أكثر من 12 ساعة لا تتغيّر إلا بإعادة فتحها يدوياً — لا داعي لإعادة جلبها كل استطلاع (راجع listRecentFinalSessions/listLiveCommitteeSessions بـcloud.js).
 const LIVE_RECENT_WINDOW_MS=12*60*60*1000;
@@ -899,7 +899,7 @@ function showCommitteeBroadcast(text){
 function dismissCommitteeBroadcast(){clearTimeout(committeeBroadcastTimer);$("#committeeBroadcastOverlay")?.classList.add("hidden")}
 async function renderCommitteeWorkspace(){let context=window.CloudCompetition.context;if(!context?.committee)return;try{await window.CloudCompetition.refreshCommitteeAccess(true);context=window.CloudCompetition.context;const examinerName=context.committee.examiner_role==="member"?context.committee.memberName:context.committee.chairmanName;$("#committeeExaminerGreeting").textContent=examinerName?`أهلاً، ${examinerName}`:context.committee.name;$("#committeeName").textContent=`لجنة: ${context.committee.name}`;const levelNamesLabel=(context.committee.levelNames||[]).join("، ")||`${(context.committee.levels||[]).sort((a,b)=>a-b).join("، ")} أجزاء`,genderLabel=context.committee.responsibleGender==="أنثى"?"إناث":context.committee.responsibleGender==="ذكر"?"ذكور":"";$("#committeeLevels").textContent=`${genderLabel?genderLabel+" · ":""}${levelNamesLabel}`;const [remote,sessions]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listSessions()]);checkCommitteeBroadcast(remote.payload);if(remote.payload?.config){const previous=loadCommitteeSnapshot(),next=committeeScopedState(remote.payload),previousById=new Map(previous.participants.map(item=>[item.id,item])),nextById=new Map(next.participants.map(item=>[item.id,item])),previousDraws=new Map(previous.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw])),nextDraws=new Map(next.draws.filter(draw=>draw.participantId).map(draw=>[draw.participantId,draw]));if(previous.config){const updates=[];for(const participant of next.participants){const old=previousById.get(participant.id);if(!old||participantCloudSignature(old,previousDraws.get(participant.id))!==participantCloudSignature(participant,nextDraws.get(participant.id)))updates.push({text:describeCommitteeChange(participant,old),participantId:participant.id})}for(const old of previous.participants)if(!nextById.has(old.id))updates.push({text:describeCommitteeChange(null,old),participantId:old.id});if(updates.length)addCommitteeAlerts(await withRealChangeTimes(updates))}if($("#modal")?.classList.contains("hidden"))state=next;else console.warn("[examTrace] renderCommitteeWorkspace: تم فتح مودال أثناء انتظار الشبكة، تم تجاهل الاستبدال");saveCommitteeSnapshot(state)}committeeSessions=sessions;await syncServerCommitteeNotifications();renderCommitteeAlerts();renderCommitteeStudents();lucide.createIcons();prewarmQuranData();return true}catch(error){toast(`تعذر تحديث قائمة اللجنة: ${error.message}`)}}
 function stopCommitteeAutoRefresh(){if(committeeAutoRefreshTimer)clearInterval(committeeAutoRefreshTimer);committeeAutoRefreshTimer=null;committeeRefreshBusy=false}
-function startCommitteeAutoRefresh(){stopAdminAutoRefresh();stopCommitteeAutoRefresh();committeeAutoRefreshTimer=setInterval(()=>{if(!document.hidden)refreshCommitteeChanges()},9000)}
+function startCommitteeAutoRefresh(){stopAdminAutoRefresh();stopCommitteeAutoRefresh();committeeAutoRefreshTimer=setInterval(()=>{if(!document.hidden){refreshCommitteeChanges();refreshDiwanCommitteeQuietly()}},9000)}
 function stopAdminAutoRefresh(){if(adminAutoRefreshTimer)clearInterval(adminAutoRefreshTimer);adminAutoRefreshTimer=null;adminRefreshBusy=false}
 function startAdminAutoRefresh(){stopAdminAutoRefresh();if(!liveAutoRefreshEnabled())return;adminAutoRefreshTimer=setInterval(()=>{if(!document.hidden){refreshAdminChanges();refreshDiwanResultsQuietly()}},9000)}
 // نتحقق أولاً من توقيت آخر تعديل (competition_state_version) قبل أي تنزيل كامل — لو لم يتغيّر
@@ -2786,15 +2786,28 @@ function diwanCommitteeScope(payload){
   const participantIds=new Set(participants.map(p=>p.id));
   return {...merged,participants,draws:merged.draws.filter(draw=>participantIds.has(draw.participantId))};
 }
-async function renderDiwanCommitteeWorkspace(){
+// quiet: تحديث تلقائي صامت (بلا رسائل خطأ، ولا إعادة رسم إن لم يتغير شيء).
+async function renderDiwanCommitteeWorkspace({quiet=false}={}){
   const committee=window.CloudCompetition.context?.committee;if(!committee)return false;
   try{
-    const [remote,sessions]=await Promise.all([window.DiwanCompetition.loadCommitteeState(),window.DiwanCompetition.listCommitteeSessions()]);
+    const [remote,sessions,taken]=await Promise.all([window.DiwanCompetition.loadCommitteeState(),window.DiwanCompetition.listCommitteeSessions(),window.DiwanCompetition.listTakenDraws?.()||[]]);
+    const signature=JSON.stringify([remote.payload?.participants?.length,remote.payload?.draws?.map(d=>d.id),remote.payload?.participants?.map(p=>[p.id,p.stage,p.transferCommitteeId||"",p.certified?1:0]),sessions.map(s=>[s.id,s.status,s.updated_at]),taken]);
+    if(quiet&&signature===diwanCommitteeRefreshSignature)return true;
+    diwanCommitteeRefreshSignature=signature;
     diwanCommitteeSessions=sessions;
+    diwanCommitteeTakenDraws=new Map((taken||[]).map(item=>[item.draw_id,item]));
     diwanCommitteeScopedState=remote.payload?.config?diwanCommitteeScope(remote.payload):defaultDiwanState();
     renderDiwanCommitteeStudents();
     return true;
-  }catch(error){toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`);return false}
+  }catch(error){if(!quiet)toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`);return false}
+}
+// كل ٢٠ ثانية أثناء فتح تبويب ديوان الحفاظ بلا نافذة مفتوحة: يرى الجميع فوراً من امتُحنت عند لجنة أخرى.
+let diwanCommitteeQuietBusy=false,diwanCommitteeQuietLast=0;
+async function refreshDiwanCommitteeQuietly(){
+  if(diwanCommitteeQuietBusy||document.hidden||Date.now()-diwanCommitteeQuietLast<20000)return;
+  if(window.CloudCompetition.context?.kind!=="committee"||$("#committeeDiwanPanel")?.classList.contains("hidden")||!$("#modal")?.classList.contains("hidden"))return;
+  diwanCommitteeQuietBusy=true;diwanCommitteeQuietLast=Date.now();
+  try{await renderDiwanCommitteeWorkspace({quiet:true})}finally{diwanCommitteeQuietBusy=false}
 }
 function renderDiwanCommitteeStudents(){
   const committee=window.CloudCompetition.context?.committee;if(!committee)return;
@@ -2804,9 +2817,10 @@ function renderDiwanCommitteeStudents(){
   const sessionByDrawId=new Map(diwanCommitteeSessions.map(session=>[session.draw_id,session]));
   const activeSession=diwanCommitteeSessions.find(s=>s.status==="in_progress");
   const activeParticipant=activeSession?diwanCommitteeScopedState.participants.find(p=>p.id===activeSession.participant_id):null;
-  const statusOrder={in_progress:0,pending:1,no_draw:2,final:3,certified:4};
+  const statusOrder={in_progress:0,pending:1,no_draw:2,final:3,certified:4,taken:5};
   const drawOf=participant=>currentDiwanDraw(participant,diwanCommitteeScopedState.draws);
-  const statusOf=participant=>diwanCommitteeStatusOf(participant,drawOf(participant),sessionByDrawId);
+  // «taken»: سحبها الحالي بدأته/اعتمدته لجنة أخرى — تظهر للعلم فقط بلا زر بدء.
+  const statusOf=participant=>{const draw=drawOf(participant),status=diwanCommitteeStatusOf(participant,draw,sessionByDrawId);return status==="pending"&&draw&&diwanCommitteeTakenDraws.has(draw.id)?"taken":status};
   const allEligible=diwanCommitteeScopedState.participants.filter(participant=>!participant.certified&&`${participant.name} ${participant.seat} ${participant.center}`.toLowerCase().includes(query));
   const eligible=allEligible.filter(participant=>filter==="all"||statusOf(participant)===filter).sort((a,b)=>(statusOrder[statusOf(a)]-statusOrder[statusOf(b)])||String(a.name).localeCompare(String(b.name),"ar"));
   $("#diwanCommitteePendingCount").textContent=formatNumber(allEligible.filter(participant=>["no_draw","pending"].includes(statusOf(participant))).length);
@@ -2821,6 +2835,7 @@ function renderDiwanCommitteeStudents(){
   renderPagerTabs("diwanCommitteeStudentsPager",diwanCommitteeStudentsPage,totalPages,page=>{diwanCommitteeStudentsPage=page;renderDiwanCommitteeStudents()});
   $("#diwanCommitteeStudents").innerHTML=eligiblePage.length?eligiblePage.map(participant=>{
     const draw=drawOf(participant),session=draw?sessionByDrawId.get(draw.id):null,status=statusOf(participant);
+    if(status==="taken"){const taken=diwanCommitteeTakenDraws.get(draw.id),where=escapeHtml(taken.committee_name||"لجنة أخرى");return `<article class="committee-student final"><div><h3>${escapeHtml(participant.name)}</h3><p>${escapeHtml(participant.center)} · رقم الجلوس ${escapeHtml(participant.seat)}</p><div class="committee-student-meta"><span>${escapeHtml(DIWAN_STAGE_LABELS[participant.stage]||"")}</span><span class="state completed">${taken.status==="final"?`امتُحنت عند ${where}`:`قيد الاختبار عند ${where}`}</span></div></div><button class="secondary-btn" disabled>امتُحنت عند لجنة أخرى</button></article>`}
     const canSeeScore=committee.show_score!==false;
     const statusText=status==="no_draw"?"بانتظار اختيار الإدارة للأجزاء":status==="final"?(session?.assessment?.incomplete?"مكتمل · غير مكتمل":canSeeScore?`مكتمل · ${session.score}`:"مكتمل · العلامة غير ظاهرة للجنة"):status==="in_progress"?"مسودة محفوظة":"جاهز للاختبار";
     const positions=draw?`<ol class="committee-position-preview">${draw.positions.map((position,index)=>`<li><b>${index+1}</b><span>${escapeHtml(positionTitle(position))}</span><small>الجزء ${position.juz} · صفحة ${position.page}</small></li>`).join("")}</ol>`:`<div class="committee-no-draw">بانتظار قيام الإدارة باختيار الأجزاء وإجراء السحب لهذا المتسابق</div>`;

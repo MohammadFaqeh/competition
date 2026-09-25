@@ -236,6 +236,8 @@ window.DiwanCompetition=(()=>{
   // الحالية (window.CloudCompetition.context.token) لقراءة/كتابة بيانات ديوان الحفاظ تحديداً.
   async function loadCommitteeState(){const {data,error}=await client().rpc("diwan_committee_load_state",{p_token:committeeToken()});if(error)throw rpcError(error);return {payload:data}}
   async function listCommitteeSessions(){const {data,error}=await client().rpc("diwan_committee_list_sessions",{p_token:committeeToken()});if(error)throw rpcError(error);return data}
+  // سحوبات بدأتها/اعتمدتها لجان أخرى (رقم السحب/الحالة/اسم اللجنة فقط) — [] إن لم تُشغَّل diwan-female-committees-open.sql بعد.
+  async function listTakenDraws(){try{const {data,error}=await client().rpc("diwan_committee_taken_draws",{p_token:committeeToken()});if(error)return [];return data||[]}catch{return []}}
   async function claimStudent(participantId,drawId,stage,level,levelName){const {data,error}=await client().rpc("diwan_committee_claim_student",{p_token:committeeToken(),p_participant_id:participantId,p_draw_id:drawId,p_stage:stage,p_level:level,p_level_name:levelName||null});if(error)throw rpcError(error);return data}
   async function saveSession(sessionId,assessment,status,score){const {data,error}=await client().rpc("diwan_committee_save_session",{p_token:committeeToken(),p_session_id:sessionId,p_assessment:assessment,p_status:status,p_score:score});if(error)throw rpcError(error);return data}
   // إلغاء اللجنة اختباراً بدأته هي بنفسها طالما لم يُعتمد بعد — مستقل عن deleteParticipantDraw
@@ -253,5 +255,5 @@ window.DiwanCompetition=(()=>{
   function cancelQueuedSessionSave(){clearTimeout(sessionSaveTimer);sessionSaveTimer=null}
 
   return {loadState,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,transferParticipant,deleteParticipantDraw,listSessions,
-    loadCommitteeState,listCommitteeSessions,claimStudent,saveSession,cancelSession,getSession,replacePosition,queueSessionSave,cancelQueuedSessionSave};
+    loadCommitteeState,listCommitteeSessions,listTakenDraws,claimStudent,saveSession,cancelSession,getSession,replacePosition,queueSessionSave,cancelQueuedSessionSave};
 })();
