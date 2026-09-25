@@ -385,6 +385,16 @@ async function run() {
     assert.deepStrictEqual(sandbox.diwanDistributionPlan(list, [{}, {}, {}, {}]).map(x => x.members.length), [23, 23, 23, 23], "92 على 4 لجان: 23 لكل لجنة");
   }
 
+  // 13ب) اسم اللجنة المعروض/المصدَّر: الموزَّعة → لجنتها، غير الموزَّعة (أنثى/بلا جنس) → كل لجان الإناث
+  {
+    vm.runInContext('cloudCommittees = [{ id: "C6", name: "لجنة رقم 6", responsible_gender: "أنثى", levels: [20] }];', sandbox);
+    assert.strictEqual(sandbox.diwanAssignedCommittee({ gender: "أنثى", transferCommitteeId: "C6" }).name, "لجنة رقم 6");
+    assert.strictEqual(sandbox.diwanAssignedCommittee({ gender: "أنثى" }).name, "كل لجان الإناث");
+    assert.strictEqual(sandbox.diwanAssignedCommittee({ gender: "غير محدد" }).name, "كل لجان الإناث");
+    assert.strictEqual(sandbox.diwanAssignedCommittee({ gender: "ذكر", level: 10 }).name, "", "ذكر بلا لجنة مطابقة لمستواه");
+    vm.runInContext('cloudCommittees = [];', sandbox);
+  }
+
   // 14) البحث داخل صفحة المرحلة
   {
     vm.runInContext('diwanState = defaultDiwanState(); diwanAdminSessions = [];', sandbox);

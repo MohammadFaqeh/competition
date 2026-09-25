@@ -1709,9 +1709,15 @@ function openDiwanAssignCommitteeModal(participantId){
 async function exportDiwanParticipants(){
   if(!diwanState.participants.length)return toast("لا يوجد متسابقون لتصديرهم");
   try{await ensureXlsx()}catch(error){return toast(error.message)}
-  const rows=diwanState.participants.map(p=>({"رقم الجلوس":p.seat||"","الرقم التسلسلي":diwanSerialOf(p),"اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","المرحلة الحالية":p.certified?"حافظ معتمد":`${DIWAN_STAGE_LABELS[p.stage]||""}${p.withdrawn?" (منسحب)":""}`,"الأجزاء":(p.parts||[]).join("، "),"العمر":p.age||"","آخر علامة":Number.isFinite(p.score)?(p.assessment?.incomplete?"غير مكتمل":p.score):""}));
-  const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rows);sheet["!cols"]=[{wch:12},{wch:14},{wch:32},{wch:10},{wch:22},{wch:18},{wch:30},{wch:10},{wch:10}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
+  if(!cloudCommittees.length&&operationMode==="cloud"&&cloudEnabled)try{cloudCommittees=await window.CloudCompetition.listCommittees()}catch{}
+  const rows=diwanState.participants.map(p=>({"رقم الجلوس":p.seat||"","الرقم التسلسلي":diwanSerialOf(p),"اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","اللجنة":diwanAssignedCommittee(p).name,"المرحلة الحالية":p.certified?"حافظ معتمد":`${DIWAN_STAGE_LABELS[p.stage]||""}${p.withdrawn?" (منسحب)":""}`,"الأجزاء":(p.parts||[]).join("، "),"العمر":p.age||"","آخر علامة":Number.isFinite(p.score)?(p.assessment?.incomplete?"غير مكتمل":p.score):""}));
+  const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rows);sheet["!cols"]=[{wch:12},{wch:14},{wch:32},{wch:10},{wch:22},{wch:20},{wch:18},{wch:30},{wch:10},{wch:10}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
   XLSX.utils.book_append_sheet(workbook,sheet,"متسابقو ديوان الحفاظ");
+  // شيت ثانٍ: من على أي لجنة، مرتّب حسب رقم اللجنة ثم رقم الجلوس.
+  const byCommittee=diwanState.participants.map(p=>({p,committee:diwanAssignedCommittee(p)})).sort((a,b)=>(diwanCommitteeNumber(a.committee)-diwanCommitteeNumber(b.committee))||a.committee.name.localeCompare(b.committee.name,"ar")||(diwanSeatNumber(a.p)-diwanSeatNumber(b.p)));
+  const committeeSheet=XLSX.utils.json_to_sheet(byCommittee.map(({p,committee})=>({"اللجنة":committee.name,"رقم الجلوس":p.seat||"","الاسم":p.name,"المركز":p.center||"","الحالة":p.withdrawn?"منسحب":p.certified?"حافظ معتمد":DIWAN_STAGE_LABELS[p.stage]||""})));
+  committeeSheet["!cols"]=[{wch:20},{wch:12},{wch:32},{wch:22},{wch:18}];committeeSheet["!views"]=[{rightToLeft:true}];
+  XLSX.utils.book_append_sheet(workbook,committeeSheet,"توزيع اللجان");
   XLSX.writeFile(workbook,`ديوان-الحفاظ-${dateStamp()}.xlsx`);toast("تم تنزيل ملف المتسابقين");
 }
 // يعيد استخدام دوال تحليل Excel العامة (rowsFromMatrix/pickColumn) نفسها المستخدمة باستيراد
@@ -1775,7 +1781,7 @@ function diwanParticipantStatusOf(participant){
 // كدالة موازية منفصلة لا كإعادة استخدام مباشر — نفس نهج ديوان الحفاظ بكل شاشاته السابقة (مثل
 // saveDiwanAssessmentDraft مقابل saveAssessmentDraft) تفادياً لأي مخاطرة على منطق السنوية المعتمد.
 const DIWAN_STATUS_OPTIONS=[{value:"no_draw",label:"لم يتم اختيار الأجزاء بعد"},{value:"pending",label:"تم السحب — بانتظار اللجنة"},{value:"failed",label:"راسب"},{value:"withdrawn",label:"منسحب"},{value:"certified",label:"حافظ معتمد"}];
-function diwanParticipantCommitteeId(p){return cloudCommittees.length?resolveParticipantCommittee(p,cloudCommittees,{includeAllGenders:true}).currentId:null}
+function diwanParticipantCommitteeId(p){return diwanAssignedCommittee(p).id}
 function diwanParticipantMatchesFilters(p,filters){
   if(filters.status!=="all"&&diwanParticipantStatusOf(p)!==filters.status)return false;
   if(filters.gender!=="all"&&p.gender!==filters.gender)return false;
@@ -2109,14 +2115,21 @@ function openDiwanAttemptHistory(participant){
 // تُبنى بـfinalizeDiwanElectronicAssessment) إن وُجدت، وإلا اللجنة المُسنَدة له حالياً حسب
 // النقل اليدوي أو الفرز الطبيعي (جنس + مستوى) — نفس أولوية عمود "اللجنة" بالسنوية بالضبط
 // (resultCommitteeName ثم resolveParticipantCommittee)، بلا أي تعديل على تلك الدوال المشتركة.
+// اللجنة التي تراها المتسابقة حالياً (نفس قاعدة diwanCommitteeScope): المنقولة/الموزَّعة → لجنتها، غير الذكور → كل لجان الإناث، الذكور → لجنة مستواهم.
+function diwanAssignedCommittee(participant){
+  if(participant.transferCommitteeId){const committee=cloudCommittees.find(c=>c.id===participant.transferCommitteeId);return {id:participant.transferCommitteeId,name:committee?.name||"لجنة محددة",committee}}
+  if(participant.gender!=="ذكر")return {id:null,name:"كل لجان الإناث",committee:null};
+  const committee=cloudCommittees.length?resolveParticipantCommittee(participant,cloudCommittees,{includeAllGenders:true}).currentCommittee:null;
+  return {id:committee?.id||null,name:committee?.name||"",committee};
+}
 function diwanCommitteeCellHtml(participant){
   const historicalName=resultCommitteeName(participant);
   if(historicalName){
     const historicalCommittee=participant.assessment?.committee?.id?cloudCommittees.find(c=>c.id===participant.assessment.committee.id):null;
     return `${escapeHtml(historicalName)}${historicalCommittee?.login_code?` <small>(${escapeHtml(historicalCommittee.login_code)})</small>`:""}`;
   }
-  const assigned=cloudCommittees.length?resolveParticipantCommittee(participant,cloudCommittees,{includeAllGenders:true}).currentCommittee:null;
-  return assigned?`${escapeHtml(assigned.name)}${assigned.login_code?` <small>(${escapeHtml(assigned.login_code)})</small>`:""}`:`<span class="score-help">—</span>`;
+  const {name,committee:assigned}=diwanAssignedCommittee(participant);
+  return name?`${escapeHtml(name)}${assigned?.login_code?` <small>(${escapeHtml(assigned.login_code)})</small>`:""}`:`<span class="score-help">—</span>`;
 }
 const DIWAN_STAGE_SUBTITLES={1:"عشرة أجزاء تختارها الإدارة",2:"عشرة أجزاء تختارها الإدارة",3:"عشرة أجزاء تختارها الإدارة",4:"القرآن الكريم كاملاً — ١٨ موضعاً"};
 // أي قيمة مرحلة غير صالحة تُعرض ضمن المرحلة الأولى بدل أن يختفي المتسابق من اللوحة.
