@@ -1617,15 +1617,9 @@ function diwanDistributableParticipants(){
   return diwanState.participants.filter(p=>p.gender!=="ذكر"&&!p.certified&&!p.withdrawn&&(()=>{const draw=currentDiwanDraw(p,diwanState.draws);return !draw||!diwanSessionForDraw(draw)})())
     .sort((a,b)=>(diwanSeatNumber(a)-diwanSeatNumber(b))||String(a.seat||"").localeCompare(String(b.seat||""),"ar"));
 }
-// وقت حضور كل مركز يحدد دوره: الأبكر يُختبَر أولاً. الافتراضي حسب جدول الديوان، ويمكن تغييره من نافذة التوزيع (يُحفَظ بالمتصفح).
-const DIWAN_ARRIVAL_SLOTS=["9:00","10:00","11:00","12:00"];
+// وقت حضور كل مركز حسب جدول توزيع الديوان المعتمد: الأبكر يُختبَر أولاً، وأي مركز آخر 11:00.
 const DIWAN_CENTER_ARRIVAL_DEFAULTS=[["حذيفة","9:00"],["كفر","9:00"],["شرفية","10:00"],["مصعب","10:00"]];
-const DIWAN_ARRIVAL_STORAGE_KEY="diwanCenterArrival";
-function diwanArrivalOverrides(){try{return JSON.parse(localStorage.getItem(DIWAN_ARRIVAL_STORAGE_KEY)||"{}")||{}}catch{return {}}}
-function diwanCenterArrival(center){
-  const name=String(center||""),saved=diwanArrivalOverrides()[name];if(saved)return saved;
-  const hit=DIWAN_CENTER_ARRIVAL_DEFAULTS.find(([key])=>name.includes(key));return hit?hit[1]:"11:00";
-}
+function diwanCenterArrival(center){const name=String(center||""),hit=DIWAN_CENTER_ARRIVAL_DEFAULTS.find(([key])=>name.includes(key));return hit?hit[1]:"11:00"}
 const diwanSlotMinutes=slot=>{const [h,m]=String(slot).split(":").map(Number);return (h||0)*60+(m||0)};
 // ترتيب الدور: وقت حضور المركز، ثم اسم المركز، ثم رقم الجلوس.
 const diwanQueueCompare=(arrivalOf=diwanCenterArrival)=>(a,b)=>(diwanSlotMinutes(arrivalOf(a.center))-diwanSlotMinutes(arrivalOf(b.center)))||String(a.center||"").localeCompare(String(b.center||""),"ar")||(diwanSeatNumber(a)-diwanSeatNumber(b))||String(a.seat||"").localeCompare(String(b.seat||""),"ar");
@@ -1650,15 +1644,11 @@ async function openDiwanDistributeModal(){
   const participants=diwanDistributableParticipants();
   if(!participants.length)return toast("لا توجد متسابقات للتوزيع (الجميع بدأ اختباره أو منسحب أو معتمد)");
   const pinned=diwanState.participants.filter(p=>p.transferCommitteeId&&participants.includes(p));
-  const centers=[...new Set(participants.map(p=>p.center||""))].sort((a,b)=>(diwanSlotMinutes(diwanCenterArrival(a))-diwanSlotMinutes(diwanCenterArrival(b)))||a.localeCompare(b,"ar"));
-  openModal(`<div class="modal-head"><h2>توزيع المتسابقات على لجان الإناث</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>تُقسَم <b>${participants.length} متسابقة</b> على اللجان المختارة بعدد متساوٍ، وتُوزَّع بالتناوب (لجنة، لجنة…) حسب وقت حضور المركز ثم المركز ثم رقم الجلوس، فتظهر كل متسابقة للجنتها فقط. لا يشمل من بدأ اختبارها أو المنسحبات أو المعتمدات.</p><fieldset><legend>اللجان</legend><div class="committee-level-options">${committees.map(c=>`<label class="committee-member-toggle"><input type="checkbox" name="diwanDistributeCommittee" value="${c.id}" checked> ${escapeHtml(committeeLabelWithRoles(c))}</label>`).join("")}</div></fieldset><fieldset><legend>وقت حضور المراكز</legend><div class="committee-level-options">${centers.map(center=>`<label class="committee-member-toggle">${escapeHtml(center||"بلا مركز")} <select data-diwan-arrival="${escapeAttr(center)}">${DIWAN_ARRIVAL_SLOTS.map(slot=>`<option ${diwanCenterArrival(center)===slot?"selected":""}>${slot}</option>`).join("")}</select></label>`).join("")}</div></fieldset><div id="diwanDistributePreview" class="bulk-summary"></div>${pinned.length?`<p class="field-help">${pinned.length} منهن موزَّعات مسبقاً — سيُعاد توزيعهن حسب الجدول أعلاه.</p>`:""}</div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button>${pinned.length?`<button id="diwanUndistributeBtn" class="secondary-btn">إلغاء التوزيع (إظهارهن لكل اللجان)</button>`:""}<button id="confirmDiwanDistribute" class="primary-btn"><i data-lucide="shuffle"></i> تنفيذ التوزيع</button></div>`);
+  openModal(`<div class="modal-head"><h2>توزيع المتسابقات على لجان الإناث</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>تُقسَم <b>${participants.length} متسابقة</b> على اللجان المختارة بعدد متساوٍ، وتُوزَّع بالتناوب حسب جدول توزيع الديوان، فتظهر كل متسابقة للجنتها فقط. لا يشمل من بدأ اختبارها أو المنسحبات أو المعتمدات.</p><fieldset><legend>اللجان</legend><div class="committee-level-options">${committees.map(c=>`<label class="committee-member-toggle"><input type="checkbox" name="diwanDistributeCommittee" value="${c.id}" checked> ${escapeHtml(committeeLabelWithRoles(c))}</label>`).join("")}</div></fieldset><div id="diwanDistributePreview" class="bulk-summary"></div>${pinned.length?`<p class="field-help">${pinned.length} منهن موزَّعات مسبقاً — سيُعاد توزيعهن حسب الجدول أعلاه.</p>`:""}</div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button>${pinned.length?`<button id="diwanUndistributeBtn" class="secondary-btn">إلغاء التوزيع (إظهارهن لكل اللجان)</button>`:""}<button id="confirmDiwanDistribute" class="primary-btn"><i data-lucide="shuffle"></i> تنفيذ التوزيع</button></div>`);
   lucide.createIcons();
   const selected=()=>{const ids=checkedValuesOf("diwanDistributeCommittee");return committees.filter(c=>ids.includes(c.id))};
-  const bySlot=members=>DIWAN_ARRIVAL_SLOTS.map(slot=>[slot,members.filter(p=>diwanCenterArrival(p.center)===slot).length]).filter(([,count])=>count).map(([slot,count])=>`${slot}: ${count}`).join(" · ")||"—";
-  const preview=()=>{const chosen=selected();$("#diwanDistributePreview").innerHTML=chosen.length?diwanDistributionPlan(participants,chosen).map(({committee,members})=>`<div><b>${members.length}</b><span>${escapeHtml(committee.name)}<br><small>${bySlot(members)}</small></span></div>`).join(""):`<p class="form-error">اختر لجنة واحدة على الأقل</p>`};
-  $$(`[name="diwanDistributeCommittee"]`).forEach(input=>input.onchange=preview);
-  $$("[data-diwan-arrival]").forEach(select=>select.onchange=()=>{const overrides=diwanArrivalOverrides();overrides[select.dataset.diwanArrival]=select.value;try{localStorage.setItem(DIWAN_ARRIVAL_STORAGE_KEY,JSON.stringify(overrides))}catch{}preview()});
-  preview();
+  const preview=()=>{const chosen=selected();$("#diwanDistributePreview").innerHTML=chosen.length?diwanDistributionPlan(participants,chosen).map(({committee,members})=>`<div><b>${members.length}</b><span>${escapeHtml(committee.name)}</span></div>`).join(""):`<p class="form-error">اختر لجنة واحدة على الأقل</p>`};
+  $$(`[name="diwanDistributeCommittee"]`).forEach(input=>input.onchange=preview);preview();
   const run=async(assignments,button,doneMessage)=>{
     $$(".modal-actions button").forEach(b=>b.disabled=true);
     let done=0;const failed=[];
@@ -1736,10 +1726,10 @@ async function exportDiwanParticipants(){
   const rows=diwanState.participants.map(p=>({"رقم الجلوس":p.seat||"","الرقم التسلسلي":diwanSerialOf(p),"اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","اللجنة":diwanAssignedCommittee(p).name,"المرحلة الحالية":p.certified?"حافظ معتمد":`${DIWAN_STAGE_LABELS[p.stage]||""}${p.withdrawn?" (منسحب)":""}`,"الأجزاء":(p.parts||[]).join("، "),"العمر":p.age||"","آخر علامة":Number.isFinite(p.score)?(p.assessment?.incomplete?"غير مكتمل":p.score):""}));
   const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rows);sheet["!cols"]=[{wch:12},{wch:14},{wch:32},{wch:10},{wch:22},{wch:20},{wch:18},{wch:30},{wch:10},{wch:10}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
   XLSX.utils.book_append_sheet(workbook,sheet,"متسابقو ديوان الحفاظ");
-  // شيت ثانٍ: من على أي لجنة، مرتّب حسب رقم اللجنة ثم دور الاختبار (وقت حضور المركز، المركز، الجلوس).
-  const byCommittee=diwanState.participants.map(p=>({p,committee:diwanAssignedCommittee(p)})).sort((a,b)=>(diwanCommitteeNumber(a.committee)-diwanCommitteeNumber(b.committee))||a.committee.name.localeCompare(b.committee.name,"ar")||diwanQueueCompare()(a.p,b.p));
-  const committeeSheet=XLSX.utils.json_to_sheet(byCommittee.map(({p,committee})=>({"اللجنة":committee.name,"رقم الجلوس":p.seat||"","الاسم":p.name,"المركز":p.center||"","وقت حضور المركز":diwanCenterArrival(p.center),"الحالة":p.withdrawn?"منسحب":p.certified?"حافظ معتمد":DIWAN_STAGE_LABELS[p.stage]||""})));
-  committeeSheet["!cols"]=[{wch:20},{wch:12},{wch:32},{wch:22},{wch:14},{wch:18}];committeeSheet["!views"]=[{rightToLeft:true}];
+  // شيت ثانٍ: من على أي لجنة، مرتّب حسب رقم اللجنة ثم رقم الجلوس.
+  const byCommittee=diwanState.participants.map(p=>({p,committee:diwanAssignedCommittee(p)})).sort((a,b)=>(diwanCommitteeNumber(a.committee)-diwanCommitteeNumber(b.committee))||a.committee.name.localeCompare(b.committee.name,"ar")||(diwanSeatNumber(a.p)-diwanSeatNumber(b.p)));
+  const committeeSheet=XLSX.utils.json_to_sheet(byCommittee.map(({p,committee})=>({"اللجنة":committee.name,"رقم الجلوس":p.seat||"","الاسم":p.name,"المركز":p.center||"","الحالة":p.withdrawn?"منسحب":p.certified?"حافظ معتمد":DIWAN_STAGE_LABELS[p.stage]||""})));
+  committeeSheet["!cols"]=[{wch:20},{wch:12},{wch:32},{wch:22},{wch:18}];committeeSheet["!views"]=[{rightToLeft:true}];
   XLSX.utils.book_append_sheet(workbook,committeeSheet,"توزيع اللجان");
   XLSX.writeFile(workbook,`ديوان-الحفاظ-${dateStamp()}.xlsx`);toast("تم تنزيل ملف المتسابقين");
 }
