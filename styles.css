@@ -1210,18 +1210,27 @@ img,svg{max-width:100%}
 .hc-foot-sign small{font-size:12px}
 .hc-foot-sign b{font:800 21px 'HC Tajawal',sans-serif}
 
-/* توصية اللجنة (نفس قالب الشهادة الأفقي) */
-.hc-rec .hc-title{height:62px;flex-direction:column;gap:0;line-height:1.25}
-.hc-title-sub{font:500 15px 'HC Tajawal',sans-serif;color:#f0ebdc}
-.hc-rec .hc-mid{margin-top:12px}
-.hc-rec .hc-section{margin-top:10px}
-.hc-rec .hc-parts{grid-template-rows:30px 30px;margin-top:6px}
+/* وثيقة التوصية (نفس ألوان الشهادة، A4 عمودي) */
+.diwan-doc-sheet.hc-sheet.hc-rec{width:794px!important;height:1123px!important}
+.hc-rec .hc-inner{padding:44px 56px 0}
+.hc-rec-serial{position:absolute;top:44px;left:56px;display:flex;align-items:baseline;gap:6px;font-size:13px;font-weight:700}
+.hc-rec-serial b{min-width:80px;border-bottom:1px dotted #9a7430;font:700 14px 'HC Tajawal',sans-serif;text-align:center;color:#1a1a1a}
+.hc-rec .hc-head{margin-top:10px}
+.hc-rec-name{margin:16px 0 0;padding-bottom:10px;text-align:center;font:800 24px 'HC Tajawal',sans-serif;color:#163726;border-bottom:1px solid #d8bd83;white-space:nowrap;overflow:hidden}
+.hc-rec .hc-info{margin-top:18px;grid-template-columns:110px 1fr 110px 1fr}
+.hc-rec .hc-label,.hc-rec .hc-value{min-height:34px}
+.hc-rec .hc-info>:nth-last-child(-n+4){border-bottom:1px solid #d8c9a3}
+.hc-rec .hc-info>:nth-last-child(-n+2){border-bottom:0}
+.hc-rec-score{margin-top:14px;grid-auto-flow:column;justify-content:space-around;padding:10px 24px}
+.hc-rec-heading{margin-top:26px;font-size:17px}
 .hc-badge.is-outline{background:#faf7eb;color:#163726;border-color:#b8903f}
-.hc-rec-box{list-style:none;margin:10px 0 0;padding:6px 18px;background:#eee6d2;border:1px solid #b8903f;border-radius:10px}
-.hc-rec-box li{height:28px;line-height:27px;border-bottom:1px dotted #9a7430;font:500 15px 'HC Tajawal',sans-serif;color:#1a1a1a;white-space:nowrap;overflow:hidden}
+.hc-rec-box{list-style:none;margin:12px 0 0;padding:8px 20px;background:#eee6d2;border:1px solid #b8903f;border-radius:10px}
+.hc-rec-box li{height:54px;line-height:53px;border-bottom:1px dotted #9a7430;font:500 16px 'HC Tajawal',sans-serif;color:#1a1a1a;white-space:nowrap;overflow:hidden}
 .hc-rec-box li:last-child{border-bottom:0}
-.hc-rec-num{display:inline-block;width:26px;font-weight:800;color:#163726}
-.hc-blank-row{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:8px}
-.hc-blank-row.is-one{grid-template-columns:1fr;margin-top:2px}
-.hc-blank-row p{display:flex;align-items:flex-end;gap:8px;margin:0;font-size:14px;height:24px}
-.hc-blank-row p i{flex:1;border-bottom:1px dotted #9a7430;height:16px}
+.hc-rec-num{display:inline-block;width:28px;font-weight:800;color:#163726}
+.hc-rec-foot{position:absolute;left:56px;right:56px;bottom:64px;padding-top:14px;border-top:1px solid #b8903f;display:flex;justify-content:space-around;gap:24px}
+.hc-rec-sign{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:220px}
+.hc-rec-sign small{font-size:14px;font-weight:700}
+.hc-rec-sign b{font:800 19px 'HC Tajawal',sans-serif;color:#1a1a1a;min-height:26px}
+.hc-rec-sign i{display:block;width:200px;height:34px;border-bottom:1px dotted #9a7430}
+.hc-rec-sign span{font-size:12px;color:#6f6a5a}

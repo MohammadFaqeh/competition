@@ -197,6 +197,7 @@ async function run() {
     assert.ok(stageCert.includes(">S-007<"), "الرقم التسلسلي يظهر بخانته بالشهادة");
     assert.strictEqual((stageCert.match(/hc-part is-marked/g) || []).length, 10, "تُظلَّل بالضبط الأجزاء العشرة المسجَّلة بسحب الاختبار");
     assert.ok(/hc-part is-marked[^>]*>30</.test(stageCert) && !/hc-part is-marked[^>]*>1</.test(stageCert), "الجزء 30 مظلَّل والجزء 1 لا");
+    assert.ok(stageCert.includes("فرع الكورة أنّ <u") && !stageCert.includes("الطالبة") && !stageCert.includes("الطالب:"), "الشهادة: «أنّ [الاسم]» بلا كلمة الطالبة");
     assert.ok(stageCert.includes("دعاء") && stageCert.includes("05/03/2026") && stageCert.includes("مركز"), "الاسم والتاريخ والمركز تُعبَّأ");
     const finalCert = sandbox.diwanHafizCertificateHtml({ ...p3, certificateNumber: 7 }, { stage: 4, eligibleParts: Array.from({length:30},(_,i)=>i+1) }, { score: 90, finalized_at: "2026-03-05T10:00:00Z" }, "data:,");
     assert.strictEqual((finalCert.match(/hc-part is-marked/g) || []).length, 30, "الاختبار النهائي: كل الأجزاء الثلاثين مظلَّلة");
@@ -211,6 +212,24 @@ async function run() {
     assert.ok(recHtml.includes("الاختبار الثاني"), "عنوان الاختبار الفرعي بقالب التوصية يتبع مرحلة المحاولة");
     const recIncomplete = sandbox.diwanRecommendationHtml(p, { stage: 4, eligibleParts: [1] }, { status: "final", score: 100, assessment: { incomplete: true } }, "data:,");
     assert.ok(recIncomplete.includes("غير مكتمل"), "«غير مكتمل» يظهر بدل الرقم الداخلي");
+    // وثيقة التوصية: عمودية، عنوانها «وثيقة توصية»، الاسم أعلاها بلا «الطالبة»، بلا أجزاء/موعد إعادة/ملاحظات/رقم شهادة/مدير،
+    // الرقم التسلسلي مرة واحدة، «ملاحظات اللجنة»، توقيع أعضاء اللجنة من بياناتها، والتاريخ سنة/شهر/يوم.
+    vm.runInContext('cloudCommittees = [{ id: "C9", name: "لجنة ٩", chairman_name: "رئيس التجربة", member_name: "عضو التجربة" }];', sandbox);
+    const recDoc = sandbox.diwanRecommendationHtml({ ...p, serialNumber: "S-777" }, { stage: 2, eligibleParts: tenParts }, { status: "final", score: 70, finalized_at: "2026-09-21T10:00:00Z", assessment: { committee: { id: "C9", name: "لجنة ٩" } } }, "data:,");
+    assert.ok(recDoc.includes("hc-rec") && recDoc.includes(">وثيقة توصية<") && !recDoc.includes("توصية اللجنة"), "العنوان «وثيقة توصية»");
+    assert.ok(recDoc.includes("فرع الكورة – هدى") && !recDoc.includes("الطالبة"), "الاسم أعلى الوثيقة بلا كلمة الطالبة");
+    assert.ok(recDoc.includes('<div class="hc-label">الاسم</div>') && !recDoc.includes("اسم الطالب"), "حقل الاسم بعنوان «الاسم»");
+    assert.ok(!recDoc.includes("hc-part") && !recDoc.includes("الأجزاء") && !recDoc.includes("موعد إعادة") && !recDoc.includes("ملاحظات:"), "لا أجزاء ولا موعد إعادة ولا حقل ملاحظات");
+    assert.ok(!recDoc.includes("رقم الشهادة") && !recDoc.includes("مدير الفرع") && !recDoc.includes("قيس العوايشة") && !recDoc.includes(">005<"), "لا رقم شهادة ولا رقم جلوس ولا توقيع مدير");
+    assert.strictEqual((recDoc.match(/S-777/g) || []).length, 1, "الرقم التسلسلي يظهر مرة واحدة فقط");
+    assert.ok(recDoc.includes(">ملاحظات اللجنة<"), "عنوان «ملاحظات اللجنة»");
+    assert.ok(recDoc.includes("رئيس التجربة") && recDoc.includes("عضو التجربة"), "التوقيع باسم رئيس اللجنة وعضوها من بيانات اللجنة");
+    assert.ok(recDoc.includes('<bdi dir="ltr">2026/09/21</bdi>') && !recDoc.includes("21/09/2026"), "التاريخ بصيغة سنة/شهر/يوم");
+    const recSnapshot = sandbox.diwanRecommendationHtml(p, { stage: 2 }, { status: "final", score: 70, assessment: { committeeChairmanName: "رئيس محفوظ" } }, "data:,");
+    assert.ok(recSnapshot.includes("رئيس محفوظ") && !recSnapshot.includes("عضو اللجنة"), "لقطة أسماء اللجنة المحفوظة بالتقييم تُستخدم عند غياب اللجنة، ولا سطر لعضو غير موجود");
+    const recNoNames = sandbox.diwanRecommendationHtml(p, { stage: 2 }, { status: "final", score: 70, assessment: {} }, "data:,");
+    assert.ok(recNoNames.includes("رئيس اللجنة") && recNoNames.includes("عضو اللجنة"), "بلا أي أسماء: سطرا توقيع فارغان للرئيس والعضو");
+    vm.runInContext('cloudCommittees = [];', sandbox);
   }
 
   // 9) لوحة الصناديق الأربعة + النقل اليدوي لمرحلة (يبدأ من جديد ولا يعيد تطبيق نتائج قديمة) + منتقي أجزاء لا يمنع المُختبَرة سابقاً
@@ -246,6 +265,41 @@ async function run() {
     sandbox.mergeFinalDiwanSessionsIntoState([{ participant_id: "DP9", draw_id: "DDRAW-M3", stage: 1, status: "final", score: 90, finalized_at: new Date(Date.now() + 2000).toISOString(), assessment: {} }]);
     assert.strictEqual(pm.stage, 2, "نتيجة ناجحة جديدة تنقله تلقائياً للمرحلة التالية");
     assert.strictEqual(sandbox.moveDiwanParticipantToStage(pm, 9), false, "مرحلة غير صالحة مرفوضة");
+  }
+
+  // 10) الأجزاء تُسحب تلقائياً من Excel/CSV (١٠ بالضبط)، ولا تتغير أجزاء من له سحب بانتظار اللجنة، ثم «سحب للجميع» يستخدمها بلا اختيار يدوي
+  {
+    const pending = { id: "DP-PEND", name: "رهف", seat: "103", serialNumber: "S-103", gender: "أنثى", center: "مركز", stage: 1, usedJuz: [], parts: [1,2,3,4,5,6,7,8,9,10], level: 10, createdAt: new Date().toISOString() };
+    vm.runInContext('diwanState.participants.push(__p); diwanState.draws.push(__d);', Object.assign(sandbox, { __p: pending, __d: { id: "DDRAW-PEND", participantId: "DP-PEND", stage: 1, eligibleParts: pending.parts, positions: [], createdAt: new Date().toISOString() } }));
+    assert.strictEqual(sandbox.diwanParticipantStatusOf(pending), "pending");
+    const pendingPartsBefore = JSON.stringify(pending.parts);
+    const csv = [
+      "الاسم,رقم الجلوس,الرقم التسلسلي,الجنس,المركز,الأجزاء",
+      "مريم,101,S-101,أنثى,مركز,\"1-5، 21، 22، 23، 24، 25\"",
+      "نور,102,S-102,أنثى,مركز,1،2،3",
+      `${pending.name},${pending.seat},${pending.serialNumber},${pending.gender},${pending.center},11-20`,
+    ].filter(Boolean).join("\n");
+    const event = { target: { value: "x", files: [{ name: "diwan.csv", text: async () => csv }] } };
+    await sandbox.importDiwanExcel(event);
+    const list = vm.runInContext('diwanState.participants', sandbox);
+    const maryam = list.find(p => p.name === "مريم"), noor = list.find(p => p.name === "نور");
+    assert.deepStrictEqual([...maryam.parts], [1,2,3,4,5,21,22,23,24,25], "أجزاء مريم العشرة سُحبت من الملف تلقائياً");
+    assert.strictEqual(noor.parts.length, 0, "خانة أجزاء لا تحوي ١٠ أجزاء لا تُعتمد");
+    assert.strictEqual(JSON.stringify(pending.parts), pendingPartsBefore, "لا تتغير أجزاء متسابق له سحب بانتظار اللجنة");
+    const drawsBefore = vm.runInContext('diwanState.draws.length', sandbox);
+    await sandbox.runDiwanBulkDraw([maryam, noor]);
+    const draws = vm.runInContext('diwanState.draws', sandbox);
+    assert.strictEqual(draws.length, drawsBefore + 1, "سحب للجميع: سحب واحد لمن أجزاؤه جاهزة فقط");
+    const maryamDraw = draws.find(d => d.participantId === maryam.id);
+    assert.deepStrictEqual([...maryamDraw.eligibleParts], [1,2,3,4,5,21,22,23,24,25], "السحب الجماعي بأجزاء Excel نفسها");
+    assert.strictEqual(maryamDraw.positions.length, 10, "موضع من كل جزء");
+    assert.strictEqual(sandbox.diwanParticipantStatusOf(noor), "no_draw", "من لا أجزاء له يُتخطّى");
+    const origConfirm = queryElement("#deleteAllDiwanConfirm");
+    sandbox.confirmDeleteAllDiwanParticipants();
+    origConfirm.value = "خطأ"; queryElement("#deleteAllDiwanNow").onclick();
+    assert.ok(vm.runInContext('diwanState.participants.length', sandbox) > 0, "حذف الجميع لا يتم بلا عبارة التأكيد الصحيحة");
+    origConfirm.value = "حذف المتسابقين"; queryElement("#deleteAllDiwanNow").onclick();
+    assert.strictEqual(vm.runInContext('diwanState.participants.length + diwanState.draws.length', sandbox), 0, "حذف الجميع يحذف المتسابقين وسحوباتهم");
   }
 
   console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=85، ودوال توليد الشهادات/التوصيات");

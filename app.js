@@ -430,6 +430,8 @@ function bindEvents(){
   $("#diwanBulkPdfBtn")?.addEventListener("click",openDiwanBulkPdfDialog);
   $("#diwanSyncCommitteesBtn").addEventListener("click",refreshDiwanCommitteeResults);
   $("#diwanImportInput").addEventListener("change",importDiwanExcel);
+  $("#diwanBulkDrawBtn")?.addEventListener("click",openDiwanBulkDrawModal);
+  $("#diwanDeleteAllBtn")?.addEventListener("click",confirmDeleteAllDiwanParticipants);
   $("#trialBackBtn")?.addEventListener("click",closeTrialScreen);
   $("#addTrialParticipantBtn")?.addEventListener("click",()=>openTrialParticipantModal());
   $("#trialParticipantSearch")?.addEventListener("input",renderTrialParticipants);
@@ -1570,6 +1572,51 @@ function showDiwanResult(draw){
   $(".print-letterhead>strong")?.remove();
   $(".print-footer").innerHTML=`<div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>`;
 }
+// سحب للجميع (مثل «سحب للجميع» بالسنوية): لكل من لا سحب له بمرحلته الحالية — مراحل ١-٣ بأجزائه العشرة المسحوبة من Excel
+// (بلا اختيار يدوي)، والنهائي من القرآن كاملاً تلقائياً. من لا أجزاء له أو لا رقم تسلسلي يُتخطّى ويُذكر بالملخص.
+function openDiwanBulkDrawModal(){
+  const allPending=diwanState.participants.filter(p=>!p.certified&&diwanParticipantStatusOf(p)==="no_draw");
+  if(!allPending.length)return toast(diwanState.participants.length?"جميع المتسابقين لديهم سحب بمرحلتهم الحالية":"أضف المتسابقين أو استورد ملف Excel أولاً");
+  const hasParts=p=>diwanStageOf(p)===4||(p.parts||[]).length===10;
+  const missingParts=allPending.filter(p=>!hasParts(p)),missingSerial=allPending.filter(p=>hasParts(p)&&!diwanSerialOf(p));
+  const readyCount=allPending.length-missingParts.length-missingSerial.length;
+  const centers=[...new Set(allPending.map(p=>p.center).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));
+  const stageBoxes=`<label class="committee-member-toggle level-select-all"><input type="checkbox" data-level-all="diwanBulkDrawStage"> <b>كل المراحل</b></label>`+[1,2,3,4].map(stage=>`<label class="committee-member-toggle"><input type="checkbox" name="diwanBulkDrawStage" value="${stage}"> ${DIWAN_STAGE_LABELS[stage]}</label>`).join("");
+  openModal(`<div class="modal-head"><h2>سحب لجميع متسابقي ديوان الحفاظ</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>سينفذ النظام سحباً مستقلاً لكل متسابق لا سحب له بمرحلته الحالية: المراحل ١-٣ بأجزائه العشرة المسحوبة من ملف Excel، والاختبار النهائي من القرآن كاملاً. حدد فلترة اختيارية أو اتركها فارغة للسحب للجميع.</p><div class="form-grid">${genderFieldHtml("diwanBulkDraw")}</div><fieldset><legend>المركز (اختياري — اتركه فارغًا ليشمل كل المراكز)</legend><div class="committee-level-options">${centerCheckboxesHtml("diwanBulkDrawCenter",centers)}</div></fieldset><fieldset><legend>المرحلة (اختياري — اتركها فارغة لتشمل كل المراحل)</legend><div class="committee-level-options">${stageBoxes}</div></fieldset><div class="bulk-summary"><div><b>${readyCount}</b><span>جاهز للسحب (قبل الفلترة)</span></div><div><b>${diwanState.draws.length}</b><span>سحباً محفوظاً حالياً</span></div></div>${missingParts.length?`<p class="form-error">${missingParts.length} متسابقاً بلا ١٠ أجزاء مسجّلة (استوردها من Excel أو اخترها يدوياً) سيُتخطَّون:</p><div class="missing-parts-list">${missingParts.map(p=>`<span>${escapeHtml(p.name)} · ${escapeHtml(DIWAN_STAGE_LABELS[diwanStageOf(p)])}</span>`).join("")}</div>`:""}${missingSerial.length?`<p class="form-error">${missingSerial.length} متسابقاً بلا رقم تسلسلي سيُتخطَّون: ${missingSerial.map(p=>escapeHtml(p.name)).join("، ")}</p>`:""}<p class="form-error">بعد التنفيذ تصبح المواضع مثبتة.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="confirmDiwanBulkDraw" class="primary-btn" ${readyCount?"":"disabled"}><i data-lucide="layers"></i> تنفيذ السحب لمن أجزاؤه جاهزة</button></div>`);
+  wireLevelSelectAll("diwanBulkDrawCenter");wireLevelSelectAll("diwanBulkDrawStage");lucide.createIcons();
+  $("#confirmDiwanBulkDraw").onclick=()=>{
+    const gender=$("#diwanBulkDrawGender").value,centersSelected=checkedValuesOf("diwanBulkDrawCenter"),stages=checkedValuesOf("diwanBulkDrawStage").map(Number);
+    const filtered=allPending.filter(p=>(gender==="all"||p.gender===gender)&&(!centersSelected.length||centersSelected.includes(p.center))&&(!stages.length||stages.includes(diwanStageOf(p))));
+    if(!filtered.length)return toast("لا يوجد متسابقون مطابقون للفلتر بانتظار السحب");
+    runDiwanBulkDraw(filtered);
+  };
+}
+async function runDiwanBulkDraw(participants){
+  const button=$("#confirmDiwanBulkDraw");button.disabled=true;
+  let completed=0;const missingPartsNames=[],failedNames=[];
+  for(const p of participants){
+    button.textContent=`جاري السحب ${completed+missingPartsNames.length+failedNames.length+1} من ${participants.length}`;
+    const isFinal=diwanStageOf(p)===4;
+    if(!isFinal&&(p.parts||[]).length!==10){missingPartsNames.push(p.name);continue}
+    try{
+      const draw=isFinal?await makeDiwanFinalDraw(p):await makeDiwanStageDraw(p,[...p.parts].map(Number).sort((a,b)=>a-b));
+      if(isFinal)p.parts=Array.from({length:30},(_,i)=>i+1);
+      diwanState.draws.push(draw);saveDiwanState();completed++;
+    }catch(error){failedNames.push(`${p.name}: ${error.message}`)}
+  }
+  renderDiwanParticipants();
+  openModal(`<div class="modal-head"><h2>اكتمل السحب الجماعي</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="bulk-summary"><div><b>${completed}</b><span>سحباً تم حفظه</span></div><div><b>${missingPartsNames.length+failedNames.length}</b><span>لم يتم سحبه</span></div></div>${missingPartsNames.length?`<p class="form-error"><b>لا أجزاء مسجّلة لهم:</b> ${missingPartsNames.map(escapeHtml).join("، ")}</p>`:""}${failedNames.length?`<p class="form-error"><b>تعذر السحب:</b><br>${failedNames.map(escapeHtml).join("<br>")}</p>`:""}${!missingPartsNames.length&&!failedNames.length?"<p>جميع السحوبات جاهزة، ويمكن فتح ورقة مواضع كل متسابق من بطاقته.</p>":""}</div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`);
+}
+function confirmDeleteAllDiwanParticipants(){
+  if(!diwanState.participants.length)return toast("لا يوجد متسابقون لحذفهم");
+  openModal(`<div class="modal-head"><h2>حذف جميع متسابقي ديوان الحفاظ</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>سيتم حذف <b>${diwanState.participants.length} متسابقاً</b> من ديوان الحفاظ.</p><p class="form-error">سيُحذف معهم ${diwanState.draws.length} سحباً بكل المراحل، ولا يمكن التراجع. إعدادات الديوان واللجان لن تتغير.</p><label>اكتب <b>حذف المتسابقين</b> للتأكيد<input id="deleteAllDiwanConfirm" autocomplete="off"></label></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="deleteAllDiwanNow" class="danger-btn"><i data-lucide="trash-2"></i> حذف الجميع</button></div>`);
+  lucide.createIcons();
+  $("#deleteAllDiwanNow").onclick=()=>{
+    if($("#deleteAllDiwanConfirm").value.trim()!=="حذف المتسابقين")return toast("اكتب عبارة التأكيد كما تظهر");
+    diwanState.deletions=diwanState.deletions||[];diwanState.deletions.push({type:"all-participants",participantCount:diwanState.participants.length,drawCount:diwanState.draws.length,at:new Date().toISOString()});
+    diwanState.participants=[];diwanState.draws=[];saveDiwanState();closeModal();renderDiwanParticipants();toast("تم حذف جميع متسابقي ديوان الحفاظ وسحوباتهم");
+  };
+}
 function confirmDeleteDiwanParticipant(participantId){const participant=diwanState.participants.find(p=>p.id===participantId);if(!participant)return;if(!confirm(`حذف ${participant.name} وكل سحوباته المحفوظة (كل المراحل)؟`))return;diwanState.participants=diwanState.participants.filter(p=>p.id!==participantId);diwanState.draws=diwanState.draws.filter(d=>d.participantId!==participantId);saveDiwanState();renderDiwanParticipants();toast("تم الحذف")}
 // نقل مشارك ديوان الحفاظ للجنة أخرى — يعيد استخدام resolveParticipantCommittee/cloudCommittees
 // المشتركين مع السنوية بلا أي تعديل (نفس مبدأ فرز اللجان: جنس + مستوى/levelName). إدارة فقط
@@ -1589,8 +1636,8 @@ function openDiwanAssignCommitteeModal(participantId){
 async function exportDiwanParticipants(){
   if(!diwanState.participants.length)return toast("لا يوجد متسابقون لتصديرهم");
   try{await ensureXlsx()}catch(error){return toast(error.message)}
-  const rows=diwanState.participants.map(p=>({"رقم الجلوس":p.seat||"","الرقم التسلسلي":diwanSerialOf(p),"اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","المرحلة الحالية":p.certified?"حافظ معتمد":DIWAN_STAGE_LABELS[p.stage]||"","العمر":p.age||"","آخر علامة":Number.isFinite(p.score)?(p.assessment?.incomplete?"غير مكتمل":p.score):""}));
-  const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rows);sheet["!cols"]=[{wch:12},{wch:14},{wch:32},{wch:10},{wch:22},{wch:18},{wch:10},{wch:10}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
+  const rows=diwanState.participants.map(p=>({"رقم الجلوس":p.seat||"","الرقم التسلسلي":diwanSerialOf(p),"اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","المرحلة الحالية":p.certified?"حافظ معتمد":DIWAN_STAGE_LABELS[p.stage]||"","الأجزاء":(p.parts||[]).join("، "),"العمر":p.age||"","آخر علامة":Number.isFinite(p.score)?(p.assessment?.incomplete?"غير مكتمل":p.score):""}));
+  const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rows);sheet["!cols"]=[{wch:12},{wch:14},{wch:32},{wch:10},{wch:22},{wch:18},{wch:30},{wch:10},{wch:10}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
   XLSX.utils.book_append_sheet(workbook,sheet,"متسابقو ديوان الحفاظ");
   XLSX.writeFile(workbook,`ديوان-الحفاظ-${dateStamp()}.xlsx`);toast("تم تنزيل ملف المتسابقين");
 }
@@ -1603,7 +1650,7 @@ async function importDiwanExcel(event){
     const sources=[];
     if(/\.csv$/i.test(file.name)){const text=await file.text();sources.push({matrix:text.replace(/^﻿/,"").split(/\r?\n/).filter(Boolean).map(parseCsvLine)})}
     else{const workbook=XLSX.read(await file.arrayBuffer(),{type:"array"});for(const sheetName of workbook.SheetNames){if(String(sheetName).trim()==="تعليمات")continue;sources.push({matrix:XLSX.utils.sheet_to_json(workbook.Sheets[sheetName],{header:1,defval:"",raw:false})})}}
-    let added=0,updated=0,empty=0,duplicateSeat=0;const importedCenters=new Set(),rejectedNames=[];
+    let added=0,updated=0,empty=0,duplicateSeat=0,partsImported=0;const importedCenters=new Set(),rejectedNames=[],invalidPartsNames=[],partsKeptNames=[];
     for(const source of sources){
       const parsed=rowsFromMatrix(source.matrix);if(!parsed.hasNameColumn)continue;
       for(const row of parsed.rows){
@@ -1614,22 +1661,30 @@ async function importDiwanExcel(event){
         const seat=String(pickColumn(row,["رقمالجلوس","رقمالمتسابق","الرقم","التسلسل","م","seat"])||"").trim();
         const age=Number(normalizeDigits(pickColumn(row,["العمر","السن","age"])))||null;
         const serial=normalizeDigits(pickColumn(row,["الرقمالتسلسلي","رقمتسلسلي","serial","serialnumber"])).trim();
+        // أجزاء المرحلة الحالية من الملف (نفس أعمدة/صيغة استيراد السنوية: «2، 5، 7» أو «1-10») — ١٠ أجزاء بالضبط وإلا تُتجاهل.
+        const rawParts=String(pickColumn(row,["الاجزاءالمشاركة","الأجزاءالمشاركة","ارقامالاجزاء","أرقامالأجزاء","الاجزاء","الأجزاء","parts"])||"").trim();
+        const fileParts=rawParts?parsePartSpec(rawParts):[];
         const existing=seat?diwanState.participants.find(p=>String(p.seat).trim()===seat):null;
+        if(rawParts&&fileParts.length!==10&&!(existing&&(existing.certified||diwanStageOf(existing)===4)))invalidPartsNames.push(`${name} (${fileParts.length} أجزاء)`);
         if(existing&&existing.name.trim()!==String(name).trim()){duplicateSeat++;rejectedNames.push(`${name}: رقم الجلوس ${seat} مسجَّل مسبقًا لمتسابق آخر باسم مختلف (${existing.name})`);continue}
         const serialOwner=serial?diwanState.participants.find(p=>p!==existing&&normalizeDigits(diwanSerialOf(p))===serial):null;
         if(serialOwner){duplicateSeat++;rejectedNames.push(`${name}: الرقم التسلسلي ${serial} مسجَّل مسبقًا للمتسابق ${serialOwner.name}`);continue}
+        const validParts=fileParts.length===10?fileParts:null;
         if(existing){
           existing.name=String(name).trim();existing.gender=gender;existing.center=center;existing.age=age;if(serial)existing.serialNumber=serial;
+          // لا نغيّر أجزاء من له سحب بانتظار اللجنة (أجزاؤه تُرحَّل لـusedJuz عند نجاحه)، ولا أجزاء المرحلة النهائية (القرآن كاملاً تلقائياً).
+          if(validParts&&!existing.certified&&diwanStageOf(existing)<4){if(diwanParticipantStatusOf(existing)==="pending")partsKeptNames.push(existing.name);else{existing.parts=validParts;partsImported++}}
           updated++;if(center)importedCenters.add(center);
         }else{
-          const item={id:uid("DP"),name:String(name).trim(),seat:seat||nextDiwanSeat(),serialNumber:serial,gender,center,age,stage:1,usedJuz:[],parts:[],level:10,createdAt:new Date().toISOString()};
+          const item={id:uid("DP"),name:String(name).trim(),seat:seat||nextDiwanSeat(),serialNumber:serial,gender,center,age,stage:1,usedJuz:[],parts:validParts||[],level:10,createdAt:new Date().toISOString()};
+          if(validParts)partsImported++;
           diwanState.participants.push(item);added++;if(center)importedCenters.add(center);
         }
       }
     }
     if(!added&&!updated)throw new Error("لم أجد شيتاً يحتوي على عمود لأسماء المتسابقين.");
     saveDiwanState();renderDiwanParticipants();
-    openModal(`<div class="modal-head"><h2>اكتمل استيراد ملف Excel</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="bulk-summary"><div><b>${added}</b><span>متسابقاً تمت إضافتهم</span></div><div><b>${updated}</b><span>تم تحديث بياناتهم</span></div><div><b>${importedCenters.size}</b><span>مركزاً</span></div></div>${duplicateSeat?`<p class="form-error"><b>${duplicateSeat} متسابقاً لم يُسجَّلوا</b> — رقم جلوسهم مكرر مع متسابق آخر.</p>`:""}${rejectedNames.length?`<details><summary>عرض الأسماء المستبعدة وأسبابها</summary><p>${rejectedNames.map(escapeHtml).join("<br>")}</p></details>`:""}${empty?`<p>تم تجاوز ${empty} صفوف فارغة.</p>`:""}</div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`);
+    openModal(`<div class="modal-head"><h2>اكتمل استيراد ملف Excel</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="bulk-summary"><div><b>${added}</b><span>متسابقاً تمت إضافتهم</span></div><div><b>${updated}</b><span>تم تحديث بياناتهم</span></div><div><b>${importedCenters.size}</b><span>مركزاً</span></div><div><b>${partsImported}</b><span>سُحبت أجزاؤهم من الملف</span></div></div>${invalidPartsNames.length?`<p class="form-error"><b>${invalidPartsNames.length} متسابقاً</b> — خانة الأجزاء بالملف لا تحوي ١٠ أجزاء بالضبط فلم تُعتمد: ${invalidPartsNames.map(escapeHtml).join("، ")}</p>`:""}${partsKeptNames.length?`<p class="form-error"><b>${partsKeptNames.length} متسابقاً</b> — لديهم سحب بانتظار اللجنة فبقيت أجزاؤه كما هي: ${partsKeptNames.map(escapeHtml).join("، ")}</p>`:""}${duplicateSeat?`<p class="form-error"><b>${duplicateSeat} متسابقاً لم يُسجَّلوا</b> — رقم جلوسهم مكرر مع متسابق آخر.</p>`:""}${rejectedNames.length?`<details><summary>عرض الأسماء المستبعدة وأسبابها</summary><p>${rejectedNames.map(escapeHtml).join("<br>")}</p></details>`:""}${empty?`<p>تم تجاوز ${empty} صفوف فارغة.</p>`:""}</div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`);
   }catch(error){openModal(`<div class="modal-head"><h2>تعذر استيراد الملف</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>${escapeHtml(error.message||"تعذر قراءة ملف Excel")}</p><p class="form-error">يجب أن يحتوي الملف على عمود لاسم المتسابق.</p></div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`)}
   event.target.value="";
 }
@@ -1768,7 +1823,7 @@ function diwanDocHeaderHtml(female,logos={}){
 function diwanDocInfoHtml(participant,draw,date,female){
   const cell=(label,value,extraClass="",style="")=>`<div class="hc-label">${label}</div><div class="hc-value ${extraClass}" style="${style}">${value}</div>`;
   return `<div class="hc-info">
-        ${cell(female?"اسم الطالبة":"اسم الطالب",escapeHtml(participant.name||""),"hc-span",diwanDocFit(participant.name,16,520,11))}
+        ${cell("الاسم",escapeHtml(participant.name||""),"hc-span",diwanDocFit(participant.name,16,520,11))}
         ${cell("الرقم",escapeHtml(participant.seat||""))}${cell("المركز",escapeHtml(participant.center||""),"",diwanDocFit(participant.center,16,190,10))}
         ${cell("المستوى",escapeHtml(diwanDocLevelText(draw)),"",diwanDocFit(diwanDocLevelText(draw),16,190,10))}${cell("تاريخ الاختبار",`<bdi dir="ltr">${date.day}/${date.month}/${date.year}</bdi>`)}
       </div>`;
@@ -1790,8 +1845,8 @@ function diwanHafizCertificateHtml(participant,draw,session,logos={}){
   const incomplete=Boolean(session?.assessment?.incomplete);
   const score=incomplete?"غير مكتمل":formatAssessmentNumber(session?.score);
   const body=isFinal
-    ?`تشهد جمعيّة المحافظة على القرآن الكريم / فرع الكورة أنّ ${female?"الطالبة":"الطالب"}: <u class="hc-fill" style="${fit(participant.name,19,340,13)}">${name}</u>، من مركز: <u class="hc-fill" style="${fit(participant.center,19,190,12)}">${center}</u>، قد أتمّ${female?"ت":""} متطلبات الحصول على شهادة الحافظ لكتاب الله غيباً عن ظهر قلب، ونوصي ${female?"الحافظة":"الحافظ"} بتقوى الله والتخلّق بأخلاق القرآن الكريم.`
-    :`تشهد جمعيّة المحافظة على القرآن الكريم / فرع الكورة أنّ ${female?"الطالبة":"الطالب"}: <u class="hc-fill" style="${fit(participant.name,19,340,13)}">${name}</u>، من مركز: <u class="hc-fill" style="${fit(participant.center,19,190,12)}">${center}</u>، قد أتمّ${female?"ت":""} متطلبات الحصول على شهادة حفظ عشرة أجزاء، ونوصي${female?"ها":"ه"} بتقوى الله والتخلّق بأخلاق القرآن الكريم.`;
+    ?`تشهد جمعيّة المحافظة على القرآن الكريم / فرع الكورة أنّ <u class="hc-fill" style="${fit(participant.name,19,340,13)}">${name}</u>، من مركز: <u class="hc-fill" style="${fit(participant.center,19,190,12)}">${center}</u>، قد أتمّ${female?"ت":""} متطلبات الحصول على شهادة الحافظ لكتاب الله غيباً عن ظهر قلب، ونوصي ${female?"الحافظة":"الحافظ"} بتقوى الله والتخلّق بأخلاق القرآن الكريم.`
+    :`تشهد جمعيّة المحافظة على القرآن الكريم / فرع الكورة أنّ <u class="hc-fill" style="${fit(participant.name,19,340,13)}">${name}</u>، من مركز: <u class="hc-fill" style="${fit(participant.center,19,190,12)}">${center}</u>، قد أتمّ${female?"ت":""} متطلبات الحصول على شهادة حفظ عشرة أجزاء، ونوصي${female?"ها":"ه"} بتقوى الله والتخلّق بأخلاق القرآن الكريم.`;
   return `<div class="pdf-export-sheet diwan-doc-sheet hc-sheet">
     <div class="hc-frame"></div>
     <div class="hc-inner">
@@ -1819,31 +1874,41 @@ function diwanRecommendationLines(draw,session){
   const admin=clean(draw?.adminRecommendation),committee=clean(session?.assessment?.recommendation);
   return (admin.length?admin:committee).slice(0,DIWAN_RECOMMENDATION_MAX_POINTS);
 }
-// توصية اللجنة: HTML/CSS خالص بنفس تصميم الشهادة (A4 أفقي). خمسة أسطر مرقّمة تُملأ من التوصية، والأسطر الفارغة تبقى منقّطة للكتابة اليدوية.
+// أسماء اللجنة التي امتحنت المحاولة: من سجل اللجان الحالي (cloudCommittees) بمعرّف لجنة الجلسة، وإلا من لقطة الأسماء المحفوظة بالتقييم.
+function diwanDocCommitteeMembers(session){
+  const assessment=session?.assessment||{},id=assessment.committee?.id||session?.committee_id;
+  const committee=id?cloudCommittees.find(c=>c.id===id):null;
+  return {chairman:String(committee?.chairman_name||assessment.committeeChairmanName||"").trim(),member:String(committee?.member_name||assessment.committeeMemberName||"").trim()};
+}
+// وثيقة التوصية: HTML/CSS خالص بنفس ألوان الشهادة لكن A4 عمودي. بلا أجزاء ولا موعد إعادة ولا رقم شهادة ولا توقيع مدير —
+// الرقم التسلسلي وحده أعلى الوثيقة، و«ملاحظات اللجنة» خمسة أسطر مرقّمة، والتوقيع لرئيس اللجنة وعضوها. التاريخ سنة/شهر/يوم.
 function diwanRecommendationHtml(participant,draw,session,logos={}){
   const female=participant.gender!=="ذكر",date=diwanDocDateParts(session?.finalized_at),lines=diwanRecommendationLines(draw,session);
   const incomplete=Boolean(session?.assessment?.incomplete);
   const score=incomplete?"غير مكتمل":formatAssessmentNumber(session?.score);
-  const sub=draw?.stage===4?"":`<span class="hc-title-sub">${escapeHtml(DIWAN_STAGE_LABELS[draw?.stage]||"")}</span>`;
+  const name=escapeHtml(participant.name||""),serial=diwanSerialOf(participant),{chairman,member}=diwanDocCommitteeMembers(session);
+  const cell=(label,value,extraClass="",style="")=>`<div class="hc-label">${label}</div><div class="hc-value ${extraClass}" style="${style}">${value}</div>`;
   const rows=Array.from({length:DIWAN_RECOMMENDATION_MAX_POINTS},(_,index)=>lines[index]?`<li><span class="hc-rec-num">${index+1}.</span>${escapeHtml(lines[index])}</li>`:`<li></li>`).join("");
+  const sign=(role,person)=>`<div class="hc-rec-sign"><small>${role}</small><b>${escapeHtml(person)||"&nbsp;"}</b><i></i><span>التوقيع</span></div>`;
   return `<div class="pdf-export-sheet diwan-doc-sheet hc-sheet hc-rec">
     <div class="hc-frame"></div>
     <div class="hc-inner">
+      ${serial?`<div class="hc-rec-serial"><span>الرقم التسلسلي:</span><b>${escapeHtml(serial)}</b></div>`:""}
       ${diwanDocHeaderHtml(female,logos)}
-      <div class="hc-title">توصية اللجنة${sub}</div>
-      <div class="hc-mid">
-      ${diwanDocInfoHtml(participant,draw,date,female)}
-      <div class="hc-score">
+      <div class="hc-title">وثيقة توصية</div>
+      <div class="hc-rec-name" style="${diwanDocFit(`فرع الكورة – ${participant.name||""}`,24,650,15)}">فرع الكورة – ${name}</div>
+      <div class="hc-info">
+        ${cell("الاسم",name,"hc-span",diwanDocFit(participant.name,16,520,11))}
+        ${cell("المركز",escapeHtml(participant.center||""),"",diwanDocFit(participant.center,16,200,10))}${cell("المستوى",escapeHtml(diwanDocLevelText(draw)),"",diwanDocFit(diwanDocLevelText(draw),16,200,10))}
+        ${cell("تاريخ الاختبار",`<bdi dir="ltr">${date.year}/${date.month}/${date.day}</bdi>`,"hc-span")}
+      </div>
+      <div class="hc-score hc-rec-score">
         <div class="hc-score-row"><span>العلامة:</span><b dir="ltr">${score}${incomplete?"":` <em>/ 100</em>`}</b></div>
         <div class="hc-score-row"><span>النتيجة:</span><strong class="hc-badge is-outline">${incomplete?"غير مكتمل":"غير ناجح"}</strong></div>
       </div>
-      </div>
-      <div class="hc-section">${female?"الأجزاء التي شاركت فيها الطالبة":"الأجزاء التي شارك فيها الطالب"}</div>
-      ${diwanDocPartsHtml(draw)}
+      <div class="hc-section hc-rec-heading">ملاحظات اللجنة</div>
       <ol class="hc-rec-box">${rows}</ol>
-      <div class="hc-blank-row"><p><span>الأجزاء التي تحتاج إلى مراجعة:</span><i></i></p><p><span>موعد إعادة الاختبار المقترح:</span><i></i></p></div>
-      <div class="hc-blank-row is-one"><p><span>ملاحظات:</span><i></i></p></div>
-      ${diwanDocFooterHtml(participant)}
+      <div class="hc-rec-foot">${sign("رئيس اللجنة",chairman)}${member||!chairman?sign("عضو اللجنة",member):""}</div>
     </div>
   </div>`;
 }
@@ -1890,11 +1955,11 @@ function whiteToTransparentDataUrl(src){
   });
 }
 // طباعة/حفظ PDF بجودة متجهية (نص حاد بأي تكبير): تُفتح الشهادة في iframe مخفي وتُطبع بمحرّك المتصفح نفسه، فيختار المستخدم «حفظ كـPDF».
-async function printDiwanDocumentHtml(html,title){
-  const frame=document.createElement("iframe");
-  frame.style.cssText="position:fixed;right:-99999px;top:0;width:1123px;height:794px;border:0";
+async function printDiwanDocumentHtml(html,title,{portrait=false}={}){
+  const frame=document.createElement("iframe"),[pageW,pageH]=portrait?[794,1123]:[1123,794];
+  frame.style.cssText=`position:fixed;right:-99999px;top:0;width:${pageW}px;height:${pageH}px;border:0`;
   const cssHref=document.querySelector('link[href^="styles.css"]')?.href||"styles.css";
-  frame.srcdoc=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="${escapeAttr(cssHref)}"><style>@page{size:A4 landscape;margin:0}html,body{margin:0;padding:0;background:#fff!important;width:1123px;height:793px;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pdf-export-sheet{position:relative!important;right:auto!important;top:auto!important;z-index:auto!important;height:793px!important}</style></head><body>${html}</body></html>`;
+  frame.srcdoc=`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="${escapeAttr(cssHref)}"><style>@page{size:A4 ${portrait?"portrait":"landscape"};margin:0}html,body{margin:0;padding:0;background:#fff!important;width:${pageW}px;height:${pageH-1}px;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pdf-export-sheet{position:relative!important;right:auto!important;top:auto!important;z-index:auto!important;height:${pageH-1}px!important}</style></head><body>${html}</body></html>`;
   const cleanup=()=>setTimeout(()=>frame.remove(),1500);
   frame.onload=async()=>{
     try{
@@ -1928,8 +1993,8 @@ async function downloadDiwanRecommendation(participant,draw,sessionOverride=null
   const safeName=String(participant.name||"مشارك").replace(/[\\/:*?"<>|]/g,"-");
   const [association,diwan]=await Promise.all([preloadImageAsDataUrl("assets/association-logo.png"),preloadImageAsDataUrl("assets/diwan-logo.jpg").then(whiteToTransparentDataUrl)]);
   const html=diwanRecommendationHtml(participant,draw,session,{association,diwan});
-  const prefix=`توصية-${DIWAN_STAGE_LABELS[draw.stage]}-${safeName}`;
-  if(print)return printDiwanDocumentHtml(html,prefix);
+  const prefix=`وثيقة-توصية-${DIWAN_STAGE_LABELS[draw.stage]}-${safeName}`;
+  if(print)return printDiwanDocumentHtml(html,prefix,{portrait:true});
   await downloadDiwanDocumentPdf(html,prefix);
 }
 // كتابة/تعديل التوصية من الإدارة (تُقدَّم على توصية اللجنة): تُحفظ على السحب نفسه ضمن حالة الديوان.
