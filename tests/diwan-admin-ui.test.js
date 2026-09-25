@@ -370,6 +370,21 @@ async function run() {
     assert.strictEqual(sandbox.diwanParticipantStatusOf(w), "failed", "ويعيد الحالة السابقة");
   }
 
+  // 13) التوزيع على لجان الإناث: ترتيب رقمي حسب الجلوس، شرائح متتالية متساوية قدر الإمكان، بلا ذكور/منسحبات/من بدأ اختبارها
+  {
+    vm.runInContext('diwanState = defaultDiwanState(); diwanAdminSessions = [];', sandbox);
+    const people = Array.from({ length: 92 }, (_, i) => ({ id: `S${i + 1}`, name: `ط${i + 1}`, seat: String(i + 1), gender: i % 10 === 0 ? "غير محدد" : "أنثى", stage: 1, parts: [], level: 10 }));
+    people.push({ id: "SM", name: "ذكر", seat: "500", gender: "ذكر", stage: 1, level: 10 }, { id: "SW", name: "منسحبة", seat: "501", gender: "أنثى", stage: 1, level: 10, withdrawn: true }, { id: "SS", name: "بدأت", seat: "502", gender: "أنثى", stage: 1, level: 10 });
+    vm.runInContext('diwanState.participants = __p; diwanState.draws = [{ id: "SSD", participantId: "SS", stage: 1, positions: [], createdAt: new Date().toISOString() }]; diwanAdminSessions = [{ draw_id: "SSD", status: "in_progress" }];', Object.assign(sandbox, { __p: people }));
+    const list = sandbox.diwanDistributableParticipants();
+    assert.strictEqual(list.length, 92, "الإناث ومن بلا جنس فقط، بلا الذكر والمنسحبة ومن بدأت اختبارها");
+    assert.deepStrictEqual(list.slice(0, 3).map(p => p.seat), ["1", "2", "3"], "ترتيب رقمي (2 قبل 10)");
+    const plan = sandbox.diwanDistributionPlan(list, [{ name: "لجنة 6" }, { name: "لجنة 7" }, { name: "لجنة 8" }, { name: "لجنة 9" }, { name: "لجنة 10" }]);
+    assert.deepStrictEqual(plan.map(x => x.members.length), [19, 19, 18, 18, 18], "92 على 5 لجان: 19،19،18،18،18");
+    assert.deepStrictEqual([plan[0].members[0].seat, plan[0].members[18].seat, plan[1].members[0].seat, plan[4].members[17].seat], ["1", "19", "20", "92"], "شرائح متتالية حسب الجلوس");
+    assert.deepStrictEqual(sandbox.diwanDistributionPlan(list, [{}, {}, {}, {}]).map(x => x.members.length), [23, 23, 23, 23], "92 على 4 لجان: 23 لكل لجنة");
+  }
+
   console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=85، ودوال توليد الشهادات/التوصيات");
 }
 

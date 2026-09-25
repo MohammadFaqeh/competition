@@ -431,6 +431,7 @@ function bindEvents(){
   $("#diwanSyncCommitteesBtn").addEventListener("click",refreshDiwanCommitteeResults);
   $("#diwanImportInput").addEventListener("change",importDiwanExcel);
   $("#diwanBulkDrawBtn")?.addEventListener("click",openDiwanBulkDrawModal);
+  $("#diwanDistributeBtn")?.addEventListener("click",openDiwanDistributeModal);
   $("#diwanDeleteAllBtn")?.addEventListener("click",confirmDeleteAllDiwanParticipants);
   $("#trialBackBtn")?.addEventListener("click",closeTrialScreen);
   $("#addTrialParticipantBtn")?.addEventListener("click",()=>openTrialParticipantModal());
@@ -1606,6 +1607,52 @@ async function runDiwanBulkDraw(participants){
   }
   renderDiwanParticipants();
   openModal(`<div class="modal-head"><h2>اكتمل السحب الجماعي</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="bulk-summary"><div><b>${completed}</b><span>سحباً تم حفظه</span></div><div><b>${missingPartsNames.length+failedNames.length}</b><span>لم يتم سحبه</span></div></div>${missingPartsNames.length?`<p class="form-error"><b>لا أجزاء مسجّلة لهم:</b> ${missingPartsNames.map(escapeHtml).join("، ")}</p>`:""}${failedNames.length?`<p class="form-error"><b>تعذر السحب:</b><br>${failedNames.map(escapeHtml).join("<br>")}</p>`:""}${!missingPartsNames.length&&!failedNames.length?"<p>جميع السحوبات جاهزة، ويمكن فتح ورقة مواضع كل متسابق من بطاقته.</p>":""}</div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`);
+}
+// توزيع متسابقات الديوان على لجان الإناث بالتساوي حسب رقم الجلوس (شرائح متتالية: أول شريحة لأول لجنة…)، عبر نفس «النقل للجنة»
+// (transferCommitteeId) فتراها لجنتها فقط. يشمل فقط من لم يبدأ اختبار مرحلته الحالية (لا جلسة) — لا يُمس من بدأ أو اعتُمد، ولا المنسحب.
+const diwanSeatNumber=p=>{const n=Number(normalizeDigits(p.seat).replace(/[^\d]/g,""));return Number.isFinite(n)&&String(p.seat||"").trim()?n:Infinity};
+const diwanCommitteeNumber=c=>{const m=normalizeDigits(c.name).match(/\d+/);return m?Number(m[0]):Infinity};
+function diwanDistributableParticipants(){
+  return diwanState.participants.filter(p=>p.gender!=="ذكر"&&!p.certified&&!p.withdrawn&&(()=>{const draw=currentDiwanDraw(p,diwanState.draws);return !draw||!diwanSessionForDraw(draw)})())
+    .sort((a,b)=>(diwanSeatNumber(a)-diwanSeatNumber(b))||String(a.seat||"").localeCompare(String(b.seat||""),"ar"));
+}
+// شرائح متتالية متساوية قدر الإمكان: الباقي يُوزَّع واحداً واحداً على أول اللجان.
+function diwanDistributionPlan(participants,committees){
+  const base=Math.floor(participants.length/committees.length),extra=participants.length%committees.length;let start=0;
+  return committees.map((committee,index)=>{const size=base+(index<extra?1:0),members=participants.slice(start,start+size);start+=size;return {committee,members}});
+}
+async function openDiwanDistributeModal(){
+  if(!(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin"))return toast("التوزيع على اللجان متاح للإدارة بالوضع السحابي فقط");
+  if(!cloudCommittees.length)try{cloudCommittees=await window.CloudCompetition.listCommittees()}catch(error){return toast(error.message)}
+  const committees=cloudCommittees.filter(c=>c.active!==false&&c.responsible_gender==="أنثى").sort((a,b)=>(diwanCommitteeNumber(a)-diwanCommitteeNumber(b))||String(a.name).localeCompare(String(b.name),"ar"));
+  if(!committees.length)return toast("لا توجد لجان إناث مفعّلة");
+  const participants=diwanDistributableParticipants();
+  if(!participants.length)return toast("لا توجد متسابقات للتوزيع (الجميع بدأ اختباره أو منسحب أو معتمد)");
+  const pinned=diwanState.participants.filter(p=>p.transferCommitteeId&&participants.includes(p));
+  openModal(`<div class="modal-head"><h2>توزيع المتسابقات على لجان الإناث</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>تُرتَّب <b>${participants.length} متسابقة</b> حسب رقم الجلوس وتُقسَم بالتساوي قدر الإمكان على اللجان المختارة (شرائح متتالية)، فتظهر كل متسابقة للجنتها فقط. لا يشمل من بدأ اختبارها أو المنسحبات أو المعتمدات.</p><fieldset><legend>اللجان</legend><div class="committee-level-options">${committees.map(c=>`<label class="committee-member-toggle"><input type="checkbox" name="diwanDistributeCommittee" value="${c.id}" checked> ${escapeHtml(committeeLabelWithRoles(c))}</label>`).join("")}</div></fieldset><div id="diwanDistributePreview" class="bulk-summary"></div>${pinned.length?`<p class="field-help">${pinned.length} منهن موزَّعات مسبقاً — سيُعاد توزيعهن حسب الجدول أعلاه.</p>`:""}</div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button>${pinned.length?`<button id="diwanUndistributeBtn" class="secondary-btn">إلغاء التوزيع (إظهارهن لكل اللجان)</button>`:""}<button id="confirmDiwanDistribute" class="primary-btn"><i data-lucide="shuffle"></i> تنفيذ التوزيع</button></div>`);
+  lucide.createIcons();
+  const selected=()=>{const ids=checkedValuesOf("diwanDistributeCommittee");return committees.filter(c=>ids.includes(c.id))};
+  const seatRange=members=>members.length?`${escapeHtml(members[0].seat||"—")} – ${escapeHtml(members[members.length-1].seat||"—")}`:"—";
+  const preview=()=>{const chosen=selected();$("#diwanDistributePreview").innerHTML=chosen.length?diwanDistributionPlan(participants,chosen).map(({committee,members})=>`<div><b>${members.length}</b><span>${escapeHtml(committee.name)}<br><small>الجلوس ${seatRange(members)}</small></span></div>`).join(""):`<p class="form-error">اختر لجنة واحدة على الأقل</p>`};
+  $$(`[name="diwanDistributeCommittee"]`).forEach(input=>input.onchange=preview);preview();
+  const run=async(assignments,button,doneMessage)=>{
+    $$(".modal-actions button").forEach(b=>b.disabled=true);
+    let done=0;const failed=[];
+    for(const {participant,committeeId} of assignments){
+      button.textContent=`جارٍ ${done+failed.length+1} من ${assignments.length}`;
+      try{await window.DiwanCompetition.transferParticipant(participant.id,committeeId);participant.transferCommitteeId=committeeId||undefined;done++}catch(error){failed.push(`${participant.name}: ${error.message}`)}
+    }
+    renderDiwanParticipants();
+    openModal(`<div class="modal-head"><h2>${doneMessage}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="bulk-summary"><div><b>${done}</b><span>تم</span></div><div><b>${failed.length}</b><span>تعذّر</span></div></div>${failed.length?`<p class="form-error">${failed.map(escapeHtml).join("<br>")}</p>`:""}</div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`);
+  };
+  $("#confirmDiwanDistribute").onclick=()=>{
+    const chosen=selected();if(!chosen.length)return toast("اختر لجنة واحدة على الأقل");
+    const assignments=diwanDistributionPlan(participants,chosen).flatMap(({committee,members})=>members.filter(p=>p.transferCommitteeId!==committee.id).map(participant=>({participant,committeeId:committee.id})));
+    if(!assignments.length)return toast("التوزيع مطبَّق بالفعل");
+    if(!confirm(`توزيع ${participants.length} متسابقة على ${chosen.length} لجان؟`))return;
+    run(assignments,$("#confirmDiwanDistribute"),"اكتمل التوزيع");
+  };
+  const undo=$("#diwanUndistributeBtn");if(undo)undo.onclick=()=>{if(!confirm(`إلغاء توزيع ${pinned.length} متسابقة وإظهارهن لكل لجان الإناث؟`))return;run(pinned.map(participant=>({participant,committeeId:null})),undo,"أُلغي التوزيع")};
 }
 function confirmDeleteAllDiwanParticipants(){
   if(!diwanState.participants.length)return toast("لا يوجد متسابقون لحذفهم");
