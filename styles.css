@@ -1124,7 +1124,7 @@ img,svg{max-width:100%}
 .diwan-stage-chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px 0}
 .diwan-stage-chip{font-size:10px;padding:4px 8px;border-radius:12px;background:#eef1ef;color:var(--muted);font-weight:700}
 .diwan-stage-chip.is-pending{background:var(--gold-soft);color:var(--gold-600)}
-.diwan-stage-chip.is-failed{background:var(--red-soft);color:var(--red)}
+.diwan-stage-chip.is-failed,.diwan-stage-chip.is-withdrawn{background:var(--red-soft);color:var(--red)}
 .diwan-stage-chip.is-certified{background:var(--green-50);color:var(--green-800)}
 .diwan-stage-list{display:grid;gap:10px;align-content:start;padding:12px 16px 16px;max-height:560px;overflow:auto}
 .diwan-stage-empty{margin:0;padding:24px 8px;text-align:center;color:var(--muted);font-size:12px}

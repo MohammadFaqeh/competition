@@ -322,7 +322,9 @@ async function run() {
     assert.deepStrictEqual(femaleScope.participants.map(p => p.id), ["F1"], "لجنة إناث بمستوى آخر ترى المتسابقة، لا المنقولة للجنة أخرى ولا الذكر");
     assert.deepStrictEqual(femaleScope.draws.map(d => d.id), ["D1"], "وسحبها معها");
     sandbox.window.CloudCompetition.context = { committee: { id: "MC", responsibleGender: "ذكر", levels: [5], levelNames: [] } };
-    assert.strictEqual(sandbox.diwanCommitteeScope(payload).participants.length, 0, "لجنة ذكور بمستوى غير مطابق: بلا تغيير عن السابق");
+    assert.deepStrictEqual(sandbox.diwanCommitteeScope(payload).participants.map(p => p.id), ["M1"], "لجنة ذكور بمستوى آخر ترى الذكور فقط");
+    sandbox.window.CloudCompetition.context = { committee: { id: "NC", responsibleGender: "", levels: [5], levelNames: [] } };
+    assert.strictEqual(sandbox.diwanCommitteeScope(payload).participants.length, 0, "لجنة بلا جنس محدد: على الفرز المعتاد");
     // من امتحنتها لجنة أخرى تظهر «امتُحنت عند …» بلا زر بدء؛ غيرها جاهزة للاختبار
     sandbox.window.CloudCompetition.context = { kind: "committee", committee: { id: "FC", responsibleGender: "أنثى", levels: [5], levelNames: [], examiner_role: "chairman" } };
     const tState = { ...vm.runInContext("defaultDiwanState()", sandbox), participants: [
@@ -339,7 +341,31 @@ async function run() {
     assert.ok(listHtml.includes("امتُحنت عند لجنة ٢") && !listHtml.includes('data-diwan-committee-confirm-start="T1"'), "المتسابقة الممتحنة عند لجنة أخرى تظهر كذلك بلا زر بدء");
     assert.ok(listHtml.includes('data-diwan-committee-confirm-start="T2"'), "غيرها يبقى جاهزاً للاختبار");
     assert.strictEqual(queryElement("#diwanCommitteePendingCount").textContent, "1", "لا تُحسب الممتحنة عند لجنة أخرى ضمن «بانتظار الاختبار»");
+    // المنسحبة تظهر للجنة «منسحب · 0» بلا زر بدء ولا تُحسب بانتظار الاختبار
+    tState.participants[1].withdrawn = true; tState.participants[1].score = 0;
+    sandbox.renderDiwanCommitteeStudents();
+    const withdrawnHtml = queryElement("#diwanCommitteeStudents").innerHTML;
+    assert.ok(withdrawnHtml.includes("منسحب · 0") && !withdrawnHtml.includes('data-diwan-committee-confirm-start="T2"'), "المنسحبة بلا زر بدء عند اللجنة");
+    assert.strictEqual(queryElement("#diwanCommitteePendingCount").textContent, "0", "المنسحبة لا تُحسب بانتظار الاختبار");
     sandbox.window.CloudCompetition.context = saved;
+  }
+
+  // 12) الانسحاب من الإدارة: علامة صفر وحالة «منسحب» بلا أزرار سحب، ولا يدخل «سحب للجميع»؛ وإلغاؤه يعيد الحالة والعلامة السابقة
+  {
+    sandbox.confirm = () => true;
+    const w = { id: "W1", name: "آية", seat: "201", serialNumber: "S-201", gender: "أنثى", center: "مركز", stage: 1, usedJuz: [], parts: [1,2,3,4,5,6,7,8,9,10], level: 10, score: 70, gradedAt: "2026-09-01T00:00:00Z", lastGradedDrawId: "WD1", createdAt: new Date().toISOString() };
+    vm.runInContext('diwanState.participants.push(__p); diwanState.draws.push(__d);', Object.assign(sandbox, { __p: w, __d: { id: "WD1", participantId: "W1", stage: 1, eligibleParts: w.parts, positions: [], createdAt: new Date().toISOString() } }));
+    assert.strictEqual(sandbox.diwanParticipantStatusOf(w), "failed");
+    await sandbox.toggleDiwanParticipantWithdrawn(w);
+    assert.ok(w.withdrawn && w.score === 0 && w.scoreSource === "withdrawn", "الانسحاب يصفّر العلامة");
+    assert.strictEqual(sandbox.diwanParticipantStatusOf(w), "withdrawn");
+    const card = sandbox.diwanParticipantCardHtml(w);
+    assert.ok(card.includes("منسحب · 0") && card.includes("إلغاء الانسحاب") && !card.includes("data-diwan-recommendation=") && !card.includes("data-diwan-retry="), "بطاقة المنسحب بلا توصية/إعادة اختبار");
+    sandbox.mergeFinalDiwanSessionsIntoState([{ participant_id: "W1", draw_id: "WD2", stage: 1, status: "final", score: 95, finalized_at: new Date().toISOString(), assessment: {} }]);
+    assert.ok(w.withdrawn && w.stage === 1 && w.score === 0, "نتيجة لاحقة لا تغيّر المنسحب");
+    await sandbox.toggleDiwanParticipantWithdrawn(w);
+    assert.ok(!w.withdrawn && w.score === 70 && w.gradedAt === "2026-09-01T00:00:00Z" && !w.preWithdrawal, "إلغاء الانسحاب يعيد العلامة السابقة");
+    assert.strictEqual(sandbox.diwanParticipantStatusOf(w), "failed", "ويعيد الحالة السابقة");
   }
 
   console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=85، ودوال توليد الشهادات/التوصيات");

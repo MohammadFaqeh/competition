@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260926-takendraws">
+  <link rel="stylesheet" href="styles.css?v=20260926-allcommittees">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -163,7 +163,7 @@
       </div>
       <div id="committeeDiwanPanel" class="hidden">
         <section class="committee-statusbar diwan-statusbar"><div><span>بانتظار الاختبار</span><b id="diwanCommitteePendingCount">0</b></div><div><span>قيد الاختبار</span><b id="diwanCommitteeActiveCount">0</b></div><div><span>مكتمل</span><b id="diwanCommitteeCompletedCount">0</b></div></section>
-        <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanCommitteeSearch" placeholder="بحث باسم المتسابق أو رقم الجلوس"></div><select id="diwanCommitteeStatusFilter" aria-label="فرز المتسابقين حسب الحالة"><option value="all">جميع الحالات</option><option value="no_draw">لم يتم السحب بعد</option><option value="pending">جاهز للاختبار</option><option value="in_progress">قيد الاختبار</option><option value="final">مكتمل الاختبار</option><option value="taken">امتُحنت عند لجنة أخرى</option></select><button id="refreshDiwanCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
+        <div class="committee-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanCommitteeSearch" placeholder="بحث باسم المتسابق أو رقم الجلوس"></div><select id="diwanCommitteeStatusFilter" aria-label="فرز المتسابقين حسب الحالة"><option value="all">جميع الحالات</option><option value="no_draw">لم يتم السحب بعد</option><option value="pending">جاهز للاختبار</option><option value="in_progress">قيد الاختبار</option><option value="final">مكتمل الاختبار</option><option value="taken">امتُحنت عند لجنة أخرى</option><option value="withdrawn">منسحب</option></select><button id="refreshDiwanCommitteeBtn" class="secondary-btn"><i data-lucide="refresh-cw"></i> تحديث</button></div>
         <section id="diwanCommitteeStudents" class="committee-students"></section>
         <nav id="diwanCommitteeStudentsPager" class="pager-tabs"></nav>
       </div>
@@ -347,7 +347,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260926-takendraws"></script>
-  <script src="app.js?v=20260926-takendraws"></script>
+  <script src="cloud.js?v=20260926-allcommittees"></script>
+  <script src="app.js?v=20260926-allcommittees"></script>
 </body>
 </html>

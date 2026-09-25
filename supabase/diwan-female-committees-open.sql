@@ -1,13 +1,14 @@
--- ديوان الحفاظ: متسابقات الديوان (أنثى) متاحات لكل لجان الإناث بغض النظر عن مستويات اللجنة، وكل لجنة تختار من تمتحن.
+-- ديوان الحفاظ: متسابقو الديوان متاحون لكل لجان جنسهم (إناث/ذكور) بغض النظر عن مستويات اللجنة، وكل لجنة تختار من تمتحن.
 -- إعادة تعريف diwan_committee_claim_student من diwan-al-hifadh-core.sql (النسخة الوحيدة/الأحدث) بنفس كل الفحوص حرفياً،
--- مع إضافة شرط واحد لفحص المستوى: لجنة إناث + متسابقة أنثى غير منقولة يدوياً للجنة أخرى. الذكور بلا أي تغيير.
+-- مع إضافة شرط واحد لفحص المستوى: جنس اللجنة = جنس المتسابق وغير منقول يدوياً للجنة أخرى،
+-- ومنع بدء اختبار متسابق سجّلته الإدارة منسحبًا. آمن لإعادة التشغيل أكثر من مرة.
 -- تُشغَّل مرة واحدة من Supabase → SQL Editor.
 
 create or replace function public.diwan_committee_claim_student(
   p_token text,p_participant_id text,p_draw_id text,p_stage smallint,p_level smallint,p_level_name text default null
 ) returns public.diwan_exam_sessions language plpgsql security definer set search_path=public,extensions
 as $$
-declare v_committee public.committees; v_session public.diwan_exam_sessions; v_active_name text; v_transfer_committee_id text; v_gender text;
+declare v_committee public.committees; v_session public.diwan_exam_sessions; v_active_name text; v_transfer_committee_id text; v_gender text; v_withdrawn text;
 begin
   v_committee=public.committee_from_token(p_token);
   if v_committee.id is null then raise exception 'انتهت جلسة اللجنة'; end if;
@@ -23,12 +24,13 @@ begin
   if v_active_name is not null then
     raise exception 'لجنتكم تختبر حاليًا «%» — أنهوا أو ألغوا اختباره أولاً قبل بدء متسابق جديد',v_active_name;
   end if;
-  select item->>'transferCommitteeId',item->>'gender' into v_transfer_committee_id,v_gender
+  select item->>'transferCommitteeId',item->>'gender',item->>'withdrawn' into v_transfer_committee_id,v_gender,v_withdrawn
   from public.diwan_state ds, jsonb_array_elements(coalesce(ds.payload->'participants','[]')) item
   where ds.id=1 and item->>'id'=p_participant_id limit 1;
+  if v_withdrawn='true' then raise exception 'هذا المتسابق منسحب — لا يمكن بدء اختباره'; end if;
   if not (p_level=any(v_committee.levels))
      and coalesce(v_transfer_committee_id,'')<>v_committee.id::text
-     and not (v_committee.responsible_gender='أنثى' and v_gender='أنثى' and coalesce(v_transfer_committee_id,'')='') then
+     and not (v_gender in ('أنثى','ذكر') and v_committee.responsible_gender=v_gender and coalesce(v_transfer_committee_id,'')='') then
     raise exception 'هذا المستوى غير مخصص لهذه اللجنة';
   end if;
   select * into v_session from public.diwan_exam_sessions where draw_id=p_draw_id;
