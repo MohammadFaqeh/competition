@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260926-distribute">
+  <link rel="stylesheet" href="styles.css?v=20260926-stagesearch">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -291,7 +291,7 @@
           </section>
           <section id="diwanStagePanel" class="panel table-panel hidden">
             <div class="diwan-stage-page-head"><button id="diwanStageBackBtn" class="secondary-btn" type="button"><i data-lucide="arrow-right"></i> كل المراحل</button><div><h2 id="diwanStagePageTitle"></h2><small id="diwanStagePageSub"></small></div></div>
-            <div class="table-tools"><select id="diwanStatusFilter"><option value="all">جميع الحالات</option></select><select id="diwanGenderFilter"><option value="all">الجنس: الكل</option></select><select id="diwanCenterFilter"><option value="all">المركز: الكل</option></select><select id="diwanCommitteeFilter"><option value="all">اللجنة: الكل</option></select><span id="diwanParticipantCount" class="filter-result-count">0 متسابق</span></div>
+            <div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanStageSearch" placeholder="ابحث بالاسم أو رقم الجلوس أو المركز"></div><select id="diwanStatusFilter"><option value="all">جميع الحالات</option></select><select id="diwanGenderFilter"><option value="all">الجنس: الكل</option></select><select id="diwanCenterFilter"><option value="all">المركز: الكل</option></select><select id="diwanCommitteeFilter"><option value="all">اللجنة: الكل</option></select><span id="diwanParticipantCount" class="filter-result-count">0 متسابق</span></div>
             <div id="diwanStageParticipants" class="diwan-stage-participants"></div>
           </section>
         </section>
@@ -347,7 +347,7 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20260926-distribute"></script>
-  <script src="app.js?v=20260926-distribute"></script>
+  <script src="cloud.js?v=20260926-stagesearch"></script>
+  <script src="app.js?v=20260926-stagesearch"></script>
 </body>
 </html>

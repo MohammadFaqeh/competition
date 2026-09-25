@@ -385,6 +385,26 @@ async function run() {
     assert.deepStrictEqual(sandbox.diwanDistributionPlan(list, [{}, {}, {}, {}]).map(x => x.members.length), [23, 23, 23, 23], "92 على 4 لجان: 23 لكل لجنة");
   }
 
+  // 14) البحث داخل صفحة المرحلة
+  {
+    vm.runInContext('diwanState = defaultDiwanState(); diwanAdminSessions = [];', sandbox);
+    vm.runInContext('diwanState.participants = __p;', Object.assign(sandbox, { __p: [
+      { id: "Q1", name: "حلا أحمد", seat: "11", gender: "أنثى", center: "مركز", stage: 1, level: 10 },
+      { id: "Q2", name: "سارة علي", seat: "12", gender: "أنثى", center: "مركز", stage: 1, level: 10 },
+    ] }));
+    sandbox.openDiwanStage(1);
+    queryElement("#diwanStageSearch").value = "حلا";
+    sandbox.renderDiwanParticipants();
+    let html = queryElement("#diwanStageParticipants").innerHTML;
+    assert.ok(html.includes("حلا أحمد") && !html.includes("سارة علي"), "البحث بالاسم داخل صفحة المرحلة");
+    queryElement("#diwanStageSearch").value = "12";
+    sandbox.renderDiwanParticipants();
+    html = queryElement("#diwanStageParticipants").innerHTML;
+    assert.ok(html.includes("سارة علي") && !html.includes("حلا أحمد"), "البحث برقم الجلوس داخل صفحة المرحلة");
+    queryElement("#diwanStageSearch").value = "";
+    sandbox.closeDiwanStage();
+  }
+
   console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=85، ودوال توليد الشهادات/التوصيات");
 }
 

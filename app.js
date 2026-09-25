@@ -425,6 +425,7 @@ function bindEvents(){
   $("#addDiwanParticipantBtn").addEventListener("click",()=>openDiwanParticipantModal());
   $("#diwanParticipantSearch").addEventListener("input",renderDiwanParticipants);
   $("#diwanStageBackBtn")?.addEventListener("click",closeDiwanStage);
+  $("#diwanStageSearch")?.addEventListener("input",renderDiwanParticipants);
   $$(`#diwanStatusFilter,#diwanGenderFilter,#diwanCenterFilter,#diwanCommitteeFilter`).forEach(select=>select.addEventListener("change",()=>{saveDiwanPersistedParticipantFilters();renderDiwanParticipants()}));
   $("#diwanExportBtn").addEventListener("click",exportDiwanParticipants);
   $("#diwanBulkPdfBtn")?.addEventListener("click",openDiwanBulkPdfDialog);
@@ -2156,6 +2157,7 @@ function openDiwanMoveStageModal(participantId){
 }
 function openDiwanStage(stage){
   diwanOpenStage=[1,2,3,4].includes(stage)?stage:null;
+  if($("#diwanStageSearch"))$("#diwanStageSearch").value="";
   renderDiwanParticipants();
   globalThis.window?.scrollTo?.(0,0);
 }
@@ -2192,7 +2194,9 @@ function renderDiwanParticipants(){
   $("#diwanStagePanel").classList.toggle("hidden",!inStage);
   if(inStage){
     const stageAll=all.filter(p=>diwanStageOf(p)===diwanOpenStage);
-    const stageList=stageAll.filter(p=>diwanParticipantMatchesFilters(p,activeFilters));
+    // بحث داخل صفحة المرحلة نفسها (بالاسم/الجلوس/المركز/الرقم التسلسلي) فوق الفلاتر.
+    const stageQuery=$("#diwanStageSearch")?.value.trim().toLowerCase()||"";
+    const stageList=stageAll.filter(p=>diwanParticipantMatchesFilters(p,activeFilters)&&(!stageQuery||[p.name,p.seat,p.center,p.serialNumber].some(x=>String(x??"").toLowerCase().includes(stageQuery))));
     $("#diwanStagePageTitle").textContent=DIWAN_STAGE_LABELS[diwanOpenStage];
     $("#diwanStagePageSub").textContent=DIWAN_STAGE_SUBTITLES[diwanOpenStage];
     $("#diwanParticipantCount").textContent=stageList.length===stageAll.length?`${formatNumber(stageList.length)} متسابق`:`${formatNumber(stageList.length)} من ${formatNumber(stageAll.length)} متسابق`;
