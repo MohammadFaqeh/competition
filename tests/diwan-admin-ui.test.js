@@ -397,6 +397,16 @@ async function run() {
     plan.forEach(({ committee, members }) => assert.deepStrictEqual(Array.from(members, p => Number(p.seat)), expected[committee.name], `${committee.name} تطابق الجدول المعتمد بالترتيب`));
     assert.deepStrictEqual(Array.from(sandbox.diwanDistributionPlan(list, [{}, {}, {}, {}]), x => x.members.length), [23, 23, 22, 22], "90 على 4 لجان: 23،23،22،22");
     assert.strictEqual(sandbox.diwanCenterArrival("مركز جديد"), "11:00", "المركز غير المعروف آخر وقت افتراضياً");
+    // أعداد مخصصة: مجموعها أقل من العدد → الباقي بلا لجنة
+    const custom = sandbox.diwanDistributionPlan(list, committees, { capacities: [30, 20, 10, 10, 10] });
+    assert.deepStrictEqual(Array.from(custom, x => x.members.length), [30, 20, 10, 10, 10], "كل لجنة بعددها المخصص");
+    assert.strictEqual(custom.leftover.length, 10, "10 بلا لجنة");
+    // مراكز محددة: لجنة 5 لكفر أبيل فقط، ولجنة 6 للأشرفية فقط، والباقي كل المراكز
+    const kafr = "مركز كفر أبيل القرآني", ashr = "مركز الأشرفية القرآني";
+    const limited = sandbox.diwanDistributionPlan(list, committees, { capacities: [21, 16, 20, 20, 13], centers: [[kafr], [ashr], null, null, null] });
+    assert.ok(Array.from(limited[0].members).every(p => p.center === kafr) && limited[0].members.length === 21, "لجنة 5 = كل طالبات كفر أبيل");
+    assert.ok(Array.from(limited[1].members).every(p => p.center === ashr) && limited[1].members.length === 16, "لجنة 6 = كل طالبات الأشرفية");
+    assert.strictEqual(limited.leftover.length, 0, "الإصلاح بالتبديل يضمن مكاناً للجميع");
   }
 
   console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=85، ودوال توليد الشهادات/التوصيات");

@@ -1234,3 +1234,22 @@ img,svg{max-width:100%}
 .hc-rec-sign b{font:800 19px 'HC Tajawal',sans-serif;color:#1a1a1a;min-height:26px}
 .hc-rec-sign i{display:block;width:200px;height:34px;border-bottom:1px dotted #9a7430}
 .hc-rec-sign span{font-size:12px;color:#6f6a5a}
+/* نافذة توزيع لجان الإناث (ديوان الحفاظ) */
+.diwan-distribute-options{display:flex;flex-wrap:wrap;gap:8px 18px;margin:10px 0}
+.diwan-distribute-options label{display:flex;align-items:center;gap:6px;font-weight:700}
+.diwan-distribute-rows{display:grid;gap:8px;margin:12px 0}
+.diwan-distribute-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.diwan-distribute-name{display:flex;align-items:center;gap:8px;font-weight:800;min-width:0}
+.diwan-distribute-count{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.diwan-distribute-count input{width:74px}
+.diwan-distribute-centers{position:relative}
+.diwan-distribute-centers>div{position:absolute;inset-inline-end:0;z-index:5;display:grid;gap:6px;min-width:240px;max-height:260px;overflow:auto;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.diwan-distribute-centers label{display:flex;align-items:center;gap:6px;font-size:12px}
+.diwan-distribute-summary{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.diwan-distribute-group{margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.diwan-distribute-group summary{cursor:pointer;padding:4px 0}
+.diwan-distribute-group table{width:100%;border-collapse:collapse;font-size:12px}
+.diwan-distribute-group td{padding:4px 6px;border-top:1px solid var(--line)}
+.diwan-distribute-group select{min-width:110px}
+.diwan-manual-row{background:var(--green-50)}
+@media (max-width:640px){.diwan-distribute-row{grid-template-columns:1fr 1fr}.diwan-distribute-name{grid-column:1/-1}}
