@@ -457,7 +457,14 @@ async function run() {
     assert.strictEqual(sandbox.diwanStageStatusOf(p1, 2), "no_draw", "حالتها بصفحة الثاني: بانتظار الأجزاء");
     const card = sandbox.diwanParticipantCardHtml(p1, false, 1);
     assert.ok(card.includes("ناجح · 93") && card.includes("data-diwan-draw-sheet=\"D1\""), "البطاقة تعرض العلامة وورقة مواضع الاختبار الأول");
-    vm.runInContext('diwanAdminSessions = [];', sandbox);
+    // فلتر «مكتمل الاختبار» بصفحة الأول: الناجحة (انتقلت) والراسبة معاً، بلا من لم يُمتحن بعد.
+    vm.runInContext(`diwanState.participants.push({ id: "P3", name: "راسبة", seat: "3", gender: "أنثى", stage: 1, parts: [], level: 10, lastGradedDrawId: "D3", score: 70 });
+      diwanState.draws.push({ id: "D3", participantId: "P3", stage: 1, positions: [], createdAt: new Date().toISOString() });
+      diwanOpenStage = 1;`, sandbox);
+    const completed = sandbox.diwanStageMembers(1).filter(p => sandbox.diwanParticipantMatchesFilters(p, { status: "completed", gender: "all", center: "all", committee: "all" }));
+    assert.deepStrictEqual(Array.from(completed, p => p.id), ["P1", "P3"], "مكتمل الاختبار = الناجحة والراسبة فقط");
+    assert.ok(sandbox.diwanParticipantCardHtml(vm.runInContext("diwanState.participants[2]", sandbox), false, 1).includes("راسب · 70"), "الراسبة تظهر بعلامتها");
+    vm.runInContext('diwanAdminSessions = []; diwanOpenStage = null;', sandbox);
   }
 
   console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=85، ودوال توليد الشهادات/التوصيات");
