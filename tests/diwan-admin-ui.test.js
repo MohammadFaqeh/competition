@@ -471,6 +471,12 @@ async function run() {
     const completed2 = sandbox.diwanStageMembers(1).filter(p => sandbox.diwanParticipantMatchesFilters(p, { status: "completed", gender: "all", center: "all", committee: "all" }));
     assert.deepStrictEqual(Array.from(completed2, p => p.id), ["P1", "P3", "P4"], "الراسبة المعيدة ضمن مكتمل الاختبار");
     assert.ok(sandbox.diwanParticipantCardHtml(vm.runInContext("diwanState.participants[3]", sandbox), false, 1).includes("راسب · 60 — إعادة اختبار"), "المعيدة تظهر بعلامة رسوبها");
+    // فلتر الحالة بلا تكرار: كل متسابق بحالة واحدة فقط، والمعيدة ضمن «مكتمل» لا «بانتظار اللجنة».
+    assert.deepStrictEqual(Array.from(sandbox.diwanStageMembers(1), p => sandbox.diwanFilterStatusOf(p, 1)), ["completed", "no_draw", "completed", "completed"], "لا تداخل بين خيارات الحالة");
+    // حفظ PDF: الناجحة شهادة من جلسة نجاحها، والراسبة والمعيدة توصية من جلسة رسوبهما.
+    vm.runInContext(`diwanAdminSessions.push({ participant_id: "P3", draw_id: "D3", stage: 1, status: "final", score: 70, finalized_at: new Date().toISOString() });`, sandbox);
+    const jobs = sandbox.diwanStageDocumentJobs(1);
+    assert.deepStrictEqual(Array.from(jobs, j => `${j.participant.id}:${j.kind}:${j.draw.id}`), ["P1:certificate:D1", "P3:recommendation:D3", "P4:recommendation:D4a"], "وثيقة واحدة لكل من أكمل الاختبار حسب نتيجته");
     vm.runInContext('diwanAdminSessions = []; diwanOpenStage = null;', sandbox);
   }
 
