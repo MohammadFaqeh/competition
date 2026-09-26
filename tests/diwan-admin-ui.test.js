@@ -409,27 +409,36 @@ async function run() {
     assert.strictEqual(limited.leftover.length, 0, "الإصلاح بالتبديل يضمن مكاناً للجميع");
   }
 
-  // المسؤول الفرعي (مسؤولة الإناث) ومشرف المسابقة: يُحمَّل ديوان الحفاظ للقراءة فقط من الخادم، لا من نسخة الجهاز، ولا يُكتب شيء.
+  // المسؤول الفرعي (مسؤولة الإناث) ومشرف المسابقة: يُحمَّل ديوان الحفاظ من الخادم (لا من نسخة الجهاز)، وبصلاحيات تعديل الإدارة نفسها
+  // عبر الحفظ السحابي، مع إخفاء الحذف/النقل بين اللجان إلا بمفتاح الحساب، وبلا كتابة في localStorage.
   {
     const saved = [];
     sandbox.window.DiwanCompetition = {
       loadViewerState: async () => ({ payload: { participants: [{ id: "F1", name: "فاطمة", seat: "1", gender: "أنثى", stage: 1, parts: [], level: 10 }], draws: [] } }),
       listViewerSessions: async () => [],
       loadState: async () => { throw new Error("loadState للإدارة الرئيسية فقط") },
+      markAdminKnownIds: () => {},
       queueStateSave: () => saved.push("save"),
     };
-    for (const kind of ["subAdmin", "supervisor"]) {
-      sandbox.window.CloudCompetition = { context: { kind, token: "t", subAdmin: { gender: "أنثى" } } };
+    for (const [kind, flags] of [["subAdmin", { can_delete_data: false, can_transfer_participant: false }], ["supervisor", { can_delete_data: true, can_transfer_participant: true }]]) {
+      sandbox.window.CloudCompetition = { context: { kind, token: "t", subAdmin: { gender: "أنثى", ...flags }, profile: { role: kind, ...flags } } };
       vm.runInContext('operationMode = "cloud"; cloudEnabled = true; diwanStateLoaded = false; diwanState = { ...defaultDiwanState(), participants: [{ id: "OLD", name: "بيانات محلية قديمة" }] };', sandbox);
+      const before = [...localStorageStore.entries()].map(([k, v]) => k + v).join();
       await sandbox.ensureDiwanStateLoaded();
       assert.deepStrictEqual(vm.runInContext("diwanState.participants.map(p => p.id)", sandbox), ["F1"], `${kind}: المتسابقات يظهرن من الخادم`);
-      assert.strictEqual(sandbox.isDiwanCloudViewer(), true, `${kind}: وضع عرض فقط`);
       const card = sandbox.diwanParticipantCardHtml(vm.runInContext("diwanState.participants[0]", sandbox));
-      assert.ok(!/data-diwan-(pick-juz|edit|delete|transfer|move-stage|withdraw)=/.test(card), `${kind}: لا أزرار تعديل ببطاقة المتسابقة`);
-      assert.ok(/data-diwan-history=/.test(card), `${kind}: السجل متاح للعرض`);
+      assert.ok(/data-diwan-pick-juz=/.test(card) && /data-diwan-edit=/.test(card) && /data-diwan-withdraw=/.test(card) && /data-diwan-move-stage=/.test(card), `${kind}: أزرار السحب والتعديل والانسحاب والنقل لمرحلة متاحة`);
+      assert.strictEqual(/data-diwan-delete=/.test(card), flags.can_delete_data, `${kind}: الحذف حسب مفتاح «حذف البيانات»`);
+      assert.strictEqual(/data-diwan-transfer=/.test(card), flags.can_transfer_participant, `${kind}: النقل للجنة حسب مفتاح «نقل المتسابقين»`);
       sandbox.saveDiwanState();
+      assert.strictEqual([...localStorageStore.entries()].map(([k, v]) => k + v).join(), before, `${kind}: لا كتابة في نسخة الجهاز`);
     }
-    assert.strictEqual(saved.length, 0, "لا حفظ سحابي من حسابات العرض");
+    assert.strictEqual(saved.length, 2, "الحفظ يذهب للخادم من الحسابين");
+    // «تغيير الأجزاء» يظهر فقط لمن عنده سحب بانتظار اللجنة بمراحل ١-٣
+    vm.runInContext('diwanState.participants[0].parts = [1,2,3,4,5,6,7,8,9,10]; diwanState.draws = [{ id: "DX", participantId: "F1", stage: 1, positions: [], createdAt: new Date().toISOString() }];', sandbox);
+    assert.ok(/data-diwan-change-parts=/.test(sandbox.diwanParticipantCardHtml(vm.runInContext("diwanState.participants[0]", sandbox))), "زر تغيير الأجزاء للسحب المنتظر");
+    vm.runInContext('diwanState.draws = [];', sandbox);
+    assert.ok(!/data-diwan-change-parts=/.test(sandbox.diwanParticipantCardHtml(vm.runInContext("diwanState.participants[0]", sandbox))), "لا زر تغيير أجزاء بلا سحب");
     vm.runInContext('operationMode = "local"; cloudEnabled = false;', sandbox);
     sandbox.window.CloudCompetition = { context: {} };
   }

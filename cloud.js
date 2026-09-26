@@ -195,6 +195,10 @@ window.DiwanCompetition=(()=>{
   const client=()=>window.CloudCompetition.client;
   const rpcError=error=>new Error(error?.code?error.message:"تعذر الاتصال بالخادم. تحقق من اتصال الإنترنت وحاول مجددًا");
   const isAdmin=()=>window.CloudCompetition.context?.kind==="admin";
+  // مشرف المسابقة/المسؤول الفرعي: نفس عمليات الإدارة عبر دوال diwan_staff_* (راجع supabase/diwan-sub-admin-supervisor-view.sql)،
+  // والخادم يحصر المسؤول الفرعي بجنس حسابه. p_token = رمز جلسة المسؤول الفرعي (null للمشرف، يُعرَّف بحساب Auth).
+  const isStaff=()=>["subAdmin","supervisor"].includes(window.CloudCompetition.context?.kind);
+  const staffToken=()=>window.CloudCompetition.context?.kind==="subAdmin"?window.CloudCompetition.context.token:null;
   const committeeToken=()=>{if(window.CloudCompetition.context?.kind!=="committee")throw new Error("انتهت جلسة اللجنة");return window.CloudCompetition.context.token};
   function timeoutSignal(ms){const controller=new AbortController();setTimeout(()=>controller.abort(),ms);return controller.signal}
   async function withRetry(fn,isStale){
@@ -231,16 +235,16 @@ window.DiwanCompetition=(()=>{
     const deletedDrawIds=[...adminKnownDraws.keys()].filter(id=>!currentDrawIds.has(id));
     const changedParticipants=incomingParticipants.filter(p=>adminKnownParticipants.get(p.id)!==JSON.stringify(p));
     const changedDraws=incomingDraws.filter(d=>adminKnownDraws.get(d.id)!==JSON.stringify(d));
-    const {error}=await client().rpc("diwan_admin_save_state",{p_config:payload.config,p_participants:changedParticipants,p_draws:changedDraws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
+    const {error}=await client().rpc(isAdmin()?"diwan_admin_save_state":"diwan_staff_save_state",{...(isAdmin()?{}:{p_token:staffToken()}),p_config:payload.config,p_participants:changedParticipants,p_draws:changedDraws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
     if(error)throw rpcError(error);
     markAdminKnownIds(incomingParticipants,incomingDraws);
   }
-  function queueStateSave(payload,onError,onSuccess){if(!isAdmin())return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));const myGeneration=++saveGeneration;saveTimer=setTimeout(()=>withRetry(()=>saveState(snapshot),()=>myGeneration!==saveGeneration).then(()=>{if(myGeneration===saveGeneration)onSuccess?.()}).catch(error=>{if(myGeneration===saveGeneration)(onError||console.error)(error)}),450)}
+  function queueStateSave(payload,onError,onSuccess){if(!isAdmin()&&!isStaff())return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));const myGeneration=++saveGeneration;saveTimer=setTimeout(()=>withRetry(()=>saveState(snapshot),()=>myGeneration!==saveGeneration).then(()=>{if(myGeneration===saveGeneration)onSuccess?.()}).catch(error=>{if(myGeneration===saveGeneration)(onError||console.error)(error)}),450)}
 
-  async function createDraw(draw){const {data,error}=await client().rpc("diwan_admin_create_draw",{p_draw:draw});if(error)throw rpcError(error);return data}
-  async function transferParticipant(participantId,committeeId){const {data,error}=await client().rpc("diwan_admin_transfer_participant",{p_participant_id:participantId,p_committee_id:committeeId});if(error)throw rpcError(error);return data}
+  async function createDraw(draw){const {data,error}=await client().rpc(isAdmin()?"diwan_admin_create_draw":"diwan_staff_create_draw",{...(isAdmin()?{}:{p_token:staffToken()}),p_draw:draw});if(error)throw rpcError(error);return data}
+  async function transferParticipant(participantId,committeeId){const {data,error}=await client().rpc(isAdmin()?"diwan_admin_transfer_participant":"diwan_staff_transfer_participant",{...(isAdmin()?{}:{p_token:staffToken()}),p_participant_id:participantId,p_committee_id:committeeId});if(error)throw rpcError(error);return data}
   // يحذف محاولة/جلسة بعينها (draw_id) لا كل تاريخ المشارك — كل مرحلة/إعادة محاولة سحب وجلسة مستقلان الآن.
-  async function deleteParticipantDraw(drawId){const {error}=await client().rpc("diwan_admin_delete_participant_draw",{p_draw_id:drawId});if(error)throw rpcError(error)}
+  async function deleteParticipantDraw(drawId){const {error}=await client().rpc(isAdmin()?"diwan_admin_delete_participant_draw":"diwan_staff_delete_participant_draw",{...(isAdmin()?{}:{p_token:staffToken()}),p_draw_id:drawId});if(error)throw rpcError(error)}
   // قراءة مباشرة (RLS تسمح للإدارة فقط) — تجمع نتائج اللجان المعتمدة لدمجها بـdiwanState، تماماً كـmergeFinalSessionsIntoState بالسنوية.
   async function listSessions(){const {data,error}=await client().from("diwan_exam_sessions").select("id,participant_id,draw_id,committee_id,stage,level,level_name,status,assessment,score,started_at,updated_at,finalized_at").order("updated_at",{ascending:false});if(error)throw error;return data}
 
