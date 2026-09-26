@@ -464,6 +464,13 @@ async function run() {
     const completed = sandbox.diwanStageMembers(1).filter(p => sandbox.diwanParticipantMatchesFilters(p, { status: "completed", gender: "all", center: "all", committee: "all" }));
     assert.deepStrictEqual(Array.from(completed, p => p.id), ["P1", "P3"], "مكتمل الاختبار = الناجحة والراسبة فقط");
     assert.ok(sandbox.diwanParticipantCardHtml(vm.runInContext("diwanState.participants[2]", sandbox), false, 1).includes("راسب · 70"), "الراسبة تظهر بعلامتها");
+    // راسبة أُعيد سحبها (إعادة اختبار) تبقى ضمن «مكتمل الاختبار» بعلامة رسوبها.
+    vm.runInContext(`diwanState.participants.push({ id: "P4", name: "معيدة", seat: "4", gender: "أنثى", stage: 1, parts: [], level: 10, lastGradedDrawId: "D4a", score: 60 });
+      diwanState.draws.push({ id: "D4a", participantId: "P4", stage: 1, positions: [], createdAt: "2026-01-01T00:00:00Z" }, { id: "D4b", participantId: "P4", stage: 1, positions: [], createdAt: new Date().toISOString() });
+      diwanAdminSessions.push({ participant_id: "P4", draw_id: "D4a", stage: 1, status: "final", score: 60, finalized_at: "2026-01-01T01:00:00Z" });`, sandbox);
+    const completed2 = sandbox.diwanStageMembers(1).filter(p => sandbox.diwanParticipantMatchesFilters(p, { status: "completed", gender: "all", center: "all", committee: "all" }));
+    assert.deepStrictEqual(Array.from(completed2, p => p.id), ["P1", "P3", "P4"], "الراسبة المعيدة ضمن مكتمل الاختبار");
+    assert.ok(sandbox.diwanParticipantCardHtml(vm.runInContext("diwanState.participants[3]", sandbox), false, 1).includes("راسب · 60 — إعادة اختبار"), "المعيدة تظهر بعلامة رسوبها");
     vm.runInContext('diwanAdminSessions = []; diwanOpenStage = null;', sandbox);
   }
 

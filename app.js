@@ -1901,11 +1901,19 @@ function diwanPassedStageSession(p,stage){
 function diwanStageStatusOf(p,stage){return diwanPassedStageSession(p,stage)?"passed":diwanParticipantStatusOf(p)}
 function diwanStageMembers(stage){return diwanState.participants.filter(p=>diwanStageOf(p)===stage||diwanPassedStageSession(p,stage))}
 const DIWAN_COMPLETED_STATUSES=new Set(["passed","failed","certified"]);
+// راسب بهذه المرحلة ثم أُعيد سحبه/تغيّرت أجزاؤه (إعادة اختبار) — تبقى نتيجة رسوبه المعتمدة ظاهرة بعلامتها ضمن «مكتمل الاختبار».
+function diwanFailedStageSession(p,stage){
+  const status=diwanParticipantStatusOf(p);
+  if(stage==null||diwanStageOf(p)!==stage||(status!=="pending"&&status!=="no_draw"))return null;
+  const failed=diwanAdminSessions.filter(x=>x.participant_id===p.id&&Number(x.stage)===stage&&x.status==="final"&&(x.assessment?.incomplete||Number(x.score)<DIWAN_PASS_SCORE));
+  return failed.length?failed.reduce((best,x)=>new Date(x.finalized_at||x.updated_at)>new Date(best.finalized_at||best.updated_at)?x:best):null;
+}
+function diwanStageCompleted(p,stage){return DIWAN_COMPLETED_STATUSES.has(diwanStageStatusOf(p,stage))||!!diwanFailedStageSession(p,stage)}
 const DIWAN_STATUS_OPTIONS=[{value:"no_draw",label:"لم يتم اختيار الأجزاء بعد"},{value:"pending",label:"تم السحب — بانتظار اللجنة"},{value:"passed",label:"ناجح — انتقل للمرحلة التالية"},{value:"failed",label:"راسب"},{value:"withdrawn",label:"منسحب"},{value:"certified",label:"حافظ معتمد"}];
 function diwanParticipantCommitteeId(p){return diwanAssignedCommittee(p).id||"none"}
 function diwanParticipantMatchesFilters(p,filters){
   // «مكتمل الاختبار»: كل من اعتُمدت نتيجته بهذه المرحلة — ناجح (انتقل/حافظ معتمد) أو راسب.
-  if(filters.status==="completed"){if(!DIWAN_COMPLETED_STATUSES.has(diwanStageStatusOf(p,diwanOpenStage)))return false}
+  if(filters.status==="completed"){if(!diwanStageCompleted(p,diwanOpenStage))return false}
   else if(filters.status!=="all"&&diwanStageStatusOf(p,diwanOpenStage)!==filters.status)return false;
   if(filters.gender!=="all"&&p.gender!==filters.gender)return false;
   if(filters.center!=="all"&&p.center!==filters.center)return false;
@@ -1920,7 +1928,7 @@ function populateDiwanParticipantFilterOptions(){
 
   const statusPool=poolExcluding("status");
   const availableStatuses=new Set(statusPool.map(p=>diwanStageStatusOf(p,diwanOpenStage)));
-  const completedCount=statusPool.filter(p=>DIWAN_COMPLETED_STATUSES.has(diwanStageStatusOf(p,diwanOpenStage))).length;
+  const completedCount=statusPool.filter(p=>diwanStageCompleted(p,diwanOpenStage)).length;
   if(completedCount)availableStatuses.add("completed");
   statusSelect.innerHTML=`<option value="all">جميع الحالات</option>`+(completedCount?`<option value="completed">مكتمل الاختبار — ناجح أو راسب (${formatNumber(completedCount)})</option>`:"")+DIWAN_STATUS_OPTIONS.filter(o=>availableStatuses.has(o.value)).map(o=>`<option value="${o.value}">${o.label}</option>`).join("");
   statusSelect.value=availableStatuses.has(current.status)?current.status:"all";current.status=statusSelect.value;
@@ -2266,9 +2274,10 @@ const DIWAN_STAGE_SUBTITLES={1:"عشرة أجزاء تختارها الإدار�
 // أي قيمة مرحلة غير صالحة تُعرض ضمن المرحلة الأولى بدل أن يختفي المتسابق من اللوحة.
 function diwanStageOf(participant){return [1,2,3,4].includes(participant?.stage)?participant.stage:1}
 function diwanParticipantCardHtml(p,showStage=false,viewStage=null){
-  const status=diwanStageStatusOf(p,viewStage),passedSession=status==="passed"?diwanPassedStageSession(p,viewStage):null;
+  const status=diwanStageStatusOf(p,viewStage),passedSession=status==="passed"?diwanPassedStageSession(p,viewStage):null,failedSession=diwanFailedStageSession(p,viewStage);
   if(passedSession)showStage=true;
-  const statusLabel=passedSession?`ناجح · ${formatAssessmentNumber(passedSession.score)} — ${p.certified?"حافظ معتمد":`انتقل إلى ${DIWAN_STAGE_LABELS[diwanStageOf(p)]}`}`:status==="certified"?(Number.isFinite(p.score)?`ناجح · ${formatAssessmentNumber(p.score)} — حافظ معتمد`:"حافظ معتمد"):status==="withdrawn"?"منسحب · 0":status==="no_draw"?"لم يتم اختيار الأجزاء بعد":status==="failed"?(p.assessment?.incomplete?"غير مكتمل":`راسب · ${formatAssessmentNumber(p.score)}`):"تم السحب — بانتظار اللجنة";
+  const statusLabel=passedSession?`ناجح · ${formatAssessmentNumber(passedSession.score)} — ${p.certified?"حافظ معتمد":`انتقل إلى ${DIWAN_STAGE_LABELS[diwanStageOf(p)]}`}`:status==="certified"?(Number.isFinite(p.score)?`ناجح · ${formatAssessmentNumber(p.score)} — حافظ معتمد`:"حافظ معتمد"):status==="withdrawn"?"منسحب · 0":status==="failed"?(p.assessment?.incomplete?"غير مكتمل":`راسب · ${formatAssessmentNumber(p.score)}`)
+    :(failedSession?`${failedSession.assessment?.incomplete?"غير مكتمل":`راسب · ${formatAssessmentNumber(failedSession.score)}`} — `:"")+(status==="no_draw"?"لم يتم اختيار الأجزاء بعد":failedSession?"إعادة اختبار بانتظار اللجنة":"تم السحب — بانتظار اللجنة");
   const stateClass=status==="certified"||status==="passed"?"completed":status==="failed"||status==="withdrawn"?"failed":status==="no_draw"?"not-drawn":"drawn";
   const primaryHtml=passedSession?`<button class="compact-btn" data-diwan-draw-sheet="${escapeAttr(passedSession.draw_id)}"><i data-lucide="eye"></i> ورقة المواضع</button>`
     :status==="withdrawn"?""
