@@ -238,8 +238,8 @@ async function ensureDiwanStateLoaded(){
       const [remote,sessions]=await Promise.all([window.DiwanCompetition.loadState(),window.DiwanCompetition.listSessions()]);
       diwanState={...defaultDiwanState(),...remote.payload};
       window.DiwanCompetition.markAdminKnownIds(diwanState.participants,diwanState.draws);
-      diwanAdminSessions=sessions;
-      mergeFinalDiwanSessionsIntoState(sessions);
+      diwanAdminSessions=applyDiwanResultOverrides(sessions);
+      mergeFinalDiwanSessionsIntoState(diwanAdminSessions);
       safeSetItem(DIWAN_STORAGE_KEY,JSON.stringify(diwanState));
     }catch(error){diwanStateLoaded=false;toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
   }else if(isDiwanCloudStaff()){
@@ -249,8 +249,8 @@ async function ensureDiwanStateLoaded(){
       const [remote,sessions]=await Promise.all([window.DiwanCompetition.loadViewerState(),window.DiwanCompetition.listViewerSessions()]);
       diwanState={...defaultDiwanState(),...remote.payload};
       window.DiwanCompetition.markAdminKnownIds(diwanState.participants,diwanState.draws);
-      diwanAdminSessions=sessions;
-      mergeFinalDiwanSessionsIntoState(sessions);
+      diwanAdminSessions=applyDiwanResultOverrides(sessions);
+      mergeFinalDiwanSessionsIntoState(diwanAdminSessions);
     }catch(error){diwanStateLoaded=false;toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
   }
 }
@@ -304,7 +304,7 @@ async function refreshDiwanResultsQuietly(){
   if(diwanQuietRefreshBusy||document.hidden||!diwanStateLoaded||!$("#diwanView")?.classList.contains("active-view"))return;
   if(!(operationMode==="cloud"&&cloudEnabled&&(window.CloudCompetition.context?.kind==="admin"||isDiwanCloudStaff())))return;
   diwanQuietRefreshBusy=true;
-  try{const sessions=await window.DiwanCompetition.listViewerSessions();diwanAdminSessions=sessions;if(mergeFinalDiwanSessionsIntoState(sessions)&&$("#modal")?.classList.contains("hidden"))renderDiwanParticipants()}
+  try{const sessions=await window.DiwanCompetition.listViewerSessions();diwanAdminSessions=applyDiwanResultOverrides(sessions);if(mergeFinalDiwanSessionsIntoState(diwanAdminSessions)&&$("#modal")?.classList.contains("hidden"))renderDiwanParticipants()}
   catch(error){console.warn("Diwan quiet refresh failed",error)}
   finally{diwanQuietRefreshBusy=false}
 }
@@ -312,7 +312,7 @@ async function refreshDiwanCommitteeResults(){
   const button=$("#diwanSyncCommitteesBtn");button.disabled=true;
   try{
     if(isDiwanCloudStaff()){diwanStateLoaded=false;await ensureDiwanStateLoaded()}
-    else{const sessions=await window.DiwanCompetition.listSessions();diwanAdminSessions=sessions;mergeFinalDiwanSessionsIntoState(sessions)}
+    else{const sessions=await window.DiwanCompetition.listSessions();diwanAdminSessions=applyDiwanResultOverrides(sessions);mergeFinalDiwanSessionsIntoState(diwanAdminSessions)}
     renderDiwanParticipants();
     if(!diwanStateLoaded)return;
     toast("تم تحديث نتائج جميع اللجان");
@@ -1578,7 +1578,7 @@ function openDiwanJuzPicker(participant,{changeOnly=false}={}){
       if(chosenJuz.join()===(participant.parts||[]).slice().sort((a,b)=>a-b).join())return toast("لم تتغير الأجزاء");
       button.disabled=true;
       try{
-        if(isDiwanCloudWriter())diwanAdminSessions=await window.DiwanCompetition.listViewerSessions();
+        if(isDiwanCloudWriter())diwanAdminSessions=applyDiwanResultOverrides(await window.DiwanCompetition.listViewerSessions());
         const draw=currentDiwanDraw(participant,diwanState.draws),session=draw?diwanSessionForDraw(draw):null;
         if(session){button.disabled=false;error.textContent=session.status==="final"?"اعتُمدت نتيجة هذا السحب — لا يمكن تغيير أجزائه":"بدأت إحدى اللجان اختباره بهذا السحب — أنهوه أو ألغوه أولاً";return error.classList.remove("hidden")}
         participant.parts=chosenJuz;
@@ -1782,11 +1782,23 @@ function confirmDeleteAllDiwanParticipants(){
 async function toggleDiwanParticipantWithdrawn(participant){
   if(!participant||participant.certified)return;
   if(!participant.withdrawn){
-    if(!confirm(`تسجيل ${participant.name} منسحبًا؟ ستصبح علامته صفرًا ويظهر منسحبًا عند اللجان.`))return;
-    participant.preWithdrawal={score:participant.score??null,gradedAt:participant.gradedAt??null,assessment:participant.assessment??null};
+    const draw=currentDiwanDraw(participant,diwanState.draws),session=draw?diwanSessionForDraw(draw):null;
+    // الانسحاب أقوى من النجاح: من رُقّي للمرحلة التالية بنجاح (مثل 100) ولم يُعتمد له شيء بمرحلته الجديدة
+    // بعد، يُعاد لمرحلة ذلك النجاح منسحبًا بعلامة صفر (تُلغى الترقية وتُعاد أجزاؤه). تُحفظ حالته كاملة لإلغاء الانسحاب.
+    const promoDraw=participant.stage>1&&participant.lastGradedDrawId?diwanState.draws.find(d=>d.id===participant.lastGradedDrawId):null;
+    const rollback=promoDraw&&Number(promoDraw.stage)===participant.stage-1&&Number(participant.score)>=DIWAN_PASS_SCORE&&!participant.assessment?.incomplete&&session?.status!=="final"?promoDraw:null;
+    if(!confirm(`تسجيل ${participant.name} منسحبًا؟ ستصبح علامته صفرًا ويظهر منسحبًا عند اللجان.${rollback?`
+وسيُلغى انتقاله إلى ${DIWAN_STAGE_LABELS[participant.stage]} ويعود إلى ${DIWAN_STAGE_LABELS[rollback.stage]} منسحبًا.`:""}`))return;
+    // نجاح أُلغي بالانسحاب، أو اختبار معتمد بمرحلته الحالية: يُسجَّل الانسحاب على ذلك الاختبار نفسه فتصبح علامته صفراً بالسجل أيضاً.
+    const gradedTarget=rollback||(session?.status==="final"?draw:null);
+    if(gradedTarget&&diwanAdminSessions.some(x=>x.draw_id===gradedTarget.id&&x.status==="final")){
+      if(await setDiwanAttemptResult(participant,gradedTarget,{withdrawn:true}))toast(`تم تسجيل ${participant.name} منسحبًا`);
+      return;
+    }
+    participant.preWithdrawal={score:participant.score??null,gradedAt:participant.gradedAt??null,assessment:participant.assessment??null,...(rollback?{rolledBack:true,stage:participant.stage,parts:[...(participant.parts||[])],usedJuz:[...(participant.usedJuz||[])],stageEnteredAt:participant.stageEnteredAt??null}:{})};
+    if(rollback){const promoParts=(rollback.eligibleParts||[]).map(Number);participant.stage=Number(rollback.stage);participant.parts=[...promoParts];participant.usedJuz=(participant.usedJuz||[]).filter(j=>!promoParts.includes(Number(j)));participant.stageEnteredAt=rollback.createdAt}
     participant.withdrawn=true;participant.score=0;participant.gradedAt=new Date().toISOString();participant.scoreSource="withdrawn";participant.manualEntryBy=currentActorLabel();participant.assessment=null;
     saveDiwanState();
-    const draw=currentDiwanDraw(participant,diwanState.draws),session=draw?diwanSessionForDraw(draw):null;
     let sessionCloseError=null;
     if(session&&session.status!=="final"){
       if(isDiwanCloudWriter()){try{await window.DiwanCompetition.deleteParticipantDraw(draw.id)}catch(error){sessionCloseError=error.message}}
@@ -1796,9 +1808,12 @@ async function toggleDiwanParticipantWithdrawn(participant){
     toast(sessionCloseError?`تم تسجيل ${participant.name} منسحبًا، لكن تعذر إنهاء اختباره الجاري على السيرفر: ${sessionCloseError}`:`تم تسجيل ${participant.name} منسحبًا`);
   }else{
     if(!confirm(`إلغاء انسحاب ${participant.name}؟ يعود لحالته السابقة.`))return;
+    const withdrawnAttempt=diwanState.draws.find(d=>d.participantId===participant.id&&d.resultOverride?.withdrawn&&d.id===participant.lastGradedDrawId);
+    if(withdrawnAttempt&&!participant.preWithdrawal){participant.withdrawn=false;delete participant.scoreSource;delete participant.manualEntryBy;if(await setDiwanAttemptResult(participant,withdrawnAttempt,null))toast(`تم إلغاء انسحاب ${participant.name}`);return}
     const before=participant.preWithdrawal||{};
     participant.withdrawn=false;delete participant.scoreSource;delete participant.manualEntryBy;delete participant.preWithdrawal;
     if(Number.isFinite(before.score)){participant.score=before.score;participant.gradedAt=before.gradedAt;participant.assessment=before.assessment}else{delete participant.score;delete participant.gradedAt;participant.assessment=null}
+    if(before.rolledBack){participant.stage=before.stage;participant.parts=before.parts||[];participant.usedJuz=before.usedJuz||[];if(before.stageEnteredAt)participant.stageEnteredAt=before.stageEnteredAt;else delete participant.stageEnteredAt}
     saveDiwanState();renderDiwanParticipants();toast(`تم إلغاء انسحاب ${participant.name}`);
   }
 }
@@ -1897,7 +1912,8 @@ function diwanParticipantStatusOf(participant){
 // saveDiwanAssessmentDraft مقابل saveAssessmentDraft) تفادياً لأي مخاطرة على منطق السنوية المعتمد.
 // «ناجح»: من اجتاز هذه المرحلة وانتقل للتالية — يبقى ظاهراً بصفحة المرحلة التي نجح فيها مع علامته (لا يلزم فتح المرحلة التالية لرؤية النتائج).
 function diwanPassedStageSession(p,stage){
-  if(stage==null||diwanStageOf(p)<=stage)return null;
+  // المنسحب لا يظهر «ناجح» بأي مرحلة — الانسحاب يعني صفر.
+  if(p?.withdrawn||stage==null||diwanStageOf(p)<=stage)return null;
   const passed=diwanAdminSessions.filter(x=>x.participant_id===p.id&&Number(x.stage)===stage&&x.status==="final"&&!x.assessment?.incomplete&&Number(x.score)>=DIWAN_PASS_SCORE);
   return passed.length?passed.reduce((best,x)=>new Date(x.finalized_at||x.updated_at)>new Date(best.finalized_at||best.updated_at)?x:best):null;
 }
@@ -2290,6 +2306,71 @@ function openDiwanRecommendationEditModal(participant,draw){
   $("#diwanRecSaveDownloadBtn").onclick=()=>{save();closeModal();downloadDiwanRecommendation(participant,draw)};
   const revert=$("#diwanRecRevertBtn");if(revert)revert.onclick=()=>{delete draw.adminRecommendation;saveDiwanState();renderDiwanParticipants();closeModal();toast("رجعت التوصية لما كتبته اللجنة")};
 }
+// تعديل نتيجة اختبار (محاولة) بعينها من «السجل»: تعديل العلامة، انسحاب (صفر)، أو حذف الاختبار.
+// جلسات اللجان (diwan_exam_sessions) لا تُعدَّل على السيرفر — التعديل يُحفظ على السحب نفسه
+// (draw.resultOverride داخل diwan_state) ويُطبَّق فوق علامة اللجنة الأصلية أينما قُرئت الجلسات.
+function applyDiwanResultOverrides(sessions){
+  const overrides=new Map((diwanState.draws||[]).filter(d=>d.resultOverride).map(d=>[d.id,d.resultOverride]));
+  return (sessions||[]).map(raw=>{
+    const base=raw.overridden?{...raw,score:raw.original_score,assessment:raw.original_assessment}:{...raw};
+    delete base.overridden;delete base.original_score;delete base.original_assessment;
+    const o=overrides.get(base.draw_id);if(!o||base.status!=="final")return base;
+    return {...base,overridden:true,original_score:base.score,original_assessment:base.assessment,score:o.score,assessment:{...(base.assessment||{}),incomplete:false,withdrawn:Boolean(o.withdrawn),resultOverride:o}};
+  });
+}
+function diwanSessionPassed(session){return session?.status==="final"&&!session.assessment?.incomplete&&!session.assessment?.withdrawn&&Number(session.score)>=DIWAN_PASS_SCORE}
+// change: {score} تعديل العلامة، {withdrawn:true} انسحاب بعلامة صفر، null إلغاء التعديل والرجوع لعلامة اللجنة، "delete" حذف الاختبار.
+// يعيد ضبط مرحلة المتسابق بعدها: نجاح أُلغي ← يرجع لمرحلة ذلك الاختبار (تُلغى الترقية/الشهادة)، رسوب صار نجاحاً ← يترقّى.
+async function setDiwanAttemptResult(participant,draw,change){
+  if(!participant||!draw)return false;
+  const stage=Number(draw.stage),sessionOf=d=>d?diwanAdminSessions.find(x=>x.draw_id===d.id):null;
+  const session=sessionOf(draw),wasPassed=diwanSessionPassed(session);
+  const original=session?.overridden?{...session,score:session.original_score,assessment:session.original_assessment}:session;
+  const nowPassed=change==="delete"?false:change===null?diwanSessionPassed(original):change.withdrawn?false:Number(change.score)>=DIWAN_PASS_SCORE;
+  const participantDraws=diwanState.draws.filter(d=>d.participantId===participant.id);
+  const promotedByThis=wasPassed&&(stage<4?diwanStageOf(participant)===stage+1&&!participant.certified:Boolean(participant.certified));
+  let laterDraws=[];
+  if(wasPassed&&!nowPassed){
+    const later=participantDraws.filter(d=>Number(d.stage)>stage);
+    if(later.some(d=>sessionOf(d)?.status==="final")){toast(`لا يمكن إلغاء نجاحه في ${DIWAN_STAGE_LABELS[stage]} — له اختبار معتمد بمرحلة لاحقة. عدّل أو احذف اختبار المرحلة اللاحقة أولاً من السجل`);return false}
+    if(promotedByThis)laterDraws=later;
+  }
+  if(!wasPassed&&nowPassed&&!(diwanStageOf(participant)===stage&&!participant.certified&&currentDiwanDraw(participant,diwanState.draws)?.id===draw.id)){toast("لا يمكن جعل هذا الاختبار ناجحاً — ليس آخر اختبار للمتسابق بمرحلته الحالية");return false}
+  let serverError=null;
+  if(change==="delete")diwanState.draws=diwanState.draws.filter(d=>d.id!==draw.id);
+  else if(change===null)delete draw.resultOverride;
+  else draw.resultOverride={score:change.withdrawn?0:Math.round(Number(change.score)*100)/100,withdrawn:Boolean(change.withdrawn),by:currentActorLabel(),at:new Date().toISOString(),originalScore:original?.score??null};
+  if(laterDraws.length){const ids=new Set(laterDraws.map(d=>d.id));diwanState.draws=diwanState.draws.filter(d=>!ids.has(d.id))}
+  for(const d of [...(change==="delete"?[draw]:[]),...laterDraws]){
+    if(sessionOf(d)&&isDiwanCloudWriter()){try{await window.DiwanCompetition.deleteParticipantDraw(d.id)}catch(error){serverError=error.message}}
+    diwanAdminSessions=diwanAdminSessions.filter(x=>x.draw_id!==d.id);
+  }
+  diwanAdminSessions=applyDiwanResultOverrides(diwanAdminSessions);
+  const parts=(draw.eligibleParts||[]).map(Number);
+  if(promotedByThis&&!nowPassed){
+    participant.stage=stage;participant.certified=false;delete participant.certificateNumber;
+    if(stage<4){participant.usedJuz=(participant.usedJuz||[]).filter(j=>!parts.includes(Number(j)));participant.parts=[...parts]}
+    if(change==="delete")delete participant.stageEnteredAt;else participant.stageEnteredAt=draw.createdAt;
+  }else if(!wasPassed&&nowPassed){
+    participant.usedJuz=[...new Set([...(participant.usedJuz||[]),...parts])];
+    if(stage<4)participant.stage=stage+1;
+    else{participant.certified=true;diwanState.config.nextCertificateSeq=(diwanState.config.nextCertificateSeq||0)+1;participant.certificateNumber=diwanState.config.nextCertificateSeq}
+    participant.parts=[];
+  }
+  // مزامنة علامة/حالة المتسابق مع آخر اختبار معتمد بمرحلته
+  if(nowPassed){participant.lastGradedDrawId=draw.id;const s=sessionOf(draw);participant.score=s.score;participant.gradedAt=s.finalized_at||participant.gradedAt;participant.assessment=s.assessment||null}
+  else if(!participant.certified&&diwanStageOf(participant)===stage){
+    const current=currentDiwanDraw(participant,diwanState.draws),s=sessionOf(current);
+    if(s?.status==="final"){participant.lastGradedDrawId=current.id;participant.score=s.score;participant.gradedAt=s.finalized_at||participant.gradedAt;participant.assessment=s.assessment||null}
+    else if(change==="delete"&&participant.lastGradedDrawId===draw.id){delete participant.lastGradedDrawId;delete participant.score;delete participant.gradedAt;participant.assessment=null}
+  }
+  const currentSession=!participant.certified&&diwanStageOf(participant)===stage?sessionOf(currentDiwanDraw(participant,diwanState.draws)):null;
+  if(currentSession?.assessment?.withdrawn){participant.withdrawn=true;participant.score=0;participant.scoreSource="withdrawn";participant.manualEntryBy=currentActorLabel();participant.assessment=null;delete participant.preWithdrawal}
+  else if(participant.withdrawn&&participant.scoreSource==="withdrawn"&&!participant.preWithdrawal){participant.withdrawn=false;delete participant.scoreSource;delete participant.manualEntryBy}
+  saveDiwanState();renderDiwanParticipants();
+  if(serverError)toast(`تم التعديل، لكن تعذر حذف جلسة الاختبار من السيرفر: ${serverError}`);
+  return true;
+}
 function openDiwanAttemptHistory(participant){
   if(!participant)return;
   const drawsForParticipant=diwanState.draws.filter(d=>d.participantId===participant.id).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
@@ -2297,17 +2378,25 @@ function openDiwanAttemptHistory(participant){
   const rows=drawsForParticipant.map((draw,index)=>{
     const session=sessionsByDrawId.get(draw.id);
     const stageLabel=DIWAN_STAGE_LABELS[draw.stage]||`مرحلة ${draw.stage}`;
-    const passed=session?.status==="final"&&!session.assessment?.incomplete&&Number(session.score)>=DIWAN_PASS_SCORE;
-    const scoreText=!session?`<span class="state">بانتظار اللجنة</span>`:session.status!=="final"?`<span class="state drawn">قيد الاختبار</span>`:session.assessment?.incomplete?`<span class="state failed">غير مكتمل</span>`:`<b class="diwan-history-score">${formatAssessmentNumber(session.score)}</b> <span class="state ${passed?"completed":"failed"}">${passed?"ناجح":"راسب"}</span>`;
-    const actionHtml=session?.status!=="final"?"":passed?`<button class="compact-btn" data-diwan-history-cert="${index}"><i data-lucide="award"></i> الشهادة</button> <button class="compact-btn" data-diwan-history-cert-print="${index}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button>`:`<button class="compact-btn" data-diwan-history-rec="${index}"><i data-lucide="file-text"></i> التوصية</button> <button class="compact-btn" data-diwan-history-rec-print="${index}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button> <button class="compact-btn" data-diwan-history-rec-edit="${index}" title="كتابة/تعديل التوصية"><i data-lucide="pencil-line"></i></button>`;
-    return `<tr><td class="nowrap">${escapeHtml(stageLabel)}</td><td class="nowrap">${formatDate(draw.createdAt)}</td><td class="nowrap">${scoreText}</td><td>${actionHtml}</td></tr>`;
+    const passed=diwanSessionPassed(session),override=session?.overridden?session.assessment?.resultOverride:null;
+    const scoreText=!session?`<span class="state">بانتظار اللجنة</span>`:session.status!=="final"?`<span class="state drawn">قيد الاختبار</span>`:session.assessment?.withdrawn?`<b class="diwan-history-score">0</b> <span class="state failed">منسحب</span>`:session.assessment?.incomplete?`<span class="state failed">غير مكتمل</span>`:`<b class="diwan-history-score">${formatAssessmentNumber(session.score)}</b> <span class="state ${passed?"completed":"failed"}">${passed?"ناجح":"راسب"}</span>`;
+    const overrideNote=override?` <small class="manual-dr-tag" title="${escapeAttr(`${override.by||""} · ${formatDate(override.at)}`)}">معدّلة يدويًا (علامة اللجنة ${formatAssessmentNumber(session.original_score)})</small>`:"";
+    const manageHtml=`<div class="row-actions">${session?.status==="final"?`<button class="compact-btn" data-diwan-attempt-edit="${index}"><i data-lucide="pencil"></i> تعديل العلامة</button>${session.assessment?.withdrawn?"":`<button class="compact-btn" data-diwan-attempt-withdraw="${index}"><i data-lucide="user-x"></i> انسحاب</button>`}${override?`<button class="compact-btn" data-diwan-attempt-revert="${index}"><i data-lucide="rotate-ccw"></i> إلغاء التعديل</button>`:""}`:""}${session?.status==="in_progress"?"":`<button class="compact-btn danger-compact" data-diwan-attempt-delete="${index}"><i data-lucide="trash-2"></i> حذف</button>`}</div>`;
+    const actionHtml=session?.status!=="final"||session.assessment?.withdrawn?"":passed?`<button class="compact-btn" data-diwan-history-cert="${index}"><i data-lucide="award"></i> الشهادة</button> <button class="compact-btn" data-diwan-history-cert-print="${index}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button>`:`<button class="compact-btn" data-diwan-history-rec="${index}"><i data-lucide="file-text"></i> التوصية</button> <button class="compact-btn" data-diwan-history-rec-print="${index}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button> <button class="compact-btn" data-diwan-history-rec-edit="${index}" title="كتابة/تعديل التوصية"><i data-lucide="pencil-line"></i></button>`;
+    return `<tr><td class="nowrap">${escapeHtml(stageLabel)}</td><td class="nowrap">${formatDate(draw.createdAt)}</td><td class="nowrap">${scoreText}${overrideNote}</td><td>${actionHtml}</td><td>${manageHtml}</td></tr>`;
   }).join("");
-  openModal(`<div class="modal-head"><h2>سجل محاولات ${escapeHtml(participant.name)}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="table-wrap"><table class="diwan-history-table"><thead><tr><th>المرحلة</th><th>تاريخ السحب</th><th>النتيجة</th><th>مستند</th></tr></thead><tbody>${rows||`<tr><td colspan="4" class="table-empty">لا يوجد سحب بعد</td></tr>`}</tbody></table></div></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button></div>`,"diwan-history-modal");
+  openModal(`<div class="modal-head"><h2>سجل محاولات ${escapeHtml(participant.name)}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="table-wrap"><table class="diwan-history-table"><thead><tr><th>المرحلة</th><th>تاريخ السحب</th><th>النتيجة</th><th>مستند</th><th>إجراءات</th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="table-empty">لا يوجد سحب بعد</td></tr>`}</tbody></table></div></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button></div>`,"diwan-history-modal");
   $$(`[data-diwan-history-cert]`).forEach(button=>button.onclick=()=>downloadDiwanCertificate(participant,drawsForParticipant[Number(button.dataset.diwanHistoryCert)]));
   $$(`[data-diwan-history-cert-print]`).forEach(button=>button.onclick=()=>downloadDiwanCertificate(participant,drawsForParticipant[Number(button.dataset.diwanHistoryCertPrint)],{print:true}));
   $$(`[data-diwan-history-rec-print]`).forEach(button=>button.onclick=()=>downloadDiwanRecommendation(participant,drawsForParticipant[Number(button.dataset.diwanHistoryRecPrint)],null,{print:true}));
   $$(`[data-diwan-history-rec-edit]`).forEach(button=>button.onclick=()=>openDiwanRecommendationEditModal(participant,drawsForParticipant[Number(button.dataset.diwanHistoryRecEdit)]));
   $$(`[data-diwan-history-rec]`).forEach(button=>button.onclick=()=>downloadDiwanRecommendation(participant,drawsForParticipant[Number(button.dataset.diwanHistoryRec)]));
+  const attemptLabel=draw=>`${DIWAN_STAGE_LABELS[draw.stage]||""} (${formatDate(draw.createdAt)})`;
+  const afterChange=async(draw,change)=>{if(await setDiwanAttemptResult(participant,draw,change)){toast("تم تعديل نتيجة الاختبار");openDiwanAttemptHistory(participant)}};
+  $$(`[data-diwan-attempt-edit]`).forEach(button=>button.onclick=()=>{const draw=drawsForParticipant[Number(button.dataset.diwanAttemptEdit)],raw=prompt(`العلامة الجديدة لاختبار ${attemptLabel(draw)} (من 0 إلى 100):`);if(raw==null)return;const score=Number(String(raw).trim());if(!String(raw).trim()||!Number.isFinite(score)||score<0||score>100)return toast("أدخل علامة صحيحة بين 0 و100");afterChange(draw,{score})});
+  $$(`[data-diwan-attempt-withdraw]`).forEach(button=>button.onclick=()=>{const draw=drawsForParticipant[Number(button.dataset.diwanAttemptWithdraw)];if(!confirm(`تسجيل ${participant.name} منسحبًا في اختبار ${attemptLabel(draw)}؟ تصبح علامة هذا الاختبار صفرًا، وإن كان نجح فيه يُلغى انتقاله للمرحلة التالية.`))return;afterChange(draw,{withdrawn:true})});
+  $$(`[data-diwan-attempt-revert]`).forEach(button=>button.onclick=()=>{const draw=drawsForParticipant[Number(button.dataset.diwanAttemptRevert)];if(!confirm(`إلغاء التعديل وإرجاع علامة اللجنة الأصلية لاختبار ${attemptLabel(draw)}؟`))return;afterChange(draw,null)});
+  $$(`[data-diwan-attempt-delete]`).forEach(button=>button.onclick=()=>{const draw=drawsForParticipant[Number(button.dataset.diwanAttemptDelete)];if(!confirm(`حذف اختبار ${attemptLabel(draw)} نهائيًا (السحب ونتيجة اللجنة)؟ إن كان نجح فيه يُلغى انتقاله للمرحلة التالية. لا يمكن التراجع.`))return;afterChange(draw,"delete")});
   lucide.createIcons();
 }
 // اللجنة الفعلية التي امتحنت المشارك (لجنته وقت الاعتماد، من نفس assessment.committee التي
