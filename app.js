@@ -663,12 +663,22 @@ async function renderMonitorView(){
   await renderMonitorCommittees();
   monitorPollTimer=setInterval(()=>{if(!document.hidden)renderMonitorCommittees()},4000);
 }
+// اختبارات ديوان الحفاظ الجارية عند اللجان (نفس بنية جلسة السنوية: examinerDrafts/positions) — تُدمج بالمراقبة الحية مع track:"diwan".
+async function listDiwanMonitorSessions(){
+  // محاولة تحميل واحدة لكل تسجيل دخول (المراقبة تتحدّث كل 4 ثوانٍ — لا تكرار لرسالة خطأ التحميل).
+  try{const context=window.CloudCompetition.context;if(!diwanStateLoaded&&listDiwanMonitorSessions.triedFor!==context){listDiwanMonitorSessions.triedFor=context;await ensureDiwanStateLoaded()}const list=await window.DiwanCompetition.listViewerSessions();return (list||[]).filter(s=>s.status==="in_progress").map(s=>({...s,track:"diwan"}))}
+  catch(error){console.warn("Diwan monitor sessions failed",error);return []}
+}
+function monitorSessionRecord(session){
+  if(session.track==="diwan"){const participant=diwanState.participants.find(p=>p.id===session.participant_id);return {participant,draw:diwanState.draws.find(d=>d.id===session.draw_id)}}
+  return {participant:state.participants.find(p=>p.id===session.participant_id),draw:state.draws.find(d=>d.participantId===session.participant_id)};
+}
 async function renderMonitorCommittees(){
   try{
     const monitorKind=window.CloudCompetition.context?.kind;
     if(monitorKind==="subAdmin")cloudCommittees=subAdminCommittees;
-    const [sessions]=await Promise.all([window.CloudCompetition.listActiveSessions(),monitorKind==="subAdmin"||cloudCommittees.length?null:window.CloudCompetition.listCommittees().then(list=>{cloudCommittees=list})]);
-    monitorSessions=sessions;
+    const [sessions,diwanSessions]=await Promise.all([window.CloudCompetition.listActiveSessions(),listDiwanMonitorSessions(),monitorKind==="subAdmin"||cloudCommittees.length?null:window.CloudCompetition.listCommittees().then(list=>{cloudCommittees=list})]);
+    monitorSessions=[...sessions,...diwanSessions];
     const activeByCommittee=new Map();
     monitorSessions.filter(s=>s.status==="in_progress").forEach(s=>{const list=activeByCommittee.get(s.committee_id)||[];list.push(s);activeByCommittee.set(s.committee_id,list)});
     const list=$("#monitorCommitteeList");if(!list)return;
@@ -688,16 +698,17 @@ function renderMonitorDetail(){
   if(!activeSessions.length){panel.innerHTML=`<div class="monitor-empty">لا يوجد اختبار جارٍ حاليًا عند لجنة ${escapeHtml(committee?.name||"")}.</div>`;return}
   if(!monitorSelectedSessionId||!activeSessions.some(s=>s.id===monitorSelectedSessionId))monitorSelectedSessionId=activeSessions[0].id;
   const session=activeSessions.find(s=>s.id===monitorSelectedSessionId);
-  const participant=state.participants.find(p=>p.id===session.participant_id);
-  const draw=state.draws.find(d=>d.participantId===session.participant_id);
+  const isDiwan=session.track==="diwan";
+  const {participant,draw}=monitorSessionRecord(session);
+  if((!participant||!draw)&&isDiwan){panel.innerHTML=`<div class="monitor-empty">اختبار ديوان الحفاظ هذا لمتسابق أُضيف أو سُحب له بعد فتح الصفحة — اضغط «تحديث نتائج اللجان» بصفحة ديوان الحفاظ ثم ارجع هنا.</div>`;return}
   if(!participant||!draw){panel.innerHTML=`<div class="monitor-empty"><p>تعذر إيجاد بيانات هذا الاختبار — قد تكون بيانات المتسابقين قيد التحديث، حاول لاحقًا.</p><p class="field-help">إذا استمرت المشكلة بعد الانتظار وإعادة فتح الصفحة، غالبًا هذه جلسة معلّقة لمتسابق لم يعد موجودًا (حُذف أو عُدّلت بياناته من مكان آخر). بدأت هذه الجلسة: ${formatDate(session.started_at)}.</p><button type="button" class="secondary-btn danger-compact" id="closeStaleMonitorSession"><i data-lucide="trash-2"></i> إغلاق هذه الجلسة المعلّقة نهائيًا</button></div>`;$("#closeStaleMonitorSession").onclick=async()=>{if(!confirm("إغلاق هذه الجلسة المعلّقة نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه."))return;try{await window.CloudCompetition.deleteParticipantSession(session.participant_id);monitorSessions=monitorSessions.filter(s=>s.id!==session.id);monitorSelectedSessionId=null;renderMonitorDetail();toast("تم إغلاق الجلسة المعلّقة")}catch(error){toast(error.message)}};lucide.createIcons();return}
   const hasMember=Boolean(committee?.member_name);
   if(!hasMember)monitorSelectedRole="chairman";
   const draft=session.assessment?.examinerDrafts?.[monitorSelectedRole]||null;
   const positions=draw.positions.map((drawPosition,index)=>({...emptyPositionAssessment(drawPosition),...(draft?.positions?.[index]||{})}));
-  const result=calculateAssessment({positions});
+  const result=calculateAssessment({positions},isDiwan?DIWAN_PASS_SCORE:undefined);
   const currentIndex=Number(draft?.currentPosition)||0;
-  panel.innerHTML=`<div class="monitor-detail-head">${activeSessions.length>1?`<div class="monitor-session-tabs">${activeSessions.map(s=>{const p=state.participants.find(x=>x.id===s.participant_id);return `<button type="button" class="compact-btn ${s.id===session.id?"is-active":""}" data-monitor-session="${s.id}">${escapeHtml(p?.name||"—")}</button>`}).join("")}</div>`:""}<div class="monitor-participant"><h3>${escapeHtml(participant.name)}</h3><span>${escapeHtml(participant.center)} · ${participant.level} أجزاء · رقم الجلوس ${escapeHtml(participant.seat)}</span></div>${hasMember?`<div class="monitor-role-tabs"><button type="button" class="compact-btn ${monitorSelectedRole==="chairman"?"is-active":""}" data-monitor-role="chairman">رصد الرئيس</button><button type="button" class="compact-btn ${monitorSelectedRole==="member"?"is-active":""}" data-monitor-role="member">رصد العضو</button></div>`:""}<div class="monitor-live-score ${result.passed?"pass-text":"fail-text"}">العلامة الحالية: ${formatAssessmentNumber(result.score)}</div></div><div class="monitor-positions">${draft?positions.map((position,index)=>monitorPositionHtml(position,draw.positions[index],index,index===currentIndex)).join(""):`<p class="committee-alerts-empty">لم يبدأ ${monitorSelectedRole==="chairman"?"الرئيس":"العضو"} برصد هذا المتسابق بعد.</p>`}</div>`;
+  panel.innerHTML=`<div class="monitor-detail-head">${activeSessions.length>1?`<div class="monitor-session-tabs">${activeSessions.map(s=>{const p=monitorSessionRecord(s).participant;return `<button type="button" class="compact-btn ${s.id===session.id?"is-active":""}" data-monitor-session="${s.id}">${escapeHtml(p?.name||"—")}${s.track==="diwan"?" · ديوان":""}</button>`}).join("")}</div>`:""}<div class="monitor-participant"><h3>${escapeHtml(participant.name)}</h3><span>${isDiwan?`ديوان الحفاظ · ${escapeHtml(DIWAN_STAGE_LABELS[draw.stage]||"")}`:`${participant.level} أجزاء`} · ${escapeHtml(participant.center||"")} · رقم الجلوس ${escapeHtml(participant.seat)}</span></div>${hasMember?`<div class="monitor-role-tabs"><button type="button" class="compact-btn ${monitorSelectedRole==="chairman"?"is-active":""}" data-monitor-role="chairman">رصد الرئيس</button><button type="button" class="compact-btn ${monitorSelectedRole==="member"?"is-active":""}" data-monitor-role="member">رصد العضو</button></div>`:""}<div class="monitor-live-score ${result.passed?"pass-text":"fail-text"}">العلامة الحالية: ${formatAssessmentNumber(result.score)}</div></div><div class="monitor-positions">${draft?positions.map((position,index)=>monitorPositionHtml(position,draw.positions[index],index,index===currentIndex)).join(""):`<p class="committee-alerts-empty">لم يبدأ ${monitorSelectedRole==="chairman"?"الرئيس":"العضو"} برصد هذا المتسابق بعد.</p>`}</div>`;
   $$(`[data-monitor-session]`).forEach(btn=>btn.onclick=()=>{monitorSelectedSessionId=btn.dataset.monitorSession;renderMonitorDetail()});
   $$(`[data-monitor-role]`).forEach(btn=>btn.onclick=()=>{monitorSelectedRole=btn.dataset.monitorRole;renderMonitorDetail()});
   lucide.createIcons();
@@ -1881,10 +1892,18 @@ function diwanParticipantStatusOf(participant){
 // بالسنوية بالضبط (poolExcluding/متشابكة) بس بمفرداتها الخاصة (status/stage بدل status/level)، مبنية
 // كدالة موازية منفصلة لا كإعادة استخدام مباشر — نفس نهج ديوان الحفاظ بكل شاشاته السابقة (مثل
 // saveDiwanAssessmentDraft مقابل saveAssessmentDraft) تفادياً لأي مخاطرة على منطق السنوية المعتمد.
-const DIWAN_STATUS_OPTIONS=[{value:"no_draw",label:"لم يتم اختيار الأجزاء بعد"},{value:"pending",label:"تم السحب — بانتظار اللجنة"},{value:"failed",label:"راسب"},{value:"withdrawn",label:"منسحب"},{value:"certified",label:"حافظ معتمد"}];
+// «ناجح»: من اجتاز هذه المرحلة وانتقل للتالية — يبقى ظاهراً بصفحة المرحلة التي نجح فيها مع علامته (لا يلزم فتح المرحلة التالية لرؤية النتائج).
+function diwanPassedStageSession(p,stage){
+  if(stage==null||diwanStageOf(p)<=stage)return null;
+  const passed=diwanAdminSessions.filter(x=>x.participant_id===p.id&&Number(x.stage)===stage&&x.status==="final"&&!x.assessment?.incomplete&&Number(x.score)>=DIWAN_PASS_SCORE);
+  return passed.length?passed.reduce((best,x)=>new Date(x.finalized_at||x.updated_at)>new Date(best.finalized_at||best.updated_at)?x:best):null;
+}
+function diwanStageStatusOf(p,stage){return diwanPassedStageSession(p,stage)?"passed":diwanParticipantStatusOf(p)}
+function diwanStageMembers(stage){return diwanState.participants.filter(p=>diwanStageOf(p)===stage||diwanPassedStageSession(p,stage))}
+const DIWAN_STATUS_OPTIONS=[{value:"no_draw",label:"لم يتم اختيار الأجزاء بعد"},{value:"pending",label:"تم السحب — بانتظار اللجنة"},{value:"passed",label:"ناجح — انتقل للمرحلة التالية"},{value:"failed",label:"راسب"},{value:"withdrawn",label:"منسحب"},{value:"certified",label:"حافظ معتمد"}];
 function diwanParticipantCommitteeId(p){return diwanAssignedCommittee(p).id||"none"}
 function diwanParticipantMatchesFilters(p,filters){
-  if(filters.status!=="all"&&diwanParticipantStatusOf(p)!==filters.status)return false;
+  if(filters.status!=="all"&&diwanStageStatusOf(p,diwanOpenStage)!==filters.status)return false;
   if(filters.gender!=="all"&&p.gender!==filters.gender)return false;
   if(filters.center!=="all"&&p.center!==filters.center)return false;
   if(filters.committee!=="all"&&diwanParticipantCommitteeId(p)!==filters.committee)return false;
@@ -1894,10 +1913,10 @@ function populateDiwanParticipantFilterOptions(){
   const statusSelect=$("#diwanStatusFilter"),genderSelect=$("#diwanGenderFilter"),centerSelect=$("#diwanCenterFilter"),committeeSelect=$("#diwanCommitteeFilter");
   if(!statusSelect)return;
   const current={status:statusSelect.value,gender:genderSelect.value,center:centerSelect.value,committee:committeeSelect?.value||"all"};
-  const poolExcluding=dimension=>diwanState.participants.filter(p=>diwanOpenStage==null||diwanStageOf(p)===diwanOpenStage).filter(p=>diwanParticipantMatchesFilters(p,{...current,[dimension]:"all"}));
+  const poolExcluding=dimension=>(diwanOpenStage==null?diwanState.participants:diwanStageMembers(diwanOpenStage)).filter(p=>diwanParticipantMatchesFilters(p,{...current,[dimension]:"all"}));
 
   const statusPool=poolExcluding("status");
-  const availableStatuses=new Set(statusPool.map(diwanParticipantStatusOf));
+  const availableStatuses=new Set(statusPool.map(p=>diwanStageStatusOf(p,diwanOpenStage)));
   statusSelect.innerHTML=`<option value="all">جميع الحالات</option>`+DIWAN_STATUS_OPTIONS.filter(o=>availableStatuses.has(o.value)).map(o=>`<option value="${o.value}">${o.label}</option>`).join("");
   statusSelect.value=availableStatuses.has(current.status)?current.status:"all";current.status=statusSelect.value;
 
@@ -2241,11 +2260,13 @@ function diwanCommitteeCellHtml(participant){
 const DIWAN_STAGE_SUBTITLES={1:"عشرة أجزاء تختارها الإدارة",2:"عشرة أجزاء تختارها الإدارة",3:"عشرة أجزاء تختارها الإدارة",4:"القرآن الكريم كاملاً — ١٨ موضعاً"};
 // أي قيمة مرحلة غير صالحة تُعرض ضمن المرحلة الأولى بدل أن يختفي المتسابق من اللوحة.
 function diwanStageOf(participant){return [1,2,3,4].includes(participant?.stage)?participant.stage:1}
-function diwanParticipantCardHtml(p,showStage=false){
-  const status=diwanParticipantStatusOf(p);
-  const statusLabel=status==="certified"?"حافظ معتمد":status==="withdrawn"?"منسحب · 0":status==="no_draw"?"لم يتم اختيار الأجزاء بعد":status==="failed"?(p.assessment?.incomplete?"غير مكتمل":`راسب · ${formatAssessmentNumber(p.score)}`):"تم السحب — بانتظار اللجنة";
-  const stateClass=status==="certified"?"completed":status==="failed"||status==="withdrawn"?"failed":status==="no_draw"?"not-drawn":"drawn";
-  const primaryHtml=status==="withdrawn"?""
+function diwanParticipantCardHtml(p,showStage=false,viewStage=null){
+  const status=diwanStageStatusOf(p,viewStage),passedSession=status==="passed"?diwanPassedStageSession(p,viewStage):null;
+  if(passedSession)showStage=true;
+  const statusLabel=passedSession?`ناجح · ${formatAssessmentNumber(passedSession.score)} — ${p.certified?"حافظ معتمد":`انتقل إلى ${DIWAN_STAGE_LABELS[diwanStageOf(p)]}`}`:status==="certified"?"حافظ معتمد":status==="withdrawn"?"منسحب · 0":status==="no_draw"?"لم يتم اختيار الأجزاء بعد":status==="failed"?(p.assessment?.incomplete?"غير مكتمل":`راسب · ${formatAssessmentNumber(p.score)}`):"تم السحب — بانتظار اللجنة";
+  const stateClass=status==="certified"||status==="passed"?"completed":status==="failed"||status==="withdrawn"?"failed":status==="no_draw"?"not-drawn":"drawn";
+  const primaryHtml=passedSession?`<button class="compact-btn" data-diwan-draw-sheet="${escapeAttr(passedSession.draw_id)}"><i data-lucide="eye"></i> ورقة المواضع</button>`
+    :status==="withdrawn"?""
     :status==="certified"?`<button class="compact-btn" data-diwan-certificate="${p.id}"><i data-lucide="award"></i> شهادة حافظ</button><button class="compact-btn" data-diwan-certificate-print="${p.id}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button>`
     :status==="no_draw"?(diwanStageOf(p)===4?`<button class="compact-btn" data-diwan-final-draw="${p.id}"><i data-lucide="sparkles"></i> السحب النهائي</button>`:`<button class="compact-btn" data-diwan-pick-juz="${p.id}"><i data-lucide="list-checks"></i> اختيار الأجزاء والسحب</button>`)
     :status==="failed"?`<button class="compact-btn" data-diwan-recommendation="${p.id}"><i data-lucide="file-text"></i> التوصية</button><button class="compact-btn" data-diwan-recommendation-print="${p.id}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button><button class="compact-btn" data-diwan-recommendation-edit="${p.id}" title="كتابة/تعديل التوصية"><i data-lucide="pencil-line"></i></button><button class="compact-btn" data-diwan-retry="${p.id}"><i data-lucide="rotate-ccw"></i> إعادة الاختبار</button>`
@@ -2303,7 +2324,8 @@ function renderDiwanParticipants(){
   $("#diwanStageBoard").innerHTML=[1,2,3,4].map(stage=>{
     const members=all.filter(p=>diwanStageOf(p)===stage);
     const tally=members.reduce((acc,p)=>{const key=diwanParticipantStatusOf(p);acc[key]=(acc[key]||0)+1;return acc},{});
-    const chips=[["no_draw","بانتظار الأجزاء"],["pending","بانتظار اللجنة"],["failed","راسب"],["withdrawn","منسحب"],["certified","حافظ معتمد"]].filter(([key])=>tally[key]).map(([key,label])=>`<span class="diwan-stage-chip is-${key}">${label} ${formatNumber(tally[key])}</span>`).join("")||`<span class="diwan-stage-chip">لا يوجد متسابقون</span>`;
+    const passedCount=all.filter(p=>diwanPassedStageSession(p,stage)).length;if(passedCount)tally.passed=passedCount;
+    const chips=[["no_draw","بانتظار الأجزاء"],["pending","بانتظار اللجنة"],["passed","ناجح وانتقل"],["failed","راسب"],["withdrawn","منسحب"],["certified","حافظ معتمد"]].filter(([key])=>tally[key]).map(([key,label])=>`<span class="diwan-stage-chip is-${key}">${label} ${formatNumber(tally[key])}</span>`).join("")||`<span class="diwan-stage-chip">لا يوجد متسابقون</span>`;
     return `<button type="button" class="diwan-stage-box stage-${stage}" data-open-stage="${stage}"><span class="diwan-stage-head"><span class="diwan-stage-num">${stage===4?"★":stage}</span><span class="diwan-stage-titles"><strong>${escapeHtml(DIWAN_STAGE_LABELS[stage])}</strong><small>${DIWAN_STAGE_SUBTITLES[stage]}</small></span><b class="diwan-stage-count">${formatNumber(members.length)}</b></span><span class="diwan-stage-chips">${chips}</span><span class="diwan-stage-open">عرض المتسابقين <i data-lucide="arrow-left"></i></span></button>`;
   }).join("");
   // بحث سريع بكل المراحل: يستبدل الصناديق بنتائج البحث ما دام نص البحث غير فارغ.
@@ -2316,14 +2338,14 @@ function renderDiwanParticipants(){
   $("#diwanOverviewPanel").classList.toggle("hidden",inStage);
   $("#diwanStagePanel").classList.toggle("hidden",!inStage);
   if(inStage){
-    const stageAll=all.filter(p=>diwanStageOf(p)===diwanOpenStage);
+    const stageAll=diwanStageMembers(diwanOpenStage);
     // بحث داخل صفحة المرحلة نفسها (بالاسم/الجلوس/المركز/الرقم التسلسلي) فوق الفلاتر.
     const stageQuery=$("#diwanStageSearch")?.value.trim().toLowerCase()||"";
     const stageList=stageAll.filter(p=>diwanParticipantMatchesFilters(p,activeFilters)&&(!stageQuery||[p.name,p.seat,p.center,p.serialNumber].some(x=>String(x??"").toLowerCase().includes(stageQuery))));
     $("#diwanStagePageTitle").textContent=DIWAN_STAGE_LABELS[diwanOpenStage];
     $("#diwanStagePageSub").textContent=DIWAN_STAGE_SUBTITLES[diwanOpenStage];
     $("#diwanParticipantCount").textContent=stageList.length===stageAll.length?`${formatNumber(stageList.length)} متسابق`:`${formatNumber(stageList.length)} من ${formatNumber(stageAll.length)} متسابق`;
-    $("#diwanStageParticipants").innerHTML=stageList.length?stageList.map(p=>diwanParticipantCardHtml(p)).join(""):`<p class="diwan-stage-empty">${stageAll.length?"لا يوجد متسابقون مطابقون للفلاتر":"لا يوجد متسابقون بهذه المرحلة"}</p>`;
+    $("#diwanStageParticipants").innerHTML=stageList.length?stageList.map(p=>diwanParticipantCardHtml(p,false,diwanOpenStage)).join(""):`<p class="diwan-stage-empty">${stageAll.length?"لا يوجد متسابقون مطابقون للفلاتر":"لا يوجد متسابقون بهذه المرحلة"}</p>`;
   }
   $$(`[data-open-stage]`).forEach(b=>b.onclick=()=>openDiwanStage(Number(b.dataset.openStage)));
   $$(`[data-diwan-pick-juz]`).forEach(b=>b.onclick=()=>openDiwanJuzPicker(diwanState.participants.find(p=>p.id===b.dataset.diwanPickJuz)));
@@ -2335,6 +2357,7 @@ function renderDiwanParticipants(){
   $$(`[data-diwan-recommendation-print]`).forEach(b=>b.onclick=()=>{const p=diwanState.participants.find(x=>x.id===b.dataset.diwanRecommendationPrint);downloadDiwanRecommendation(p,currentDiwanDraw(p,diwanState.draws),null,{print:true})});
   $$(`[data-diwan-recommendation-edit]`).forEach(b=>b.onclick=()=>{const p=diwanState.participants.find(x=>x.id===b.dataset.diwanRecommendationEdit);openDiwanRecommendationEditModal(p,currentDiwanDraw(p,diwanState.draws))});
   $$(`[data-diwan-recommendation]`).forEach(b=>b.onclick=()=>{const p=diwanState.participants.find(x=>x.id===b.dataset.diwanRecommendation);downloadDiwanRecommendation(p,currentDiwanDraw(p,diwanState.draws))});
+  $$(`[data-diwan-draw-sheet]`).forEach(b=>b.onclick=()=>{const draw=diwanState.draws.find(d=>d.id===b.dataset.diwanDrawSheet);if(draw)showDiwanResult(draw);else toast("تعذر إيجاد سحب هذه المرحلة")});
   $$(`[data-diwan-change-parts]`).forEach(b=>b.onclick=()=>openDiwanJuzPicker(diwanState.participants.find(p=>p.id===b.dataset.diwanChangeParts),{changeOnly:true}));
   $$(`[data-diwan-move-stage]`).forEach(b=>b.onclick=()=>openDiwanMoveStageModal(b.dataset.diwanMoveStage));
   $$(`[data-diwan-history]`).forEach(b=>b.onclick=()=>openDiwanAttemptHistory(diwanState.participants.find(p=>p.id===b.dataset.diwanHistory)));

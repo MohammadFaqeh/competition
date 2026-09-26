@@ -443,6 +443,23 @@ async function run() {
     sandbox.window.CloudCompetition = { context: {} };
   }
 
+  // الناجح بالاختبار الأول يبقى ظاهراً بصفحة الاختبار الأول (فلتر «ناجح») مع علامته، ويظهر أيضاً بمرحلته الجديدة.
+  {
+    vm.runInContext(`diwanState = { ...defaultDiwanState(), participants: [
+        { id: "P1", name: "ناجحة", seat: "1", gender: "أنثى", stage: 2, parts: [], level: 10 },
+        { id: "P2", name: "بالأول", seat: "2", gender: "أنثى", stage: 1, parts: [], level: 10 }],
+      draws: [{ id: "D1", participantId: "P1", stage: 1, positions: [], createdAt: new Date().toISOString() }] };
+      diwanAdminSessions = [{ participant_id: "P1", draw_id: "D1", stage: 1, status: "final", score: 93, assessment: {}, finalized_at: new Date().toISOString() }];`, sandbox);
+    assert.deepStrictEqual(Array.from(sandbox.diwanStageMembers(1), p => p.id), ["P1", "P2"], "الناجحة تبقى بقائمة الاختبار الأول");
+    assert.deepStrictEqual(Array.from(sandbox.diwanStageMembers(2), p => p.id), ["P1"], "وتظهر بالاختبار الثاني أيضاً");
+    const p1 = vm.runInContext("diwanState.participants[0]", sandbox);
+    assert.strictEqual(sandbox.diwanStageStatusOf(p1, 1), "passed", "حالتها بصفحة الأول: ناجح");
+    assert.strictEqual(sandbox.diwanStageStatusOf(p1, 2), "no_draw", "حالتها بصفحة الثاني: بانتظار الأجزاء");
+    const card = sandbox.diwanParticipantCardHtml(p1, false, 1);
+    assert.ok(card.includes("ناجح · 93") && card.includes("data-diwan-draw-sheet=\"D1\""), "البطاقة تعرض العلامة وورقة مواضع الاختبار الأول");
+    vm.runInContext('diwanAdminSessions = [];', sandbox);
+  }
+
   console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=85، ودوال توليد الشهادات/التوصيات");
 }
 
