@@ -221,7 +221,9 @@ function showSyncStatus(kind){
 }
 function defaultDiwanState(){return {config:{competitionName:"اختبارات ديوان الحفاظ",nextCertificateSeq:0},participants:[],draws:[],resets:[],deletions:[]}}
 function loadDiwanState(){try{return {...defaultDiwanState(),...JSON.parse(localStorage.getItem(DIWAN_STORAGE_KEY)||"null")}}catch{return defaultDiwanState()}}
-function saveDiwanState(){safeSetItem(DIWAN_STORAGE_KEY,JSON.stringify(diwanState));if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin")window.DiwanCompetition.queueStateSave(diwanState,error=>toast(`تعذر مزامنة بيانات ديوان الحفاظ: ${error.message}`))}
+// المسؤول الفرعي ومشرف المسابقة يرون ديوان الحفاظ للقراءة فقط (راجع supabase/diwan-sub-admin-supervisor-view.sql)؛ الكتابة للإدارة الرئيسية.
+function isDiwanCloudViewer(){return operationMode==="cloud"&&cloudEnabled&&["subAdmin","supervisor"].includes(window.CloudCompetition?.context?.kind)}
+function saveDiwanState(){if(isDiwanCloudViewer())return;safeSetItem(DIWAN_STORAGE_KEY,JSON.stringify(diwanState));if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin")window.DiwanCompetition.queueStateSave(diwanState,error=>toast(`تعذر مزامنة بيانات ديوان الحفاظ: ${error.message}`))}
 // يُحمَّل مرة واحدة فقط عند أول دخول فعلي لصفحة ديوان الحفاظ (لا عند دخول الإدارة نفسها) حتى لا يُبطئ تحميل لوحة التحكم الرئيسية بميزة ثانوية.
 async function ensureDiwanStateLoaded(){
   if(diwanStateLoaded)return;
@@ -234,6 +236,15 @@ async function ensureDiwanStateLoaded(){
       diwanAdminSessions=sessions;
       mergeFinalDiwanSessionsIntoState(sessions);
       safeSetItem(DIWAN_STORAGE_KEY,JSON.stringify(diwanState));
+    }catch(error){diwanStateLoaded=false;toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
+  }else if(isDiwanCloudViewer()){
+    // لا نعرض أبداً نسخة الجهاز المحلية (قد تكون بيانات الإدارة كاملة بكل الأجناس) — فقط ما يرجعه الخادم لهذا الحساب.
+    diwanState=defaultDiwanState();diwanAdminSessions=[];
+    try{
+      const [remote,sessions]=await Promise.all([window.DiwanCompetition.loadViewerState(),window.DiwanCompetition.listViewerSessions()]);
+      diwanState={...defaultDiwanState(),...remote.payload};
+      diwanAdminSessions=sessions;
+      mergeFinalDiwanSessionsIntoState(sessions);
     }catch(error){diwanStateLoaded=false;toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
   }
 }
@@ -285,19 +296,19 @@ function mergeFinalDiwanSessionsIntoState(sessions){
 let diwanQuietRefreshBusy=false;
 async function refreshDiwanResultsQuietly(){
   if(diwanQuietRefreshBusy||document.hidden||!diwanStateLoaded||!$("#diwanView")?.classList.contains("active-view"))return;
-  if(!(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin"))return;
+  if(!(operationMode==="cloud"&&cloudEnabled&&(window.CloudCompetition.context?.kind==="admin"||isDiwanCloudViewer())))return;
   diwanQuietRefreshBusy=true;
-  try{const sessions=await window.DiwanCompetition.listSessions();diwanAdminSessions=sessions;if(mergeFinalDiwanSessionsIntoState(sessions)&&$("#modal")?.classList.contains("hidden"))renderDiwanParticipants()}
+  try{const sessions=await window.DiwanCompetition.listViewerSessions();diwanAdminSessions=sessions;if(mergeFinalDiwanSessionsIntoState(sessions)&&$("#modal")?.classList.contains("hidden"))renderDiwanParticipants()}
   catch(error){console.warn("Diwan quiet refresh failed",error)}
   finally{diwanQuietRefreshBusy=false}
 }
 async function refreshDiwanCommitteeResults(){
   const button=$("#diwanSyncCommitteesBtn");button.disabled=true;
   try{
-    const sessions=await window.DiwanCompetition.listSessions();
-    diwanAdminSessions=sessions;
-    mergeFinalDiwanSessionsIntoState(sessions);
+    if(isDiwanCloudViewer()){diwanStateLoaded=false;await ensureDiwanStateLoaded()}
+    else{const sessions=await window.DiwanCompetition.listSessions();diwanAdminSessions=sessions;mergeFinalDiwanSessionsIntoState(sessions)}
     renderDiwanParticipants();
+    if(!diwanStateLoaded)return;
     toast("تم تحديث نتائج جميع اللجان");
   }catch(error){toast(`تعذر تحديث النتائج: ${error.message}`)}
   finally{button.disabled=false}
@@ -2157,7 +2168,7 @@ function openDiwanAttemptHistory(participant){
     const stageLabel=DIWAN_STAGE_LABELS[draw.stage]||`مرحلة ${draw.stage}`;
     const passed=session?.status==="final"&&!session.assessment?.incomplete&&Number(session.score)>=DIWAN_PASS_SCORE;
     const scoreText=!session?`<span class="state">بانتظار اللجنة</span>`:session.status!=="final"?`<span class="state drawn">قيد الاختبار</span>`:session.assessment?.incomplete?`<span class="state failed">غير مكتمل</span>`:`<b class="diwan-history-score">${formatAssessmentNumber(session.score)}</b> <span class="state ${passed?"completed":"failed"}">${passed?"ناجح":"راسب"}</span>`;
-    const actionHtml=session?.status!=="final"?"":passed?`<button class="compact-btn" data-diwan-history-cert="${index}"><i data-lucide="award"></i> الشهادة</button> <button class="compact-btn" data-diwan-history-cert-print="${index}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button>`:`<button class="compact-btn" data-diwan-history-rec="${index}"><i data-lucide="file-text"></i> التوصية</button> <button class="compact-btn" data-diwan-history-rec-print="${index}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button> <button class="compact-btn" data-diwan-history-rec-edit="${index}" title="كتابة/تعديل التوصية"><i data-lucide="pencil-line"></i></button>`;
+    const actionHtml=session?.status!=="final"?"":passed?`<button class="compact-btn" data-diwan-history-cert="${index}"><i data-lucide="award"></i> الشهادة</button> <button class="compact-btn" data-diwan-history-cert-print="${index}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button>`:`<button class="compact-btn" data-diwan-history-rec="${index}"><i data-lucide="file-text"></i> التوصية</button> <button class="compact-btn" data-diwan-history-rec-print="${index}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button>${isDiwanCloudViewer()?"":` <button class="compact-btn" data-diwan-history-rec-edit="${index}" title="كتابة/تعديل التوصية"><i data-lucide="pencil-line"></i></button>`}`;
     return `<tr><td class="nowrap">${escapeHtml(stageLabel)}</td><td class="nowrap">${formatDate(draw.createdAt)}</td><td class="nowrap">${scoreText}</td><td>${actionHtml}</td></tr>`;
   }).join("");
   openModal(`<div class="modal-head"><h2>سجل محاولات ${escapeHtml(participant.name)}</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="table-wrap"><table class="diwan-history-table"><thead><tr><th>المرحلة</th><th>تاريخ السحب</th><th>النتيجة</th><th>مستند</th></tr></thead><tbody>${rows||`<tr><td colspan="4" class="table-empty">لا يوجد سحب بعد</td></tr>`}</tbody></table></div></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button></div>`,"diwan-history-modal");
@@ -2173,7 +2184,10 @@ function openDiwanAttemptHistory(participant){
 // النقل اليدوي أو الفرز الطبيعي (جنس + مستوى) — نفس أولوية عمود "اللجنة" بالسنوية بالضبط
 // (resultCommitteeName ثم resolveParticipantCommittee)، بلا أي تعديل على تلك الدوال المشتركة.
 // اللجنة التي تراها المتسابقة حالياً (نفس قاعدة diwanCommitteeScope): المنقولة/الموزَّعة → لجنتها، غير الذكور → كل لجان الإناث، الذكور → لجنة مستواهم.
+// المسؤول الفرعي لا يملك cloudCommittees (قائمة الإدارة) — لجانه تصل مع حالته (subAdminCommittees).
+function diwanCommitteesList(){return window.CloudCompetition?.context?.kind==="subAdmin"?subAdminCommittees:cloudCommittees}
 function diwanAssignedCommittee(participant){
+  const cloudCommittees=diwanCommitteesList();
   if(participant.transferCommitteeId){const committee=cloudCommittees.find(c=>c.id===participant.transferCommitteeId);return {id:participant.transferCommitteeId,name:committee?.name||"لجنة محددة",committee}}
   if(participant.gender!=="ذكر")return {id:null,name:"كل لجان الإناث",committee:null};
   const committee=cloudCommittees.length?resolveParticipantCommittee(participant,cloudCommittees,{includeAllGenders:true}).currentCommittee:null;
@@ -2182,7 +2196,7 @@ function diwanAssignedCommittee(participant){
 function diwanCommitteeCellHtml(participant){
   const historicalName=resultCommitteeName(participant);
   if(historicalName){
-    const historicalCommittee=participant.assessment?.committee?.id?cloudCommittees.find(c=>c.id===participant.assessment.committee.id):null;
+    const historicalCommittee=participant.assessment?.committee?.id?diwanCommitteesList().find(c=>c.id===participant.assessment.committee.id):null;
     return `${escapeHtml(historicalName)}${historicalCommittee?.login_code?` <small>(${escapeHtml(historicalCommittee.login_code)})</small>`:""}`;
   }
   const {name,committee:assigned}=diwanAssignedCommittee(participant);
@@ -2192,16 +2206,16 @@ const DIWAN_STAGE_SUBTITLES={1:"عشرة أجزاء تختارها الإدار�
 // أي قيمة مرحلة غير صالحة تُعرض ضمن المرحلة الأولى بدل أن يختفي المتسابق من اللوحة.
 function diwanStageOf(participant){return [1,2,3,4].includes(participant?.stage)?participant.stage:1}
 function diwanParticipantCardHtml(p,showStage=false){
-  const status=diwanParticipantStatusOf(p);
+  const status=diwanParticipantStatusOf(p),readOnly=isDiwanCloudViewer();
   const statusLabel=status==="certified"?"حافظ معتمد":status==="withdrawn"?"منسحب · 0":status==="no_draw"?"لم يتم اختيار الأجزاء بعد":status==="failed"?(p.assessment?.incomplete?"غير مكتمل":`راسب · ${formatAssessmentNumber(p.score)}`):"تم السحب — بانتظار اللجنة";
   const stateClass=status==="certified"?"completed":status==="failed"||status==="withdrawn"?"failed":status==="no_draw"?"not-drawn":"drawn";
   const primaryHtml=status==="withdrawn"?""
     :status==="certified"?`<button class="compact-btn" data-diwan-certificate="${p.id}"><i data-lucide="award"></i> شهادة حافظ</button><button class="compact-btn" data-diwan-certificate-print="${p.id}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button>`
-    :status==="no_draw"?(diwanStageOf(p)===4?`<button class="compact-btn" data-diwan-final-draw="${p.id}"><i data-lucide="sparkles"></i> السحب النهائي</button>`:`<button class="compact-btn" data-diwan-pick-juz="${p.id}"><i data-lucide="list-checks"></i> اختيار الأجزاء والسحب</button>`)
-    :status==="failed"?`<button class="compact-btn" data-diwan-recommendation="${p.id}"><i data-lucide="file-text"></i> التوصية</button><button class="compact-btn" data-diwan-recommendation-print="${p.id}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button><button class="compact-btn" data-diwan-recommendation-edit="${p.id}" title="كتابة/تعديل التوصية"><i data-lucide="pencil-line"></i></button><button class="compact-btn" data-diwan-retry="${p.id}"><i data-lucide="rotate-ccw"></i> إعادة الاختبار</button>`
+    :status==="no_draw"?(readOnly?"":diwanStageOf(p)===4?`<button class="compact-btn" data-diwan-final-draw="${p.id}"><i data-lucide="sparkles"></i> السحب النهائي</button>`:`<button class="compact-btn" data-diwan-pick-juz="${p.id}"><i data-lucide="list-checks"></i> اختيار الأجزاء والسحب</button>`)
+    :status==="failed"?`<button class="compact-btn" data-diwan-recommendation="${p.id}"><i data-lucide="file-text"></i> التوصية</button><button class="compact-btn" data-diwan-recommendation-print="${p.id}" title="طباعة أو حفظ PDF بجودة عالية"><i data-lucide="printer"></i></button>${readOnly?"":`<button class="compact-btn" data-diwan-recommendation-edit="${p.id}" title="كتابة/تعديل التوصية"><i data-lucide="pencil-line"></i></button><button class="compact-btn" data-diwan-retry="${p.id}"><i data-lucide="rotate-ccw"></i> إعادة الاختبار</button>`}`
     :`<button class="compact-btn" data-diwan-result="${p.id}"><i data-lucide="eye"></i> ورقة المواضع</button>`;
   const serial=diwanSerialOf(p);
-  return `<article class="diwan-card is-${status}"><div class="diwan-card-top"><b>${escapeHtml(p.name)}</b><span class="diwan-card-seat">رقم الجلوس ${escapeHtml(p.seat)}</span></div><div class="diwan-card-meta">${showStage?`<span class="diwan-card-stage">${escapeHtml(DIWAN_STAGE_LABELS[diwanStageOf(p)])}</span>`:""}<span>${escapeHtml(p.gender||"غير محدد")}</span><span>${p.center?escapeHtml(p.center):`<span class="missing-center-tag">⚠ بلا مركز</span>`}</span><span>${diwanCommitteeCellHtml(p)}</span>${serial?`<span>الرقم التسلسلي ${escapeHtml(serial)}</span>`:`<span class="missing-center-tag">⚠ بلا رقم تسلسلي</span>`}</div><div class="diwan-card-foot"><span class="state ${stateClass}">${statusLabel}</span><div class="row-actions">${primaryHtml}<details class="row-actions-more"><summary class="icon-btn" title="المزيد من الإجراءات"><i data-lucide="more-vertical"></i></summary><div class="row-actions-more-list"><button class="compact-btn" data-diwan-history="${p.id}"><i data-lucide="history"></i> السجل</button><button class="compact-btn" data-diwan-move-stage="${p.id}"><i data-lucide="git-branch"></i> نقل لمرحلة</button><button class="compact-btn" data-diwan-transfer="${p.id}"><i data-lucide="shuffle"></i> نقل للجنة</button>${status==="certified"?"":`<button class="compact-btn" data-diwan-withdraw="${p.id}"><i data-lucide="${p.withdrawn?"user-check":"user-x"}"></i> ${p.withdrawn?"إلغاء الانسحاب":"تسجيل انسحاب"}</button>`}<button class="compact-btn" data-diwan-edit="${p.id}"><i data-lucide="pencil"></i> تعديل</button><button class="compact-btn danger-compact" data-diwan-delete="${p.id}"><i data-lucide="trash-2"></i> حذف</button></div></details></div></div></article>`;
+  return `<article class="diwan-card is-${status}"><div class="diwan-card-top"><b>${escapeHtml(p.name)}</b><span class="diwan-card-seat">رقم الجلوس ${escapeHtml(p.seat)}</span></div><div class="diwan-card-meta">${showStage?`<span class="diwan-card-stage">${escapeHtml(DIWAN_STAGE_LABELS[diwanStageOf(p)])}</span>`:""}<span>${escapeHtml(p.gender||"غير محدد")}</span><span>${p.center?escapeHtml(p.center):`<span class="missing-center-tag">⚠ بلا مركز</span>`}</span><span>${diwanCommitteeCellHtml(p)}</span>${serial?`<span>الرقم التسلسلي ${escapeHtml(serial)}</span>`:`<span class="missing-center-tag">⚠ بلا رقم تسلسلي</span>`}</div><div class="diwan-card-foot"><span class="state ${stateClass}">${statusLabel}</span><div class="row-actions">${primaryHtml}<details class="row-actions-more"><summary class="icon-btn" title="المزيد من الإجراءات"><i data-lucide="more-vertical"></i></summary><div class="row-actions-more-list"><button class="compact-btn" data-diwan-history="${p.id}"><i data-lucide="history"></i> السجل</button>${readOnly?"":`<button class="compact-btn" data-diwan-move-stage="${p.id}"><i data-lucide="git-branch"></i> نقل لمرحلة</button><button class="compact-btn" data-diwan-transfer="${p.id}"><i data-lucide="shuffle"></i> نقل للجنة</button>${status==="certified"?"":`<button class="compact-btn" data-diwan-withdraw="${p.id}"><i data-lucide="${p.withdrawn?"user-check":"user-x"}"></i> ${p.withdrawn?"إلغاء الانسحاب":"تسجيل انسحاب"}</button>`}<button class="compact-btn" data-diwan-edit="${p.id}"><i data-lucide="pencil"></i> تعديل</button><button class="compact-btn danger-compact" data-diwan-delete="${p.id}"><i data-lucide="trash-2"></i> حذف</button>`}</div></details></div></div></article>`;
 }
 // نقل يدوي لمرحلة (صلاحية الإدارة): يبدأ المتسابق المرحلة المختارة من جديد بلا سحب حالي، وتبقى محاولاته السابقة بالسجل.
 // النقل التلقائي بعد اعتماد نتيجة (نجاح ← المرحلة التالية، رسوب ← نفس المرحلة) يتم في mergeFinalDiwanSessionsIntoState.
@@ -2238,6 +2252,10 @@ function closeDiwanStage(){
 }
 function renderDiwanParticipants(){
   $("#diwanDistributeBtn")?.classList.toggle("hidden",!(operationMode==="cloud"&&window.CloudCompetition?.context?.kind==="admin"));
+  const readOnly=isDiwanCloudViewer();
+  ["#diwanBulkDrawBtn","#diwanDeleteAllBtn","#addDiwanParticipantBtn"].forEach(id=>$(id)?.classList.toggle("hidden",readOnly));
+  $("#diwanImportInput")?.closest("label")?.classList.toggle("hidden",readOnly);
+  if(readOnly)$("#diwanSyncCommitteesBtn")?.classList.remove("hidden");
   populateDiwanParticipantFilterOptions();
   const query=$("#diwanParticipantSearch")?.value.trim().toLowerCase()||"";
   const all=diwanState.participants;

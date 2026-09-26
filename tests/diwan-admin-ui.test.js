@@ -409,6 +409,31 @@ async function run() {
     assert.strictEqual(limited.leftover.length, 0, "الإصلاح بالتبديل يضمن مكاناً للجميع");
   }
 
+  // المسؤول الفرعي (مسؤولة الإناث) ومشرف المسابقة: يُحمَّل ديوان الحفاظ للقراءة فقط من الخادم، لا من نسخة الجهاز، ولا يُكتب شيء.
+  {
+    const saved = [];
+    sandbox.window.DiwanCompetition = {
+      loadViewerState: async () => ({ payload: { participants: [{ id: "F1", name: "فاطمة", seat: "1", gender: "أنثى", stage: 1, parts: [], level: 10 }], draws: [] } }),
+      listViewerSessions: async () => [],
+      loadState: async () => { throw new Error("loadState للإدارة الرئيسية فقط") },
+      queueStateSave: () => saved.push("save"),
+    };
+    for (const kind of ["subAdmin", "supervisor"]) {
+      sandbox.window.CloudCompetition = { context: { kind, token: "t", subAdmin: { gender: "أنثى" } } };
+      vm.runInContext('operationMode = "cloud"; cloudEnabled = true; diwanStateLoaded = false; diwanState = { ...defaultDiwanState(), participants: [{ id: "OLD", name: "بيانات محلية قديمة" }] };', sandbox);
+      await sandbox.ensureDiwanStateLoaded();
+      assert.deepStrictEqual(vm.runInContext("diwanState.participants.map(p => p.id)", sandbox), ["F1"], `${kind}: المتسابقات يظهرن من الخادم`);
+      assert.strictEqual(sandbox.isDiwanCloudViewer(), true, `${kind}: وضع عرض فقط`);
+      const card = sandbox.diwanParticipantCardHtml(vm.runInContext("diwanState.participants[0]", sandbox));
+      assert.ok(!/data-diwan-(pick-juz|edit|delete|transfer|move-stage|withdraw)=/.test(card), `${kind}: لا أزرار تعديل ببطاقة المتسابقة`);
+      assert.ok(/data-diwan-history=/.test(card), `${kind}: السجل متاح للعرض`);
+      sandbox.saveDiwanState();
+    }
+    assert.strictEqual(saved.length, 0, "لا حفظ سحابي من حسابات العرض");
+    vm.runInContext('operationMode = "local"; cloudEnabled = false;', sandbox);
+    sandbox.window.CloudCompetition = { context: {} };
+  }
+
   console.log("diwan-admin-ui.test.js: كل الحالات نجحت — نظام المراحل المتتالية، السحب الموحّد لكل جزء، والترقية/الإبقاء حسب DIWAN_PASS_SCORE=85، ودوال توليد الشهادات/التوصيات");
 }
 

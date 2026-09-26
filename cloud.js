@@ -206,6 +206,19 @@ window.DiwanCompetition=(()=>{
   }
 
   async function loadState(){if(!isAdmin())throw new Error("هذه العملية للمدير فقط");const {data,error}=await client().from("diwan_state").select("payload,updated_at").eq("id",1).single();if(error)throw error;return data}
+  // عرض للقراءة فقط لبقية حسابات الإدارة (راجع supabase/diwan-sub-admin-supervisor-view.sql): المشرف يقرأ
+  // مباشرة كالإدارة (RLS)، والمسؤول الفرعي عبر رمز جلسته ولا يصله إلا متسابقو جنس حسابه.
+  async function loadViewerState(){
+    const context=window.CloudCompetition.context;
+    if(context?.kind==="subAdmin"){const {data,error}=await client().rpc("diwan_sub_admin_load_state",{p_token:context.token});if(error)throw rpcError(error);return {payload:data}}
+    if(context?.kind!=="supervisor")throw new Error("هذه العملية لحسابات الإدارة فقط");
+    const {data,error}=await client().from("diwan_state").select("payload,updated_at").eq("id",1).single();if(error)throw error;return data;
+  }
+  async function listViewerSessions(){
+    const context=window.CloudCompetition.context;
+    if(context?.kind==="subAdmin"){const {data,error}=await client().rpc("diwan_sub_admin_list_sessions",{p_token:context.token});if(error)throw rpcError(error);return data||[]}
+    return listSessions();
+  }
   async function getStateVersion(){try{const {data,error}=await client().rpc("diwan_state_version");if(error)return null;return data}catch{return null}}
 
   let adminKnownParticipants=new Map(),adminKnownDraws=new Map();
@@ -254,6 +267,6 @@ window.DiwanCompetition=(()=>{
   function queueSessionSave(sessionId,assessment,onError){clearTimeout(sessionSaveTimer);const snapshot=JSON.parse(JSON.stringify(assessment));sessionSaveTimer=setTimeout(()=>saveSession(sessionId,snapshot,"in_progress",null).catch(onError||console.error),300)}
   function cancelQueuedSessionSave(){clearTimeout(sessionSaveTimer);sessionSaveTimer=null}
 
-  return {loadState,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,transferParticipant,deleteParticipantDraw,listSessions,
+  return {loadState,loadViewerState,listViewerSessions,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,transferParticipant,deleteParticipantDraw,listSessions,
     loadCommitteeState,listCommitteeSessions,listTakenDraws,claimStudent,saveSession,cancelSession,getSession,replacePosition,queueSessionSave,cancelQueuedSessionSave};
 })();
