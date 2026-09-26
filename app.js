@@ -225,7 +225,8 @@ function loadDiwanState(){try{return {...defaultDiwanState(),...JSON.parse(local
 // (راجع supabase/diwan-sub-admin-supervisor-view.sql)؛ الحذف والنقل بين اللجان حسب مفاتيح كل حساب، والتوزيع وحذف الجميع للإدارة الرئيسية.
 function isDiwanCloudStaff(){return operationMode==="cloud"&&cloudEnabled&&["subAdmin","supervisor"].includes(window.CloudCompetition?.context?.kind)}
 function isDiwanCloudWriter(){return operationMode==="cloud"&&cloudEnabled&&["admin","subAdmin","supervisor"].includes(window.CloudCompetition?.context?.kind)}
-function diwanStaffCan(flag){const context=window.CloudCompetition?.context;if(!isDiwanCloudStaff())return true;return Boolean(context.kind==="subAdmin"?context.subAdmin?.[flag]:context.profile?.[flag])}
+// طلب صريح: حسابات الديوان بصلاحية كاملة مثل الإدارة الرئيسية على متسابقي الديوان (بلا مفاتيح حذف/نقل).
+function diwanStaffCan(){return true}
 // نسخة الجهاز (localStorage) للإدارة الرئيسية/الوضع المحلي فقط — لا تُخزَّن بيانات حساب محصور بجنس واحد مكان بيانات الإدارة الكاملة.
 function saveDiwanState(){if(!isDiwanCloudStaff())safeSetItem(DIWAN_STORAGE_KEY,JSON.stringify(diwanState));if(isDiwanCloudWriter())window.DiwanCompetition.queueStateSave(diwanState,error=>toast(`تعذر مزامنة بيانات ديوان الحفاظ: ${error.message}`))}
 // يُحمَّل مرة واحدة فقط عند أول دخول فعلي لصفحة ديوان الحفاظ (لا عند دخول الإدارة نفسها) حتى لا يُبطئ تحميل لوحة التحكم الرئيسية بميزة ثانوية.
@@ -1685,9 +1686,9 @@ function diwanDistributionPlan(participants,committees,{capacities,centers}={}){
   const result=plan.map(({committee,members})=>({committee,members}));result.leftover=leftover.sort(queue);return result;
 }
 async function openDiwanDistributeModal(){
-  if(!(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin"))return toast("التوزيع على اللجان متاح للإدارة الرئيسية بالوضع السحابي فقط");
-  if(!cloudCommittees.length)try{cloudCommittees=await window.CloudCompetition.listCommittees()}catch(error){return toast(error.message)}
-  const committees=cloudCommittees.filter(c=>c.active!==false&&c.responsible_gender==="أنثى").sort((a,b)=>(diwanCommitteeNumber(a)-diwanCommitteeNumber(b))||String(a.name).localeCompare(String(b.name),"ar"));
+  if(!isDiwanCloudWriter())return toast("التوزيع على اللجان متاح بالوضع السحابي فقط");
+  if(!isDiwanCloudStaff()&&!cloudCommittees.length)try{cloudCommittees=await window.CloudCompetition.listCommittees()}catch(error){return toast(error.message)}
+  const committees=diwanCommitteesList().filter(c=>c.active!==false&&c.responsible_gender==="أنثى").sort((a,b)=>(diwanCommitteeNumber(a)-diwanCommitteeNumber(b))||String(a.name).localeCompare(String(b.name),"ar"));
   if(!committees.length)return toast("لا توجد لجان إناث مفعّلة");
   const eligible=diwanDistributableParticipants();
   if(!eligible.length)return toast("لا توجد متسابقات للتوزيع (الجميع بدأ اختباره أو منسحب أو معتمد)");
@@ -1832,7 +1833,10 @@ async function importDiwanExcel(event){
       for(const row of parsed.rows){
         const name=pickColumn(row,["الاسم","اسمالمتسابق","اسمالطالب","اسمالمشارك","الاسمالرباعي","اسمالحافظ","المتسابق","الطالب","المشارك","name"]);
         if(!String(name).trim()){empty++;continue}
-        const gender=normalizeGender(pickColumn(row,["الجنس","النوع","ذكرانثى","gender","sex"]));
+        let gender=normalizeGender(pickColumn(row,["الجنس","النوع","ذكرانثى","gender","sex"]));
+        // المسؤول الفرعي: صفوف الجنس الآخر تُتخطّى (الخادم يرفضها)، وبلا جنس تُسجَّل بجنس حسابه.
+        const importerGender=window.CloudCompetition?.context?.kind==="subAdmin"&&isDiwanCloudStaff()?window.CloudCompetition.context.subAdmin?.gender:null;
+        if(importerGender){if(!gender)gender=importerGender;else if(gender!==importerGender){rejectedNames.push(`${String(name).trim()}: ${gender} — خارج صلاحية حسابك`);continue}}
         const center=String(pickColumn(row,["المركز","اسمالمركز","المسجد","الدار","الجمعية","center"])||"").trim();
         const seat=String(pickColumn(row,["رقمالجلوس","رقمالمتسابق","الرقم","التسلسل","م","seat"])||"").trim();
         const age=Number(normalizeDigits(pickColumn(row,["العمر","السن","age"])))||null;
@@ -1878,7 +1882,7 @@ function diwanParticipantStatusOf(participant){
 // كدالة موازية منفصلة لا كإعادة استخدام مباشر — نفس نهج ديوان الحفاظ بكل شاشاته السابقة (مثل
 // saveDiwanAssessmentDraft مقابل saveAssessmentDraft) تفادياً لأي مخاطرة على منطق السنوية المعتمد.
 const DIWAN_STATUS_OPTIONS=[{value:"no_draw",label:"لم يتم اختيار الأجزاء بعد"},{value:"pending",label:"تم السحب — بانتظار اللجنة"},{value:"failed",label:"راسب"},{value:"withdrawn",label:"منسحب"},{value:"certified",label:"حافظ معتمد"}];
-function diwanParticipantCommitteeId(p){return diwanAssignedCommittee(p).id}
+function diwanParticipantCommitteeId(p){return diwanAssignedCommittee(p).id||"none"}
 function diwanParticipantMatchesFilters(p,filters){
   if(filters.status!=="all"&&diwanParticipantStatusOf(p)!==filters.status)return false;
   if(filters.gender!=="all"&&p.gender!==filters.gender)return false;
@@ -1909,10 +1913,13 @@ function populateDiwanParticipantFilterOptions(){
 
   if(committeeSelect){
     const committeePool=poolExcluding("committee");
-    const availableCommitteeIds=new Set(committeePool.map(diwanParticipantCommitteeId).filter(Boolean));
-    const availableCommittees=cloudCommittees.filter(c=>availableCommitteeIds.has(c.id));
-    committeeSelect.innerHTML=`<option value="all">اللجنة: الكل</option>`+availableCommittees.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
-    committeeSelect.value=availableCommitteeIds.has(current.committee)?current.committee:"all";
+    const counts=new Map();committeePool.forEach(p=>{const id=diwanParticipantCommitteeId(p);counts.set(id,(counts.get(id)||0)+1)});
+    const staffGender=window.CloudCompetition?.context?.kind==="subAdmin"?window.CloudCompetition.context.subAdmin?.gender:null;
+    const committees=diwanCommitteesList().filter(c=>(c.active!==false&&(!staffGender||!c.responsible_gender||c.responsible_gender===staffGender))||counts.has(c.id))
+      .sort((a,b)=>(diwanCommitteeNumber(a)-diwanCommitteeNumber(b))||String(a.name).localeCompare(String(b.name),"ar"));
+    const ids=new Set(["none",...committees.map(c=>c.id)]);
+    committeeSelect.innerHTML=`<option value="all">اللجنة: الكل</option>`+committees.map(c=>`<option value="${c.id}">${escapeHtml(c.name)} (${formatNumber(counts.get(c.id)||0)})</option>`).join("")+`<option value="none">بلا لجنة محددة / كل لجان الإناث (${formatNumber(counts.get("none")||0)})</option>`;
+    committeeSelect.value=ids.has(current.committee)?current.committee:"all";
   }
 }
 const DIWAN_PARTICIPANT_LIST_UI_KEY="competition-diwan-participant-list-ui";
@@ -2280,11 +2287,8 @@ function closeDiwanStage(){
   globalThis.window?.scrollTo?.(0,0);
 }
 function renderDiwanParticipants(){
-  $("#diwanDistributeBtn")?.classList.toggle("hidden",!(operationMode==="cloud"&&window.CloudCompetition?.context?.kind==="admin"));
+  $("#diwanDistributeBtn")?.classList.toggle("hidden",!isDiwanCloudWriter());
   const staff=isDiwanCloudStaff();
-  $("#diwanDeleteAllBtn")?.classList.toggle("hidden",staff);
-  // الاستيراد قد يحوي الجنسين — المسؤول الفرعي يضيف متسابقي جنسه يدوياً (كالسنوية).
-  $("#diwanImportInput")?.closest("label")?.classList.toggle("hidden",window.CloudCompetition?.context?.kind==="subAdmin"&&staff);
   if(staff)$("#diwanSyncCommitteesBtn")?.classList.remove("hidden");
   populateDiwanParticipantFilterOptions();
   const query=$("#diwanParticipantSearch")?.value.trim().toLowerCase()||"";

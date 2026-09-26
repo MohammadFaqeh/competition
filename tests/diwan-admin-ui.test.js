@@ -428,8 +428,8 @@ async function run() {
       assert.deepStrictEqual(vm.runInContext("diwanState.participants.map(p => p.id)", sandbox), ["F1"], `${kind}: المتسابقات يظهرن من الخادم`);
       const card = sandbox.diwanParticipantCardHtml(vm.runInContext("diwanState.participants[0]", sandbox));
       assert.ok(/data-diwan-pick-juz=/.test(card) && /data-diwan-edit=/.test(card) && /data-diwan-withdraw=/.test(card) && /data-diwan-move-stage=/.test(card), `${kind}: أزرار السحب والتعديل والانسحاب والنقل لمرحلة متاحة`);
-      assert.strictEqual(/data-diwan-delete=/.test(card), flags.can_delete_data, `${kind}: الحذف حسب مفتاح «حذف البيانات»`);
-      assert.strictEqual(/data-diwan-transfer=/.test(card), flags.can_transfer_participant, `${kind}: النقل للجنة حسب مفتاح «نقل المتسابقين»`);
+      assert.ok(/data-diwan-delete=/.test(card), `${kind}: الحذف متاح (صلاحية كاملة)`);
+      assert.ok(/data-diwan-transfer=/.test(card), `${kind}: النقل للجنة متاح (صلاحية كاملة)`);
       sandbox.saveDiwanState();
       assert.strictEqual([...localStorageStore.entries()].map(([k, v]) => k + v).join(), before, `${kind}: لا كتابة في نسخة الجهاز`);
     }

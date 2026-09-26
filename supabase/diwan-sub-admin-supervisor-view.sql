@@ -55,7 +55,7 @@ grant execute on function public.diwan_sub_admin_list_sessions(text) to anon,aut
 -- ==========================================================================
 -- صلاحيات التعديل (نفس صلاحيات الإدارة الرئيسية على المتسابقين): سحب، تعديل البيانات والأجزاء، انسحاب،
 -- نقل لمرحلة، توصية، حذف سحب/جلسة. المسؤول الفرعي ضمن جنس حسابه فقط (يُفحص هنا بالخادم لا بالمتصفح).
--- حذف متسابق يتطلب مفتاح «حذف البيانات»، ونقله بين اللجان يتطلب مفتاح «نقل المتسابقين» — نفس مفاتيح كل حساب.
+-- صلاحية كاملة مثل الإدارة الرئيسية (طلب صريح): إضافة، تعديل، حذف، نقل بين اللجان، بلا مفاتيح إضافية.
 -- ==========================================================================
 
 -- هوية المنفّذ: مشرف المسابقة (حساب Auth) → كل الأجناس '*'، والمسؤول الفرعي (رمز جلسة) → جنس حسابه.
@@ -100,7 +100,6 @@ begin
     raise exception 'لا صلاحية لحسابك على متسابقين من الجنس الآخر';
   end if;
   if cardinality(p_deleted_participant_ids)>0 then
-    if not (v_actor->>'can_delete')::boolean then raise exception 'حذف المتسابقين يتطلب صلاحية «حذف البيانات» لهذا الحساب'; end if;
     if exists(select 1 from jsonb_array_elements(v_stored) o where o->>'id'=any(p_deleted_participant_ids) and not public.diwan_staff_can_see(o,v_gender)) then
       raise exception 'لا صلاحية لحسابك على متسابقين من الجنس الآخر';
     end if;
@@ -228,7 +227,6 @@ as $$
 declare v_actor jsonb; v_gender text; v_committee_gender text;
 begin
   v_actor=public.diwan_staff_actor(p_token);v_gender=v_actor->>'gender';
-  if not (v_actor->>'can_transfer')::boolean then raise exception 'نقل المتسابقين بين اللجان يتطلب صلاحية خاصة غير ممنوحة لهذا الحساب'; end if;
   if not exists(select 1 from public.diwan_state ds,jsonb_array_elements(coalesce(ds.payload->'participants','[]')) o
                 where ds.id=1 and o->>'id'=p_participant_id and public.diwan_staff_can_see(o,v_gender)) then
     raise exception 'المتسابق غير موجود أو خارج صلاحية حسابك';
