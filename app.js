@@ -887,11 +887,15 @@ async function enterCloudContext(context){try{operationMode="cloud";stopCommitte
   mergeFinalSessionsIntoState(sessions,committees);
   const greeting=$("#topAdminGreeting");if(greeting)greeting.textContent=context.profile.display_name?`أهلاً، ${context.profile.display_name}`:"الدورة الحالية";
   showApp()}catch(error){toast(`تعذر فتح البيانات المشتركة: ${error.message}`);showScreen("cloudLoginScreen")}}
+// الانسحاب أقوى من أي علامة: المنسحب علامته صفر دائماً مهما كانت علامة جلسة لجنته المعتمدة
+// (كانت المزامنة الدورية ترجّع 100 فوق الصفر لمنسحبة سبق اعتماد اختبارها). تُصلح أيضاً السجلات
+// القديمة المتضررة. ترجع true إذا عدّلت شيئاً (المستدعي يقرر الحفظ).
+function enforceWithdrawnZeroScore(participants){let changed=false;(participants||[]).forEach(p=>{if(p?.withdrawn&&(p.score!==0||p.scoreSource!=="withdrawn"||p.assessment)){p.score=0;p.scoreSource="withdrawn";p.assessment=null;p.gradedAt=p.gradedAt||new Date().toISOString();delete p.drRequest;changed=true}});return changed}
 function mergeFinalSessionsIntoState(sessions,committees,{replace=true}={}){
   // replace=false (استطلاع الإدارة الدوري المُقيَّد بآخر LIVE_RECENT_WINDOW_MS): ندمج (upsert)
   // فوق committeeSessions المحفوظة بدل استبدالها بالكامل، حتى لا تُمحى الجلسات الأقدم من 12 ساعة.
   committeeSessions=replace?sessions:(()=>{const byId=new Map(committeeSessions.map(item=>[item.id,item]));sessions.forEach(item=>byId.set(item.id,item));return [...byId.values()]})();
-  const committeeById=new Map(committees.map(item=>[item.id,item]));let changed=false;committeeSessions.filter(session=>session.status==="final").forEach(session=>{const participant=state.participants.find(item=>item.id===session.participant_id);if(!participant)return;
+  const committeeById=new Map(committees.map(item=>[item.id,item]));let changed=false;committeeSessions.filter(session=>session.status==="final").forEach(session=>{const participant=state.participants.find(item=>item.id===session.participant_id);if(!participant||participant.withdrawn)return;
     // حماية تعديل الإدارة اليدوي: بدون هذا الفحص كان الاستطلاع الدوري يرجّع العلامة الإلكترونية
     // القديمة فوق أي تعديل يدوي خلال ثوانٍ. نتجاهل الجلسة إذا كانت العلامة الحالية يدوية وأحدث من
     // (أو تساوي) آخر اعتماد — تُطبَّق النسخة الإلكترونية تلقائياً فقط لو صدر اعتماد جديد فعلاً بعدها.
@@ -900,7 +904,7 @@ function mergeFinalSessionsIntoState(sessions,committees,{replace=true}={}){
     const assessment={...(session.assessment||{})};const committee=committeeById.get(session.committee_id);if(committee){if(!assessment.committeeName)assessment.committeeName=committee.name;if(!assessment.committeeChairmanName&&committee.chairman_name)assessment.committeeChairmanName=committee.chairman_name;if(!assessment.committeeMemberName&&committee.member_name)assessment.committeeMemberName=committee.member_name;
       // تعبئة رجعية لجلسات اعتُمدت قبل إضافة هذا الحقل — بدونها تعتمد إحصائيات اللجنة على المستوى
       // الحالي للمتسابق بدل من امتحنه فعلياً، فتختلف كل ما يُنقل متسابقون بين اللجان.
-      if(!assessment.committee)assessment.committee={id:committee.id,name:committee.name}}if(participant.score!==Number(session.score)||participant.assessment?.updatedAt!==assessment.updatedAt||participant.assessment?.committeeName!==assessment.committeeName||participant.assessment?.committeeChairmanName!==assessment.committeeChairmanName||participant.assessment?.committeeMemberName!==assessment.committeeMemberName||participant.assessment?.committee?.id!==assessment.committee?.id){participant.score=Number(session.score);participant.gradedAt=session.finalized_at;participant.scoreSource="electronic";participant.assessment=assessment;changed=true}});if(changed)saveState();return changed}
+      if(!assessment.committee)assessment.committee={id:committee.id,name:committee.name}}if(participant.score!==Number(session.score)||participant.assessment?.updatedAt!==assessment.updatedAt||participant.assessment?.committeeName!==assessment.committeeName||participant.assessment?.committeeChairmanName!==assessment.committeeChairmanName||participant.assessment?.committeeMemberName!==assessment.committeeMemberName||participant.assessment?.committee?.id!==assessment.committee?.id){participant.score=Number(session.score);participant.gradedAt=session.finalized_at;participant.scoreSource="electronic";participant.assessment=assessment;changed=true}});if(enforceWithdrawnZeroScore(state.participants))changed=true;if(changed)saveState();return changed}
 async function syncFinalSessionsIntoState(){const [sessions,committees]=await Promise.all([window.CloudCompetition.listFinalSessions(),window.CloudCompetition.listCommittees()]);return mergeFinalSessionsIntoState(sessions,committees)}
 // رسالة تبثّها الإدارة لكل اللجان أو للجنة محدَّدة، تظهر 7 ثوانٍ بمنتصف شاشة اللجنة — مخزّنة
 // كحقل broadcast{id,text,committeeId,createdAt} أعلى مستوى competition_state.payload.
@@ -976,7 +980,7 @@ async function refreshCommitteeChanges(){if(committeeRefreshBusy||window.CloudCo
   // sessions مُقيَّدة بآخر LIVE_RECENT_WINDOW_MS فقط — ندمج (upsert) فوق committeeSessions
   // الحالية بدل استبدالها، حتى تبقى الجلسات الأقدم من 12 ساعة ظاهرة بعلامتها الصحيحة. نستبعد فقط
   // جلسة متسابق خرج من نطاق اللجنة، أو انسحبت بلا اختبار حقيقي فعلاً (علامتها ليست > صفر).
-  committeeSessions=(()=>{const byId=new Map(committeeSessions.map(item=>[item.id,item]));sessions.forEach(item=>byId.set(item.id,item));return [...byId.values()].filter(item=>{const participant=nextById.get(item.participant_id);if(!participant)return false;return !participant.withdrawn||Number(participant.score)>0})})();
+  committeeSessions=(()=>{const byId=new Map(committeeSessions.map(item=>[item.id,item]));sessions.forEach(item=>byId.set(item.id,item));return [...byId.values()].filter(item=>{const participant=nextById.get(item.participant_id);if(!participant)return false;return !participant.withdrawn})})();
   const activeParticipantId=activeCloudSession?.participant_id;if(activeParticipantId&&!nextDraws.has(activeParticipantId)){closeModal();activeCloudSession=null}
   if(changed.length||removed.length){const updates=await withRealChangeTimes(changed.map(item=>{const previous=previousById.get(item.id);return {text:describeCommitteeChange(item,previous),participantId:item.id}}).concat(removed.map(item=>({text:describeCommitteeChange(null,item),participantId:item.id}))));addCommitteeAlerts(updates);const names=[...changed,...removed].map(item=>item.name).filter(Boolean);toast(names.length===1?updates[0].text:`تم تحديث بيانات ${names.length} طلاب تخص لجنتكم`)}
   renderCommitteeStudents();
@@ -1025,7 +1029,7 @@ function renderCommitteePassRate(committee){
   // اللجنة للتو محلياً، فكانت الأرقام "تظهر وتختفي" بين النبضات. نستبعد فقط شبح انسحاب حقيقي
   // (بلا اختبار، علامتها ليست > صفر) — انسحاب لاحق مع علامة حقيقية > صفر يبقى محسوباً "ممتحنة".
   const participantById=new Map(state.participants.map(p=>[p.id,p]));
-  const isGhostWithdrawnSession=participantId=>{const participant=participantById.get(participantId);return Boolean(participant?.withdrawn)&&!(Number(participant?.score)>0)};
+  const isGhostWithdrawnSession=participantId=>Boolean(participantById.get(participantId)?.withdrawn);
   const finalSessions=committeeSessions.filter(s=>s.status==="final"&&isRealExam(s)&&!isGhostWithdrawnSession(s.participant_id));
   const passed=finalSessions.filter(s=>s.score>=PASS_SCORE);
   const failed=finalSessions.filter(s=>s.score<PASS_SCORE);
@@ -1034,7 +1038,7 @@ function renderCommitteePassRate(committee){
   $("#committeePassedCount").textContent=formatNumber(passed.length);
   $("#committeeFailedCount").textContent=formatNumber(failed.length);
 }
-function renderCommitteeStudents(){
+function renderCommitteeStudents(){enforceWithdrawnZeroScore(state.participants);
   const committee=window.CloudCompetition.context?.committee;
   if(!committee)return;
   renderCommitteePassRate(committee);
@@ -1056,8 +1060,8 @@ function renderCommitteeStudents(){
   const eligible=allEligible.filter(participant=>filter==="all"||statusOf(participant)===filter).sort((a,b)=>(statusOrder[statusOf(a)]-statusOrder[statusOf(b)])||String(a.name).localeCompare(String(b.name),"ar"));
   $("#committeePendingCount").textContent=formatNumber(allEligible.filter(participant=>["no_draw","pending"].includes(statusOf(participant))).length);
   $("#committeeActiveCount").textContent=formatNumber(allEligible.filter(participant=>statusOf(participant)==="in_progress").length);
-  // نفس معيار "ممتحن" الموحّد (علامة حقيقية > صفر بغض النظر عن withdrawn) — للتطابق مع دائرة نسبة النجاح المجاورة.
-  $("#committeeCompletedCount").textContent=formatNumber(allEligible.filter(participant=>(!participant.withdrawn||Number(participant.score)>0)&&["final","manual_dr"].includes(statusOf(participant))).length);
+  // المنسحب لا يُحسب ممتحناً أبداً (علامته صفر قسراً، راجع enforceWithdrawnZeroScore) — للتطابق مع دائرة نسبة النجاح المجاورة.
+  $("#committeeCompletedCount").textContent=formatNumber(allEligible.filter(participant=>!participant.withdrawn&&["final","manual_dr"].includes(statusOf(participant))).length);
   $("#committeeWithdrawnCount").textContent=formatNumber(allEligible.filter(participant=>participant.withdrawn).length);
   const COMMITTEE_STUDENTS_PAGE_SIZE=15;
   const committeePageSignature=JSON.stringify([query,filter,centerFilter]);
@@ -1069,8 +1073,7 @@ function renderCommitteeStudents(){
   $("#committeeStudents").innerHTML=eligiblePage.length?eligiblePage.map(participant=>{
     const draw=drawByParticipant.get(participant.id),session=sessionByParticipant.get(participant.id),status=statusOf(participant),withdrawn=Boolean(participant.withdrawn);
     const canSeeScore=committee.show_score!==false;
-    const withdrawnWithRealScore=withdrawn&&Number(participant.score)>0;
-    const statusText=withdrawn?(withdrawnWithRealScore?(canSeeScore?`مكتمل (منسحب لاحقاً) · ${participant.score}`:"مكتمل · العلامة غير ظاهرة للجنة"):"منسحب"+(canSeeScore?" · العلامة 0":"")):status==="manual_dr"?(canSeeScore?`مسجّلة يدويًا من الإدارة · ${participant.score}`:"مسجّلة يدويًا من الإدارة"):status==="no_draw"?"لم يتم السحب بعد":status==="final"?(session?.assessment?.incomplete?"مكتمل · غير مكتمل":canSeeScore?`مكتمل · ${session.score}`:"مكتمل · العلامة غير ظاهرة للجنة"):status==="in_progress"?"مسودة محفوظة":"جاهز للاختبار";
+        const statusText=withdrawn?"منسحب"+(canSeeScore?" · العلامة 0":""):status==="manual_dr"?(canSeeScore?`مسجّلة يدويًا من الإدارة · ${participant.score}`:"مسجّلة يدويًا من الإدارة"):status==="no_draw"?"لم يتم السحب بعد":status==="final"?(session?.assessment?.incomplete?"مكتمل · غير مكتمل":canSeeScore?`مكتمل · ${session.score}`:"مكتمل · العلامة غير ظاهرة للجنة"):status==="in_progress"?"مسودة محفوظة":"جاهز للاختبار";
     const canSelfDrawThis=Boolean(committee?.can_self_draw)&&!withdrawn&&!draw&&!(participant.parts?.length);
     const positions=withdrawn?"":draw?`<ol class="committee-position-preview">${draw.positions.map((position,index)=>`<li><b>${index+1}</b><span>${escapeHtml(positionTitle(position))}</span><small>الجزء ${position.juz} · صفحة ${position.page}</small></li>`).join("")}</ol>`:canSelfDrawThis?`<div class="committee-no-draw">لم تُسجَّل أجزاء هذا المتسابق بعد — يمكنكم تسجيلها وتنفيذ السحب مباشرة</div>`:`<div class="committee-no-draw">بانتظار قيام الإدارة بإجراء السحب لهذا المتسابق</div>`;
     // بدء اختبار جديد يقتصر على رئيس اللجنة، ويُمنع طالما في اختبار آخر قيد التنفيذ بنفس اللجنة.
@@ -1187,9 +1190,9 @@ async function startCommitteeExam(participantId){const participant=state.partici
     await renderCommitteeWorkspace()
   }}
 function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View"))view="dashboard";safeSetItem(currentViewKey(),view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants"){if(!ui&&$("#participantSearch"))$("#participantSearch").value="";renderParticipants()}if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();renderCommitteeBreakdown();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="diwan"){diwanOpenStage=null;restoreListControls(loadDiwanPersistedParticipantFilters());ensureDiwanStateLoaded().then(renderDiwanParticipants);renderDiwanParticipants()}if(view==="monitor")renderMonitorView();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
-function renderAll(){renderDashboard();renderParticipants();renderHistory();refreshDrawParticipants();renderAnalytics();lucide.createIcons()}
+function renderAll(){enforceWithdrawnZeroScore(state.participants);renderDashboard();renderParticipants();renderHistory();refreshDrawParticipants();renderAnalytics();lucide.createIcons()}
 
-// "ممتحن" = علامة حقيقية > صفر بغض النظر عن withdrawn — انسحاب لاحق مع علامة حقيقية يبقى محسوباً.
+// "ممتحن" = علامة حقيقية > صفر. المنسحب علامته صفر دائماً (enforceWithdrawnZeroScore) فلا يُحسب ممتحناً حتى لو انسحب بعد اعتماد علامته.
 // انتهاء مبكر (endExamNow) يسجّل علامة رقمية حقيقية (دائماً <75) بعلامة assessment.incomplete=true،
 // فيُحسب ضمن "امتُحن"/"راسب" كأي رسوب عادي — "غير مكتمل" نصياً يظهر فقط بعرض الطالب الفردي.
 function isRealExam(entity){return Number.isFinite(entity?.score)&&entity.score>0}
