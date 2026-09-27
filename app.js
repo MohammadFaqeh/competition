@@ -2071,54 +2071,8 @@ function diwanCumulativeJuzThroughStage(participant,stage){
   return juz;
 }
 // ===== مستندات ديوان الحفاظ (شهادة حافظ / توصية اللجنة) =====
-// القوالب الرسمية (assets/diwan-*.jpg بدقة 1241×1754) خلفية كاملة الصفحة كما هي بلا أي تعديل، والبيانات
-// حقول متراكبة بإحداثيات القالب نفسه (نسب مئوية من أبعاده)، والأجزاء شبكة من ٣٠ خلية تُرسم كاملةً فوق
-// القالب (مظلَّلة/غير مظلَّلة حسب أجزاء المحاولة الفعلية) فلا يبقى أي تظليل ثابت من القالب نفسه.
-const DIWAN_DOC_W=1241,DIWAN_DOC_H=1754;
-const DIWAN_DOC_TEMPLATES={
-  certificate:{stage:"assets/diwan-cert-10juz.jpg",final:"assets/diwan-cert-full.jpg"},
-  recommendation:{stage:"assets/diwan-rec-stage.jpg",final:"assets/diwan-rec-full.jpg"}
-};
-// أزاحة الصفوف بين قالب الشهادة وقالب التوصية (عنوان التوصية أطول بسطر الاختبار الفرعي).
-const DIWAN_DOC_GEOMETRY={
-  certificate:{rows:[449,491,533],grid:[637,699],score:796},
-  recommendation:{rows:[482,524,566],grid:[671,733],score:832}
-};
-function diwanDocBox(x,y,w,h,inner,cls="",style=""){
-  const pct=(value,total)=>(value/total*100).toFixed(3);
-  return `<div class="diwan-doc-field ${cls}" style="left:${pct(x,DIWAN_DOC_W)}%;top:${pct(y,DIWAN_DOC_H)}%;width:${pct(w,DIWAN_DOC_W)}%;height:${pct(h,DIWAN_DOC_H)}%;${style}">${inner}</div>`;
-}
-// يصغّر الخط تدريجياً (تقدير عرض الحرف ≈ ٠٫٥٦ من حجم الخط) للأسماء/المراكز الطويلة كي لا تتجاوز عرض الخانة المحددة بالقالب.
-function diwanDocFitStyle(text,basePx,widthImgPx,minPx=9){
-  const availablePx=widthImgPx*794/DIWAN_DOC_W-8,estimatedPx=Math.max(String(text||"").length,1)*basePx*.56;
-  return `font-size:${Math.max(minPx,basePx*Math.min(1,availablePx/estimatedPx)).toFixed(1)}px`;
-}
 function diwanDocDateParts(value){const date=value?new Date(value):new Date();return {day:String(date.getDate()).padStart(2,"0"),month:String(date.getMonth()+1).padStart(2,"0"),year:String(date.getFullYear())}}
 function diwanDocLevelText(draw){return draw?.stage===4?"القرآن الكريم كاملاً":`${DIWAN_STAGE_LABELS[draw?.stage]||""} · ${(draw?.eligibleParts||[]).length||10} أجزاء`}
-// شبكة الأجزاء: ١-١٥ بالصف الأول و١٦-٣٠ بالثاني، الجزء ١ أقصى اليمين (نفس ترتيب القالب).
-function diwanDocPartsGridHtml(markedSet,rowsY){
-  return Array.from({length:30},(_,index)=>{
-    const number=index+1,row=number<=15?0:1,column=(number-1)%15;
-    return diwanDocBox(1053-66*column-2,rowsY[row]-2,62,59,number,`diwan-doc-cell${markedSet.has(number)?" marked":""}`);
-  }).join("");
-}
-// الجدول العلوي (الاسم/الرقم/المركز/المستوى/تاريخ الاختبار) — مشترك بين الشهادة والتوصية.
-function diwanDocInfoTableHtml(participant,draw,session,geometry){
-  const [rowName,rowNumber,rowLevel]=geometry.rows,date=diwanDocDateParts(session?.finalized_at);
-  return diwanDocBox(132,rowName+1,830,38,escapeHtml(participant.name),"diwan-doc-value",diwanDocFitStyle(participant.name,18,830,11))
-    +diwanDocBox(622,rowNumber+1,340,38,escapeHtml(participant.seat||""),"diwan-doc-value")
-    +diwanDocBox(132,rowNumber+1,340,38,escapeHtml(participant.center||""),"diwan-doc-value",diwanDocFitStyle(participant.center,18,340,11))
-    +diwanDocBox(622,rowLevel+1,340,38,escapeHtml(diwanDocLevelText(draw)),"diwan-doc-value",diwanDocFitStyle(diwanDocLevelText(draw),18,340,11))
-    +diwanDocBox(132,rowLevel+1,340,38,`${date.day}/${date.month}/${date.year}`,"diwan-doc-value");
-}
-function diwanDocScoreHtml(session,geometry){
-  const incomplete=Boolean(session?.assessment?.incomplete);
-  return diwanDocBox(316,geometry.score,694,36,incomplete?"غير مكتمل":formatAssessmentNumber(session?.score),"diwan-doc-value")
-    +(incomplete?"":diwanDocBox(160,geometry.score,120,36,"100","diwan-doc-value"));
-}
-function diwanDocSerialHtml(participant){
-  return diwanDocBox(638,1598,190,34,escapeHtml(diwanSerialOf(participant)),"diwan-doc-value diwan-doc-small");
-}
 // شهادة الحافظ: HTML/CSS خالص (بلا صورة خلفية) بنفس تصميم القالب القديم — النص والحدود والشبكة متجهية فتخرج حادّة، وتُملأ الحقول مباشرة بلا إحداثيات.
 // الصياغة تتبع جنس المشارك (الطالبة/الطالب…)، والأجزاء المظلَّلة من سحب المحاولة نفسها. logos = {association, diwan} بصيغة data URL.
 // أجزاء مشتركة بين الشهادة والتوصية (نفس الترويسة والجدول والشبكة والتذييل).
@@ -3157,9 +3111,6 @@ function saveDrawParticipantParts(){
   toast("تم تسجيل أجزاء المتسابق");
 }
 function levelChanged(){const level=Number($("#drawLevel").value);$("#drawQuestionCount").value=LEVEL_QUESTIONS[level]||3;updateAvailability()}
-function selectFirstParts(){const count=Number($("#drawLevel").value)||0;$$(`#partsGrid input`).forEach((input,index)=>input.checked=index<count);updateAvailability()}
-function handlePartSelection(event){const level=Number($("#drawLevel").value);if(!level){event.target.checked=false;toast("اختر عدد الأجزاء أولاً");return updateAvailability()}if(selectedParts().length>level){event.target.checked=false;toast(`لا يمكن اختيار أكثر من ${level} أجزاء لهذا المستوى`)}updateAvailability()}
-function togglePartRange(range){const level=Number($("#drawLevel").value);if(!level)return toast("اختر عدد الأجزاء أولاً");const [start,end]=range.split("-").map(Number),inputs=$$("#partsGrid input"),rangeInputs=inputs.filter(input=>Number(input.value)>=start&&Number(input.value)<=end),allSelected=rangeInputs.every(input=>input.checked);if(!allSelected){const selectedOutside=inputs.filter(input=>input.checked&&!rangeInputs.includes(input)).length;if(selectedOutside+rangeInputs.length>level)return toast(`هذا الاختيار يتجاوز عدد أجزاء هذا المستوى (${level})`)}rangeInputs.forEach(input=>input.checked=!allSelected);updateAvailability()}
 function selectedParts(){const participant=state.participants.find(item=>item.id===$("#drawParticipant").value);return participant&&participant.parts?.length===participant.level?[...participant.parts]:[]}
 // تكرار نفس الموضع بين متسابقين مختلفين مقبول — اختيار عشوائي بحت (randomIndex) بلا أي تفضيل حسب سبق الاستخدام.
 function availableForParts(parts,level=null){return candidates.filter(c=>parts.includes(c.juz))}
@@ -3991,7 +3942,6 @@ function openModal(html,extra=""){document.body.classList.remove("exam-fullscree
 function closeModal(){stopMemberPositionSync();document.body.classList.remove("exam-fullscreen");$("#modal").classList.add("hidden");$("#modalContent").innerHTML="";if(!applyingBrowserHistory&&history.state?.marker===HISTORY_MARKER&&history.state.modal){const entry={...history.state};delete entry.modal;history.replaceState(entry,"",location.href)}}
 function toast(message,duration=2600){const el=$("#toast");el.textContent=message;el.classList.remove("hidden");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add("hidden"),duration)}
 function downloadFile(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-function csvCell(value){return `"${String(value??"").replaceAll('"','""')}"`}
 function dateStamp(){return new Date().toISOString().slice(0,10)}
 function formatDate(value){return new Intl.DateTimeFormat("ar-JO",{dateStyle:"medium",timeStyle:"short",numberingSystem:"latn"}).format(new Date(value))}
 function formatExamDate(value){return new Intl.DateTimeFormat("ar-JO",{weekday:"long",year:"numeric",month:"long",day:"numeric",hour:"numeric",minute:"2-digit",numberingSystem:"latn"}).format(new Date(value))}

@@ -1029,20 +1029,8 @@ img,svg{max-width:100%}
 .association-card-sheet .assoc-committee-members{flex:1;display:flex;flex-direction:column;gap:4px}
 .association-card-sheet .assoc-committee-members b{border-bottom:1px dotted #999;padding-bottom:2px}
 
-/* مستندات ديوان الحفاظ (شهادة حافظ / توصية اللجنة): القالب الرسمي (assets/diwan-*.jpg) خلفية كاملة الصفحة
-   + حقول متراكبة بإحداثيات القالب نفسه بنسب مئوية (راجع DIWAN_DOC_* في app.js). ٧٩٤×١١٢٢ = نسبة القالب ١٢٤١×١٧٥٤ (A4). */
+/* مستندات ديوان الحفاظ (شهادة حافظ / توصية اللجنة): صفحة التصوير (HTML/CSS خالص) — التصميم بقواعد .hc-sheet أدناه. */
 .diwan-doc-sheet{width:794px!important;height:1122px!important;padding:0!important;overflow:hidden!important;border:0!important;background:#faf7eb!important}
-.diwan-doc-bg{position:absolute;inset:0;width:100%;height:100%;display:block}
-.diwan-doc-field{position:absolute;display:flex;align-items:center;justify-content:center;box-sizing:border-box;overflow:hidden;white-space:nowrap;direction:rtl;font-family:'Tajawal',sans-serif;font-weight:700;color:#1a1a1a;font-size:16px;line-height:1}
-.diwan-doc-value{font-size:17px}
-.diwan-doc-small{font-size:13px}
-.diwan-doc-cell{border:1.5px solid #163726;border-radius:7px;background:#f9f7eb;color:#163726;font:700 14px Georgia,'Times New Roman',serif}
-.diwan-doc-cell.marked{background:#163726;border-color:#b69045;color:#e2c27a}
-.diwan-doc-subtitle{background:#163726;color:#f0ebdc;font-size:15px;font-weight:500}
-.diwan-doc-rec-box{justify-content:flex-start;align-items:flex-start;white-space:normal;overflow:visible}
-.diwan-doc-rec-list{list-style:none;margin:0;padding:0;width:100%}
-.diwan-doc-rec-list li{height:36.5px;line-height:36.5px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:clip}
-.diwan-doc-rec-num{display:inline-block;width:24px;font-weight:800;color:#163726}
 /* محرّر توصية اللجنة بنافذة رئيس اللجنة: نقاط مرقّمة، كل نقطة حقل مستقل مع زر حذف */
 .diwan-rec-list{margin:0 0 10px;padding-inline-start:24px;display:grid;gap:8px}
 .diwan-rec-list li{display:list-item;padding-inline-start:4px}
