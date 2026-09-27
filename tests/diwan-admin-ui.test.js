@@ -281,6 +281,9 @@ async function run() {
     ].filter(Boolean).join("\n");
     const event = { target: { value: "x", files: [{ name: "diwan.csv", text: async () => csv }] } };
     await sandbox.importDiwanExcel(event);
+    // معاينة قبل الحفظ: لا يتغير شيء قبل «تأكيد الاستيراد»
+    assert.ok(!vm.runInContext('diwanState.participants', sandbox).some(p => p.name === "مريم"), "لا يُحفظ شيء قبل تأكيد الاستيراد");
+    queryElement("#confirmDiwanImport").onclick();
     const list = vm.runInContext('diwanState.participants', sandbox);
     const maryam = list.find(p => p.name === "مريم"), noor = list.find(p => p.name === "نور");
     assert.deepStrictEqual([...maryam.parts], [1,2,3,4,5,21,22,23,24,25], "أجزاء مريم العشرة سُحبت من الملف تلقائياً");

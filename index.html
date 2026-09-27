@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260926-diwanmonitor">
+  <link rel="stylesheet" href="styles.css?v=20260927-diwanenrollment">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -193,6 +193,7 @@
         <button class="nav-item" data-view="participants"><i data-lucide="users"></i><span>المتسابقون</span></button>
         <button class="nav-item" data-view="draw"><i data-lucide="sparkles"></i><span>إجراء السحب</span></button>
         <button class="nav-item" data-view="diwan"><i data-lucide="book-open-check"></i><span>اختبارات ديوان الحفاظ</span></button>
+        <button class="nav-item" data-view="diwanStudents"><i data-lucide="contact"></i><span>سجل متسابقي الديوان</span></button>
         <button class="nav-item" data-view="history"><i data-lucide="history"></i><span>سجل السحوبات</span></button>
         <button class="nav-item" data-view="examDuration"><i data-lucide="timer"></i><span>مدة الاختبار</span></button>
         <button class="nav-item" data-view="monitor"><i data-lucide="eye"></i><span>مراقبة حية</span></button>
@@ -291,8 +292,17 @@
           </section>
           <section id="diwanStagePanel" class="panel table-panel hidden">
             <div class="diwan-stage-page-head"><button id="diwanStageBackBtn" class="secondary-btn" type="button"><i data-lucide="arrow-right"></i> كل المراحل</button><div><h2 id="diwanStagePageTitle"></h2><small id="diwanStagePageSub"></small></div></div>
-            <div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanStageSearch" placeholder="ابحث بالاسم أو رقم الجلوس أو المركز"></div><select id="diwanStatusFilter"><option value="all">جميع الحالات</option></select><select id="diwanGenderFilter"><option value="all">الجنس: الكل</option></select><select id="diwanCenterFilter"><option value="all">المركز: الكل</option></select><select id="diwanCommitteeFilter"><option value="all">اللجنة: الكل</option></select><span id="diwanParticipantCount" class="filter-result-count">0 متسابق</span><button id="diwanBulkPdfOpenBtn" class="secondary-btn" type="button" title="شهادات الناجحين وتوصيات الراسبين بملف واحد"><i data-lucide="file-down"></i> حفظ PDF</button></div>
+            <div id="diwanStageStats" class="diwan-stage-stats"></div>
+            <div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanStageSearch" placeholder="ابحث بالاسم أو رقم الجلوس أو المركز"></div><details id="diwanStatusMulti" class="multi-filter"><summary>الحالة: الكل</summary><div class="multi-filter-list"></div></details><select id="diwanGenderFilter"><option value="all">الجنس: الكل</option></select><select id="diwanCenterFilter"><option value="all">المركز: الكل</option></select><select id="diwanCommitteeFilter"><option value="all">اللجنة: الكل</option></select><span id="diwanParticipantCount" class="filter-result-count">0 متسابق</span><button id="diwanBulkPdfOpenBtn" class="secondary-btn" type="button" title="شهادات الناجحين وتوصيات الراسبين بملف واحد"><i data-lucide="file-down"></i> حفظ PDF</button></div>
             <div id="diwanStageParticipants" class="diwan-stage-participants"></div>
+          </section>
+        </section>
+
+        <section id="diwanStudentsView" class="view">
+          <div class="page-head"><div><span class="eyebrow">اختبارات ديوان الحفاظ</span><h1>سجل متسابقي الديوان</h1><p>كل المتسابقين بكل الاختبارات: لكل متسابق سجل دائم واحد يضم مكانه الحالي وكل محاولاته السابقة وأجزاءها ونتائجها وسجل العمليات. النقل بين الاختبارات أو الإزالة من اختبار لا يحذف أي شيء من السجل.</p></div><div class="page-actions"><button id="diwanStudentsTemplateBtn" class="secondary-btn"><i data-lucide="file-spreadsheet"></i> نموذج Excel</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استيراد Excel<input id="diwanStudentsImportInput" type="file" accept=".xlsx,.xls,.csv"></label><button id="diwanStudentsAddBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
+          <section class="panel table-panel">
+            <div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanStudentsSearch" placeholder="ابحث بالاسم أو رقم الجلوس أو الرقم التسلسلي"></div><details id="diwanStudentsStageMulti" class="multi-filter"><summary>الاختبار الحالي: الكل</summary><div class="multi-filter-list"></div></details><details id="diwanStudentsStatusMulti" class="multi-filter"><summary>الحالة: الكل</summary><div class="multi-filter-list"></div></details><span id="diwanStudentsCount" class="filter-result-count">0 متسابق</span></div>
+            <div class="table-wrap"><table class="diwan-registry-table"><thead><tr><th>رقم الجلوس</th><th>الاسم</th><th>الرقم التسلسلي</th><th>الاختبار الحالي</th><th>الحالة الحالية</th><th>المحاولات</th></tr></thead><tbody id="diwanStudentsTable"></tbody></table></div>
           </section>
         </section>
 
@@ -348,6 +358,6 @@
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20260926-diwanmonitor"></script>
-  <script src="app.js?v=20260926-diwanattemptedit"></script>
+  <script src="app.js?v=20260927-diwanenrollment"></script>
 </body>
 </html>

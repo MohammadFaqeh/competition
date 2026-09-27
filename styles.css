@@ -1253,3 +1253,48 @@ img,svg{max-width:100%}
 .diwan-distribute-group select{min-width:110px}
 .diwan-manual-row{background:var(--green-50)}
 @media (max-width:640px){.diwan-distribute-row{grid-template-columns:1fr 1fr}.diwan-distribute-name{grid-column:1/-1}}
+
+/* ديوان الحفاظ: فلترة متعددة، عدّادات صفحة الاختبار، سجل المتسابقين والملف الشخصي، معاينة الاستيراد */
+.multi-filter{position:relative;flex:0 0 auto}
+.multi-filter>summary{list-style:none;cursor:pointer;height:43px;display:flex;align-items:center;gap:6px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-weight:700;font-size:13px;white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis}
+.multi-filter>summary::-webkit-details-marker{display:none}
+.multi-filter>summary::after{content:"▾";margin-inline-start:auto;color:var(--muted)}
+.multi-filter[open]>summary{border-color:var(--green-700);box-shadow:0 0 0 3px rgba(35,110,84,.12)}
+.multi-filter-list{position:absolute;z-index:40;inset-inline-start:0;top:calc(100% + 4px);min-width:250px;display:grid;gap:2px;padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-md)}
+.multi-filter-list label{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px}
+.multi-filter-list label:hover{background:var(--green-50)}
+.multi-filter-list input{width:16px;height:16px;flex:0 0 auto}
+.multi-filter-list small{margin-inline-start:auto;color:var(--muted);font-weight:700}
+.multi-filter-list [data-multi-clear]{margin-top:4px;justify-self:start}
+.diwan-stage-stats{display:flex;flex-wrap:wrap;gap:8px;padding:var(--sp-4) var(--sp-4) 0}
+.diwan-stage-stat{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-size:12px}
+.diwan-stage-stat b{font-size:15px}
+button.diwan-stage-stat{cursor:pointer}
+button.diwan-stage-stat:hover,.diwan-stage-stat.is-active{border-color:var(--green-700);background:var(--green-50)}
+.diwan-move-option.is-blocked small{color:var(--red)}
+.check-row{display:flex;align-items:center;gap:8px;font-size:13px}
+.check-row input{width:16px;height:16px;flex:0 0 auto}
+.diwan-registry-row{cursor:pointer}
+.diwan-registry-row:hover,.diwan-registry-row:focus{background:var(--green-50);outline:none}
+.diwan-registry-name{font-weight:700;color:var(--green-800)}
+.diwan-profile-title{font-size:15px;margin:18px 0 10px}
+.diwan-profile-title:first-child{margin-top:0}
+.diwan-profile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.diwan-profile-grid>div{padding:10px 12px;border:1px solid var(--line);border-radius:8px;display:grid;gap:3px}
+.diwan-profile-grid small{color:var(--muted);font-size:11px}
+.diwan-profile-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.diwan-timeline{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.diwan-timeline li{padding:10px 12px;border:1px solid var(--line);border-inline-start:4px solid var(--green-700);border-radius:8px}
+.diwan-timeline li.is-pending{border-inline-start-color:var(--muted);border-style:dashed}
+.diwan-timeline-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.diwan-timeline-meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;color:var(--muted);font-size:12px}
+.diwan-profile-log{margin-top:16px}
+.diwan-profile-log>summary{cursor:pointer;font-weight:700}
+.diwan-audit-log{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;max-height:260px;overflow:auto}
+.diwan-audit-log li{display:grid;gap:2px;padding:7px 10px;border-radius:7px;background:var(--green-50);font-size:13px}
+.diwan-audit-log small{color:var(--muted);font-size:11px}
+.diwan-import-preview{max-height:52vh;overflow:auto}
+.diwan-import-preview tr.is-rejected td{background:var(--red-soft)}
+.diwan-import-ids{display:block;color:var(--muted);font-size:11px}
+.diwan-import-rejected{margin:0;padding-inline-start:18px;display:grid;gap:4px;max-height:260px;overflow:auto;font-size:13px}
+@media (max-width:640px){.multi-filter,.multi-filter>summary{width:100%;max-width:none}.multi-filter-list{min-width:0;inset-inline:0}}
