@@ -1,0 +1,16 @@
+# Claude Code local/session state
+.claude/settings.local.json
+.claude/*.local.json
+
+# Private Claude memory/config if created later
+.claude/private/
+
+# Environment/config secrets
+.env
+.env.*
+supabase/.env
+supabase-config.local.js
+
+# OS/editor files
+.DS_Store
+Thumbs.db

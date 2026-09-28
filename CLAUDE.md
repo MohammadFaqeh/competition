@@ -63,7 +63,14 @@ A static web application (Arabic, RTL) that runs an oral exam competition end-to
 - Do not silently contradict `SITE-SPEC.md` when implementing a change.
 - If an implementation change would conflict with what `SITE-SPEC.md` describes, point out the conflict to the user before making the behavioral change, rather than deciding unilaterally which one is "right."
 
-## 7. Git safety
+## 7. Persistent learning memory
+
+- `.claude/memory/shared-lessons.md` holds verified lessons that apply broadly, across the main Claude session and all current and future project subagents. Before substantial work, the main Claude session should read this file and apply relevant lessons.
+- Every project subagent should apply lessons from `.claude/memory/shared-lessons.md`. Lessons specific to one subagent's role (e.g. testing/verification) stay in that agent's own file, such as `.claude/memory/tester-lessons.md`, not in the shared file.
+- Only the main agent writes to any memory/lessons file. Subagents must not write persistent memory themselves — they may only *propose* a lesson in their returned report, tagged for the shared file or their own role file as appropriate.
+- The main agent must independently verify a proposed lesson against the actual repo/filesystem/code before persisting it. Never persist a lesson based only on an assumption or an unverified claim, whether from a subagent or a user.
+
+## 8. Git safety
 
 - Do not commit or push unless explicitly asked to in that turn.
 - Do not discard or revert unrelated existing changes (staged, unstaged, or untracked) while working on a task.
