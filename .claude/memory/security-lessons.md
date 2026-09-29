@@ -19,4 +19,12 @@ as `PRIVATE SECURITY NOTE` instead of adding it to this tracked file.
 
 ## Lessons
 
-_(none yet — add entries here only after independently verifying them)_
+### NULL-safe authorization checks in SECURITY DEFINER functions
+
+When reviewing or writing a SECURITY DEFINER function that authorizes through a nullable role or
+permission lookup:
+
+- do not use negative comparisons such as `<>` or `!=` against values that may be NULL
+- prefer a fail-closed NULL-safe comparison such as `IS DISTINCT FROM`
+- review each newly added privileged function individually; older hardening migrations do not
+  automatically protect functions added later
