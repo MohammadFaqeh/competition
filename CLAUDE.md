@@ -70,7 +70,33 @@ A static web application (Arabic, RTL) that runs an oral exam competition end-to
 - Only the main agent writes to any memory/lessons file. Subagents must not write persistent memory themselves — they may only *propose* a lesson in their returned report, tagged for the shared file or their own role file as appropriate.
 - The main agent must independently verify a proposed lesson against the actual repo/filesystem/code before persisting it. Never persist a lesson based only on an assumption or an unverified claim, whether from a subagent or a user.
 
-## 8. Git safety
+## 8. Subagent orchestration
+
+- The user should interact primarily with the main Claude session, not manually orchestrate
+  subagents one by one.
+- For substantial tasks, the main Claude session decides which subagents (`architect`,
+  `developer`, `security-reviewer`, `tester`, etc.) are needed and runs them automatically.
+  Typical flow:
+  - `architect` for non-trivial planning or cross-layer changes.
+  - `developer` for implementing an already-approved plan.
+  - `security-reviewer` for auth/RLS/RPC/security-sensitive changes.
+  - `tester` for behavioral verification and regression checks.
+- Skip unnecessary agents for small, obvious changes — orchestration overhead should match task
+  size.
+- Do not make the user manually trigger each agent unless they explicitly ask to.
+- Only surface subagent-level detail to the user when:
+  1. a real product/architecture decision needs user input,
+  2. a security issue needs approval/action,
+  3. implementation conflicts with the approved plan,
+  4. tests fail or results are ambiguous.
+- For normal work, return one consolidated summary to the user covering: what was understood,
+  what was changed, security status, test status, files changed, and whether it is ready to
+  commit.
+- Stop before commit/push unless the user explicitly asks to commit/push in that turn.
+- This section does not override any existing agent-specific rule or the persistent-memory rules
+  in §7 — all existing agent rules and memory rules stay in force.
+
+## 9. Git safety
 
 - Do not commit or push unless explicitly asked to in that turn.
 - Do not discard or revert unrelated existing changes (staged, unstaged, or untracked) while working on a task.
