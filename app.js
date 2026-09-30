@@ -636,7 +636,7 @@ function setupIdleLogout(){const reset=()=>{clearTimeout(idleLogoutTimer);if(!wi
 function toggleCommitteeMemberFields(){const enabled=$("#enableCommitteeMember")?.checked,fields=$("#committeeMemberFields");if(!fields)return;fields.classList.toggle("hidden",!enabled);$("#newCommitteeMemberName").required=Boolean(enabled);$("#newCommitteeMemberCode").required=Boolean(enabled);$("#newCommitteeMemberPin").required=Boolean(enabled&&!$("#newCommitteeMemberCode").dataset.existing)}
 function ensureCommitteeMemberFields(){if($("#newCommitteeMemberCode"))return;const chairmanPin=$("#newCommitteePin")?.closest("label");if(!chairmanPin)return;chairmanPin.insertAdjacentHTML("afterend",`<label class="committee-member-toggle"><input id="enableCommitteeMember" type="checkbox"> تفعيل حساب عضو اللجنة ورصده المستقل</label><div id="committeeMemberFields" class="committee-member-fields hidden"><label>اسم عضو اللجنة<input id="newCommitteeMemberName" placeholder="الاسم الثلاثي"></label><label>رمز عضو اللجنة<input id="newCommitteeMemberCode" maxlength="20" placeholder="مثال: L01-M"></label><label>PIN عضو اللجنة<input id="newCommitteeMemberPin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label></div>`);$("#enableCommitteeMember").addEventListener("change",toggleCommitteeMemberFields);toggleCommitteeMemberFields()}
 function renderCommitteeLevelOptions(){const box=$("#committeeLevelOptions");if(!box||box.children.length)return;box.innerHTML=LEVEL_CATALOG.map(l=>`<label><input type="checkbox" name="committeeLevel" value="${l.id}"> ${escapeHtml(l.label)}</label>`).join("")}
-async function setupCloudAdminPanel(){ensureCommitteeMemberFields();renderCommitteeLevelOptions();window.CloudCompetition.pruneOldLogs?.();const isMainAdmin=window.CloudCompetition.context?.profile.role==="admin";$("#cloudCommitteesPanel").classList.remove("hidden");$("#scoreComparisonPanel")?.classList.remove("hidden");$("#subAdminsPanel").classList.remove("hidden");$("#drRequestsPanel").classList.remove("hidden");$("#activityLogPanel").classList.toggle("hidden",!isMainAdmin);$("#syncCloudBtn").classList.remove("hidden");$("#diwanSyncCommitteesBtn")?.classList.remove("hidden");$("#supervisorsPanel").classList.toggle("hidden",!isMainAdmin);$("#sendCommitteeBroadcastBtn")?.classList.toggle("hidden",!isMainAdmin);renderDrRequests();const tasks=[renderCloudCommittees(),renderSubAdmins()];if(isMainAdmin){tasks.push(renderSupervisors());tasks.push(renderActivityLog())}await Promise.all(tasks)}
+async function setupCloudAdminPanel(){ensureCommitteeMemberFields();renderCommitteeLevelOptions();window.CloudCompetition.pruneOldLogs?.();const isMainAdmin=window.CloudCompetition.context?.profile.role==="admin";$("#cloudCommitteesPanel").classList.remove("hidden");$("#scoreComparisonPanel")?.classList.remove("hidden");$("#subAdminsPanel").classList.remove("hidden");$("#drRequestsPanel").classList.remove("hidden");$("#activityLogPanel").classList.toggle("hidden",!isMainAdmin);$("#syncCloudBtn").classList.remove("hidden");$("#diwanSyncCommitteesBtn")?.classList.remove("hidden");$("#supervisorsPanel").classList.toggle("hidden",!isMainAdmin);$("#permissionsManagementPanel").classList.toggle("hidden",!isMainAdmin);$("#sendCommitteeBroadcastBtn")?.classList.toggle("hidden",!isMainAdmin);renderDrRequests();const tasks=[renderCloudCommittees(),renderSubAdmins()];if(isMainAdmin){tasks.push(renderSupervisors());tasks.push(renderActivityLog());tasks.push(renderPermissionsManagement())}await Promise.all(tasks)}
 async function refreshAdminCloudResults(){const button=$("#syncCloudBtn");button.disabled=true;try{await syncFinalSessionsIntoState();renderAll();toast("تم تحديث نتائج جميع اللجان")}catch(error){toast(`تعذر تحديث النتائج: ${error.message}`)}finally{button.disabled=false}}
 let cloudCommittees=[];
 // صفحات كثيرة (>7): تُختصر لأول صفحة + جوار الصفحة الحالية + آخر صفحة، مع "..." بالفجوات.
@@ -837,6 +837,63 @@ async function renderSupervisors(){try{cloudSupervisors=await window.CloudCompet
 function resetSupervisorForm(){$("#supervisorAccountForm").reset();$("#editingSupervisorId").value="";$("#newSupervisorUid").disabled=false;$("#supervisorSubmitLabel").textContent="ربط الحساب";$("#cancelSupervisorEdit").classList.add("hidden")}
 function editSupervisor(id){const supervisor=cloudSupervisors.find(item=>item.id===id);if(!supervisor)return;$("#editingSupervisorId").value=supervisor.id;$("#newSupervisorUid").value=supervisor.id;$("#newSupervisorUid").disabled=true;$("#newSupervisorName").value=supervisor.display_name;$("#newSupervisorCanEditFinal").checked=Boolean(supervisor.can_edit_final);$("#newSupervisorCanDeleteData").checked=Boolean(supervisor.can_delete_data);$("#newSupervisorCanTransferParticipant").checked=Boolean(supervisor.can_transfer_participant);$("#supervisorSubmitLabel").textContent="حفظ التعديل";$("#cancelSupervisorEdit").classList.remove("hidden");$("#newSupervisorName").focus()}
 async function saveSupervisorAccount(event){event.preventDefault();const id=$("#editingSupervisorId").value||null,userId=id||$("#newSupervisorUid").value.trim(),name=$("#newSupervisorName").value.trim(),canEditFinal=$("#newSupervisorCanEditFinal").checked,canDeleteData=$("#newSupervisorCanDeleteData").checked,canTransferParticipant=$("#newSupervisorCanTransferParticipant").checked,button=event.submitter;if(!userId)return toast("أدخل معرّف المستخدم (UID) من لوحة Supabase");if(!name)return toast("أدخل اسم المشرف");button.disabled=true;try{await window.CloudCompetition.linkSupervisor({userId,name,canEditFinal,canDeleteData,canTransferParticipant});resetSupervisorForm();await renderSupervisors();toast("تم حفظ حساب مشرف المسابقة")}catch(error){toast(`تعذر حفظ الحساب: ${error.message}`)}finally{button.disabled=false}}
+
+// إدارة الصلاحيات الموسَّعة (للإداري الرئيسي فقط بشاشة الإعدادات) — قائمة فئة (مشرفون/مسؤولون
+// فرعيون/لجان) ثم قائمة حسابات الفئة المختارة ثم تفاصيل صلاحيات الحساب المحدَّد، بنفس نمط
+// renderMonitorCommittees/renderMonitorDetail أعلاه. الحارس الفعلي بجانب هذا كله بالخادم نفسه
+// (admin_set_staff_permissions/admin_set_committee_permissions ترفضان أي طالب ليس current_user_role()='admin')
+// — هذا الإخفاء بالواجهة تسهيل فقط، وليس حدود الأمان الحقيقية.
+let permissionsCatalog=[],permissionsCategory="supervisor",permissionsSubjects=[],permissionsSelectedSubjectId=null;
+async function renderPermissionsManagement(){
+  try{
+    if(!permissionsCatalog.length)permissionsCatalog=await window.CloudCompetition.listPermissionCatalog();
+    $$(`[data-permissions-category]`).forEach(button=>button.onclick=()=>{
+      permissionsCategory=button.dataset.permissionsCategory;
+      permissionsSelectedSubjectId=null;
+      $$(`[data-permissions-category]`).forEach(b=>b.classList.toggle("is-active",b===button));
+      renderPermissionsSubjectList();
+    });
+    await renderPermissionsSubjectList();
+  }catch(error){toast(`تعذر تحميل إدارة الصلاحيات: ${error.message}`)}
+}
+async function renderPermissionsSubjectList(){
+  try{
+    permissionsSubjects=permissionsCategory==="supervisor"?await window.CloudCompetition.listSupervisorsWithPermissions()
+      :permissionsCategory==="sub_admin"?await window.CloudCompetition.listSubAdmins()
+      :await window.CloudCompetition.listCommittees();
+    const box=$("#permissionsSubjectList");if(!box)return;
+    box.innerHTML=permissionsSubjects.length?permissionsSubjects.map(subject=>{
+      const name=permissionsCategory==="supervisor"?subject.display_name:subject.name;
+      return `<button type="button" class="committee-row monitor-committee-btn ${subject.id===permissionsSelectedSubjectId?"is-selected":""}" data-permissions-subject="${subject.id}"><div class="committee-row-head"><div><b>${escapeHtml(name)}</b></div></div></button>`;
+    }).join(""):`<div class="committee-empty">لا توجد حسابات بعد.</div>`;
+    $$(`[data-permissions-subject]`).forEach(button=>button.onclick=()=>{permissionsSelectedSubjectId=button.dataset.permissionsSubject;renderPermissionsSubjectList()});
+    lucide.createIcons();
+    renderPermissionsDetail();
+  }catch(error){toast(`تعذر تحميل قائمة الصلاحيات: ${error.message}`)}
+}
+function renderPermissionsDetail(){
+  const panel=$("#permissionsDetailPanel");if(!panel)return;
+  const subject=permissionsSubjects.find(item=>item.id===permissionsSelectedSubjectId);
+  if(!subject){panel.innerHTML=`<div class="monitor-empty">اختر حسابًا أو لجنة من القائمة لعرض صلاحياتها.</div>`;return}
+  const scope=permissionsCategory==="committee"?"committee":"staff";
+  const entries=permissionsCatalog.filter(item=>item.scope===scope);
+  const name=permissionsCategory==="supervisor"?subject.display_name:subject.name;
+  panel.innerHTML=`<h4>${escapeHtml(name)}</h4><div class="committee-permissions">${entries.length?entries.map(entry=>`<label class="permission-row"><span>${escapeHtml(entry.label_ar)}</span><span class="switch"><input type="checkbox" data-permission-key="${entry.key}" data-permission-subject="${subject.id}" ${subject.permissions?.[entry.key]===true?"checked":""}><span class="switch-slider"></span></span></label>`).join(""):`<p class="committee-alerts-empty">لا توجد صلاحيات مُعرَّفة لهذا النوع بعد.</p>`}</div>`;
+  $$(`#permissionsDetailPanel [data-permission-key]`).forEach(input=>input.onchange=async()=>{
+    const key=input.dataset.permissionKey,subjectId=input.dataset.permissionSubject,enabled=input.checked;
+    const entry=permissionsCatalog.find(item=>item.key===key);
+    input.disabled=true;
+    try{
+      if(permissionsCategory==="committee")await window.CloudCompetition.setCommitteePermissions(subjectId,{[key]:enabled});
+      else await window.CloudCompetition.setStaffPermissions(permissionsCategory==="supervisor"?"profile":"sub_admin",subjectId,{[key]:enabled});
+      subject.permissions={...(subject.permissions||{}),[key]:enabled};
+      toast(enabled?`تم منح صلاحية ${entry?.label_ar||""}`:`تم سحب صلاحية ${entry?.label_ar||""}`);
+    }catch(error){input.checked=!enabled;toast(error.message)}
+    finally{input.disabled=false}
+  });
+  lucide.createIcons();
+}
+
 let activityLogEntries=[];
 function activityLogActorOf(entry){const details=entry.details||{};return details.supervisor_name?`مشرف المسابقة: ${details.supervisor_name}`:details.sub_admin_name?`مسؤول فرعي: ${details.sub_admin_name}`:details.committee_name?`لجنة: ${details.committee_name}`:"الإدارة"}
 async function renderActivityLog(){
