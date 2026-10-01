@@ -1895,7 +1895,7 @@ function openDiwanAssignCommitteeModal(participantId){
   if($("#cancelDiwanTransferBtn"))$("#cancelDiwanTransferBtn").onclick=()=>doTransfer(null,"إلغاء نقل المتسابق وإعادته لمرحلته الطبيعية؟");
 }
 // «آخر علامة» تخص آخر اختبار معتمد، لكن p.parts هي أجزاء المرحلة الحالية — وتُفرَّغ عند النجاح والانتقال
-// (بانتظار أجزاء المرحلة التالية)، فكان الناجح يظهر بعلامة بلا أجزاء. نأخذ الاختبار والأجزاء من سحب تلك العلامة نفسه.
+// (بانتظار أجزاء المرحلة التالية)، فكان الناجح يظهر بعلامة بلا أجزاء. هذا يجد سحب تلك العلامة نفسه.
 function diwanLastGradedDraw(p){
   const own=diwanState.draws.filter(d=>d.participantId===p.id);
   const byId=p.lastGradedDrawId&&own.find(d=>d.id===p.lastGradedDrawId);if(byId)return byId;
@@ -1904,16 +1904,19 @@ function diwanLastGradedDraw(p){
   const time=x=>new Date(x.s.finalized_at||x.s.updated_at||x.d.createdAt).getTime()||0;
   return graded.reduce((best,x)=>time(x)>time(best)?x:best).d;
 }
-function diwanLastGradedExportCells(p){
-  const draw=Number.isFinite(p.score)&&!p.withdrawn?diwanLastGradedDraw(p):null;
-  return {"اختبار آخر علامة":draw?DIWAN_STAGE_LABELS[draw.stage]||"":"","أجزاء آخر علامة":draw?(draw.eligibleParts||[]).map(Number).sort((a,b)=>a-b).join("، "):""};
+// عمود «الأجزاء»: من امتحن (ناجحاً أو راسباً) تظهر أجزاء اختبار علامته، ومن لم يمتحن بعد أجزاؤه الحالية، والمنسحب فارغ.
+function diwanExportPartsCells(p){
+  if(p.withdrawn)return {parts:"",stage:""};
+  const draw=Number.isFinite(p.score)?diwanLastGradedDraw(p):null;
+  const parts=draw?(draw.eligibleParts||[]):(p.parts||[]);
+  return {parts:parts.map(Number).sort((a,b)=>a-b).join("، "),stage:draw?DIWAN_STAGE_LABELS[draw.stage]||"":""};
 }
 async function exportDiwanParticipants(){
   if(!diwanState.participants.length)return toast("لا يوجد متسابقون لتصديرهم");
   try{await ensureXlsx()}catch(error){return toast(error.message)}
   if(!cloudCommittees.length&&operationMode==="cloud"&&cloudEnabled)try{cloudCommittees=await window.CloudCompetition.listCommittees()}catch{}
-  const rows=diwanState.participants.map(p=>({"رقم الجلوس":p.seat||"","الرقم التسلسلي":diwanSerialOf(p),"اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","اللجنة":diwanAssignedCommittee(p).name,"المرحلة الحالية":p.certified?"حافظ معتمد":p.unenrolled?"غير مسجَّل حالياً":`${DIWAN_STAGE_LABELS[p.stage]||""}${p.withdrawn?" (منسحب)":""}`,"الأجزاء":(p.parts||[]).join("، "),"العمر":p.age||"","آخر علامة":Number.isFinite(p.score)?(p.assessment?.incomplete?"غير مكتمل":p.score):"",...diwanLastGradedExportCells(p)}));
-  const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rows);sheet["!cols"]=[{wch:12},{wch:14},{wch:32},{wch:10},{wch:22},{wch:20},{wch:18},{wch:30},{wch:10},{wch:10},{wch:16},{wch:30}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
+  const rows=diwanState.participants.map(p=>{const exam=diwanExportPartsCells(p);return {"رقم الجلوس":p.seat||"","الرقم التسلسلي":diwanSerialOf(p),"اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","اللجنة":diwanAssignedCommittee(p).name,"المرحلة الحالية":p.certified?"حافظ معتمد":p.unenrolled?"غير مسجَّل حالياً":`${DIWAN_STAGE_LABELS[p.stage]||""}${p.withdrawn?" (منسحب)":""}`,"الأجزاء":exam.parts,"العمر":p.age||"","آخر علامة":Number.isFinite(p.score)?(p.assessment?.incomplete?"غير مكتمل":p.score):"","اختبار آخر علامة":exam.stage}});
+  const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(rows);sheet["!cols"]=[{wch:12},{wch:14},{wch:32},{wch:10},{wch:22},{wch:20},{wch:18},{wch:30},{wch:10},{wch:10},{wch:16}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
   XLSX.utils.book_append_sheet(workbook,sheet,"متسابقو ديوان الحفاظ");
   // شيت ثانٍ: من على أي لجنة، مرتّب حسب رقم اللجنة ثم رقم الجلوس.
   const byCommittee=diwanState.participants.map(p=>({p,committee:diwanAssignedCommittee(p)})).sort((a,b)=>(diwanCommitteeNumber(a.committee)-diwanCommitteeNumber(b.committee))||a.committee.name.localeCompare(b.committee.name,"ar")||(diwanSeatNumber(a.p)-diwanSeatNumber(b.p)));
