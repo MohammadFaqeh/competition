@@ -2283,14 +2283,14 @@ function openDiwanBulkPdfModal(){
     <label>المركز<select id="diwanBulkCenter"><option value="all">كل المراكز</option>${centers.map(c=>`<option value="${escapeAttr(c)}">${c?escapeHtml(c):"بلا مركز"}</option>`).join("")}</select></label>
     <label>النتيجة<select id="diwanBulkResult"><option value="all">الكل — شهادات وتوصيات</option><option value="certificate">الناجحون — شهادات</option><option value="recommendation">الراسبون — توصيات</option></select></label>
     <p id="diwanBulkSummary" class="field-help"></p>
-  </div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button type="button" class="primary-btn" id="diwanBulkPdfBtn"><i data-lucide="download"></i> حفظ PDF</button></div>`);
+  </div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button type="button" class="primary-btn" id="diwanStageDocsPdfBtn"><i data-lucide="download"></i> حفظ PDF</button></div>`);
   lucide.createIcons();
   const selected=()=>{const center=$("#diwanBulkCenter").value,result=$("#diwanBulkResult").value;return jobs.filter(j=>(center==="all"||(j.participant.center||"")===center)&&(result==="all"||j.kind===result))};
-  const refresh=()=>{const list=selected(),certs=list.filter(j=>j.kind==="certificate").length;$("#diwanBulkSummary").textContent=`${formatNumber(list.length)} وثيقة: ${formatNumber(certs)} شهادة و${formatNumber(list.length-certs)} توصية`;$("#diwanBulkPdfBtn").disabled=!list.length};
+  const refresh=()=>{const list=selected(),certs=list.filter(j=>j.kind==="certificate").length;$("#diwanBulkSummary").textContent=`${formatNumber(list.length)} وثيقة: ${formatNumber(certs)} شهادة و${formatNumber(list.length-certs)} توصية`;$("#diwanStageDocsPdfBtn").disabled=!list.length};
   $("#diwanBulkCenter").onchange=refresh;$("#diwanBulkResult").onchange=refresh;refresh();
-  $("#diwanBulkPdfBtn").onclick=async()=>{
+  $("#diwanStageDocsPdfBtn").onclick=async()=>{
     const list=selected(),center=$("#diwanBulkCenter").value,result=$("#diwanBulkResult").value;if(!list.length)return;
-    const btn=$("#diwanBulkPdfBtn");btn.disabled=true;
+    const btn=$("#diwanStageDocsPdfBtn");btn.disabled=true;
     const prefix=["وثائق",DIWAN_STAGE_LABELS[stage],center==="all"?"كل-المراكز":(center||"بلا-مركز"),result==="certificate"?"شهادات":result==="recommendation"?"توصيات":""].filter(Boolean).join("-").replace(/[\\/:*?"<>|\s]+/g,"-");
     try{
       await ensurePdfLibraries();
