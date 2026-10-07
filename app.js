@@ -561,8 +561,10 @@ function dockColorModeToggle(dock){
 }
 const SIDEBAR_COLLAPSED_KEY="competition-sidebar-collapsed";
 const MOBILE_BREAKPOINT=780;
-function toggleSidebar(){if(window.innerWidth<=MOBILE_BREAKPOINT){$(".sidebar").classList.toggle("open");return}const collapsed=$("#app").classList.toggle("sidebar-collapsed");safeSetItem(SIDEBAR_COLLAPSED_KEY,collapsed?"1":"0")}
-function restoreSidebarState(){if(window.innerWidth<=MOBILE_BREAKPOINT)return;$("#app").classList.toggle("sidebar-collapsed",localStorage.getItem(SIDEBAR_COLLAPSED_KEY)==="1")}
+function toggleSidebar(){if(window.innerWidth<=MOBILE_BREAKPOINT){$(".sidebar").classList.toggle("open");return}const collapsed=$("#app").classList.toggle("sidebar-collapsed");safeSetItem(SIDEBAR_COLLAPSED_KEY,collapsed?"1":"0");syncSidebarTooltips(collapsed)}
+function restoreSidebarState(){if(window.innerWidth<=MOBILE_BREAKPOINT)return;const collapsed=localStorage.getItem(SIDEBAR_COLLAPSED_KEY)==="1";$("#app").classList.toggle("sidebar-collapsed",collapsed);syncSidebarTooltips(collapsed)}
+// بالشريط المطوي تختفي أسماء الصفحات وتبقى الأيقونات — الاسم يظهر كتلميح عند المرور.
+function syncSidebarTooltips(collapsed){$$(".sidebar .nav-item").forEach(item=>{const label=item.querySelector("span")?.textContent.trim();if(collapsed&&label)item.title=label;else item.removeAttribute("title")})}
 function applyModeBranding(){const local=operationMode==="local";$("#setupBrandLine").textContent=local?"استخدام محلي مستقل · بياناتك تبقى على هذا الجهاز":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#localLoginBrandLine").textContent=local?"استخدام محلي مستقل · لا يتم إرسال البيانات":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#sidebarBrandTitle").textContent=local?"منصة إدارة المسابقات القرآنية":"جمعية المحافظة على القرآن الكريم";$("#sidebarBrandSubtitle").textContent=local?"وضع محلي مستقل":"فرع الكورة | المسابقة السنوية"}
 function initializeCloud(){if(cloudStartup)return Promise.resolve(cloudStartup);if(cloudStartupPromise)return cloudStartupPromise;cloudStartupPromise=window.CloudCompetition.init().then(status=>{cloudEnabled=status.enabled;cloudStartup=status;return status}).catch(error=>{console.warn("Cloud initialization failed",error);cloudStartup={enabled:false,context:null,error};return cloudStartup});return cloudStartupPromise}
 function returnToGateway(){sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionStorage.removeItem(LOCAL_ACCESS_KEY);operationMode="gateway";$("#app").classList.add("hidden");showScreen("gatewayScreen");recordBrowserRoute({surface:"gateway"})}
@@ -1310,7 +1312,7 @@ function renderLevelBreakdown(total){
   const labelFor=key=>key==="merged-10"?"المستوى السادس (حفظ 10 أجزاء)":key==="merged-5"?"المستوى السابع (حفظ 5 أجزاء)":key===UNRESOLVED?"مستوى غير محدد (يحتاج تصحيح)":(levelCatalogById(key)?.label||key);
   const partsFor=key=>key==="merged-10"?10:key==="merged-5"?5:key===UNRESOLVED?0:(levelCatalogById(key)?.parts??0);
   // بطاقة "غير محدد" لا تظهر هنا عمداً — لا تفيد تلخيصياً، وتصحيح هؤلاء المتسابقين متاح يدوياً.
-  const orderedKeys=[...groups.keys()].filter(key=>key!==UNRESOLVED&&(showFull||partsFor(key)<30)).sort((a,b)=>partsFor(a)-partsFor(b)||labelFor(a).localeCompare(labelFor(b),"ar"));
+  const orderedKeys=[...groups.keys()].filter(key=>key!==UNRESOLVED&&(showFull||partsFor(key)<30)).sort((a,b)=>partsFor(b)-partsFor(a)||labelFor(a).localeCompare(labelFor(b),"ar"));
   // "عدد الطلاب" تسجيل مسبق فيبقى تراكمياً دائماً؛ "نسبة النجاح" تُحسب حسب المجموعة الزمنية المختارة أعلى الصفحة.
   const cards=orderedKeys.map(key=>{
     const list=groups.get(key),m=byGenderList(list,"ذكر"),f=byGenderList(list,"أنثى");
