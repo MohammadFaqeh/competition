@@ -77,6 +77,29 @@ window.CloudCompetition=(()=>{
     if(error)throw rpcError(error);
     markAdminKnownIds(incomingParticipants,incomingDraws);
   }
+  // استعادة نسخة احتياطية كبيرة على دفعات: إرسال كل المتسابقين والسحوبات بطلب واحد يتجاوز المهلة
+  // ويفشل بصمت (تظهر البيانات محلياً والسحابة فارغة). admin_save_state نفسها تدمج حسب id (ما لم يصل
+  // ولم يُدرَج بالمحذوفين يبقى كما هو)، فنرسل كل دفعة كاستدعاء مستقل بقوائم حذف فارغة — إعادة
+  // التشغيل بعد توقف آمنة بلا تكرار. لا تمس diwan_state إطلاقاً. بعد الانتهاء نعيد التحميل ونتحقق.
+  async function restoreCompetitionStateInBatches(payload,onProgress,batchSize=40){
+    if(context?.kind!=="admin")throw new Error("استعادة النسخة السحابية للمدير فقط");
+    clearTimeout(saveTimer);++saveGeneration; // إلغاء أي حفظ تلقائي معلّق حتى لا يتداخل مع الاستعادة
+    const participants=payload.participants||[],draws=payload.draws||[],batches=[];
+    for(let i=0;i<participants.length;i+=batchSize)batches.push({kind:"participants",items:participants.slice(i,i+batchSize),done:Math.min(i+batchSize,participants.length),total:participants.length});
+    for(let i=0;i<draws.length;i+=batchSize)batches.push({kind:"draws",items:draws.slice(i,i+batchSize),done:Math.min(i+batchSize,draws.length),total:draws.length});
+    if(!batches.length)batches.push({kind:"participants",items:[],done:0,total:0});
+    for(const [index,batch] of batches.entries()){
+      try{await withRetry(async()=>{const {error}=await client.rpc("admin_save_state",{p_config:payload.config,p_participants:batch.kind==="participants"?batch.items:[],p_draws:batch.kind==="draws"?batch.items:[],p_deleted_participant_ids:[],p_deleted_draw_ids:[]}).abortSignal(timeoutSignal(30000));if(error)throw rpcError(error)},()=>false)}
+      catch(error){throw new Error(`فشلت الدفعة ${index+1} من ${batches.length} (${batch.kind==="participants"?"المتسابقين":"السحوبات"}): ${error.message}`)}
+      onProgress?.({...batch,batchIndex:index+1,batchCount:batches.length});
+    }
+    const remote=await loadCompetitionState();
+    const remoteParticipantIds=new Set((remote.payload?.participants||[]).map(p=>p.id)),remoteDrawIds=new Set((remote.payload?.draws||[]).map(d=>d.id));
+    const missingParticipants=participants.filter(p=>!remoteParticipantIds.has(p.id)).length,missingDraws=draws.filter(d=>!remoteDrawIds.has(d.id)).length;
+    if(missingParticipants||missingDraws)throw new Error(`اكتملت الدفعات لكن التحقق فشل: ${missingParticipants} متسابق و${missingDraws} سحب غير موجودين بالسحابة`);
+    markAdminKnownIds(remote.payload?.participants,remote.payload?.draws);
+    return remote;
+  }
   function queueStateSave(payload,onError,onSuccess){if(context?.kind!=="admin")return;clearTimeout(saveTimer);const snapshot=JSON.parse(JSON.stringify(payload));const myGeneration=++saveGeneration;saveTimer=setTimeout(()=>withRetry(()=>saveCompetitionState(snapshot),()=>myGeneration!==saveGeneration).then(()=>{if(myGeneration===saveGeneration)onSuccess?.()}).catch(error=>{if(myGeneration===saveGeneration)(onError||console.error)(error)}),450)}
 
   let supervisorKnownParticipants=new Map(),supervisorKnownDraws=new Map();
@@ -195,7 +218,7 @@ window.CloudCompetition=(()=>{
   async function setStaffPermissions(subjectType,subjectId,patch){const {data,error}=await client.rpc("admin_set_staff_permissions",{p_subject_type:subjectType,p_subject_id:subjectId,p_patch:patch});if(error)throw rpcError(error);return data}
   async function setCommitteePermissions(committeeId,patch){const {data,error}=await client.rpc("admin_set_committee_permissions",{p_committee_id:committeeId,p_patch:patch});if(error)throw rpcError(error);return data}
 
-  return {enabled,init,signInAdmin,requestLoginRecoveryCode,confirmLoginRecovery,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,getStateVersion,saveCompetitionState,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,setCommitteeShowScore,setCommitteeShowStatsSummary,deleteParticipantSession,pruneOldLogs,listSessions,listFinalSessions,listActiveSessions,listRecentFinalSessions,listLiveCommitteeSessions,getCommitteeSession,listCommitteeNotifications,reportCommitteeIssue,listIssueReports,resolveIssueReport,lookupChangeTimes,claimStudent,cancelCommitteeSession,createCommitteeDraw,listCommitteeUsedPositionIds,listCommitteeUsedPositionsDetailed,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,saveSession,queueSessionSave,cancelQueuedSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,setSubAdminPermissions,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listPermissionCatalog,listSupervisorsWithPermissions,setStaffPermissions,setCommitteePermissions,get context(){return context},get client(){return client}};
+  return {enabled,init,signInAdmin,requestLoginRecoveryCode,confirmLoginRecovery,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,getStateVersion,saveCompetitionState,restoreCompetitionStateInBatches,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,setCommitteeShowScore,setCommitteeShowStatsSummary,deleteParticipantSession,pruneOldLogs,listSessions,listFinalSessions,listActiveSessions,listRecentFinalSessions,listLiveCommitteeSessions,getCommitteeSession,listCommitteeNotifications,reportCommitteeIssue,listIssueReports,resolveIssueReport,lookupChangeTimes,claimStudent,cancelCommitteeSession,createCommitteeDraw,listCommitteeUsedPositionIds,listCommitteeUsedPositionsDetailed,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,saveSession,queueSessionSave,cancelQueuedSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,setSubAdminPermissions,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listPermissionCatalog,listSupervisorsWithPermissions,setStaffPermissions,setCommitteePermissions,get context(){return context},get client(){return client}};
 })();
 
 // "اختبارات ديوان الحفاظ - فرع الكورة": مسار مستقل عن المسابقة السنوية من ناحية بيانات
