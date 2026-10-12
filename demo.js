@@ -27,7 +27,7 @@
   const STATE_LABEL={idle:"بانتظار المتسابق التالي",drawing:"سحب المواضع…",exam:"قيد الاختبار",review:"مراجعة الرصدين"};
   // شرائح العرض: كل شريحة تُظهر قسماً واحداً بملء الشاشة. show = العناصر الظاهرة، spot = إطار مضيء داخلها.
   const SLIDES=[
-    {show:["#demoFlowPanel"],kicker:"الصورة الكاملة",title:"رحلة المتسابق من التسجيل إلى الشهادة",sec:14,text:"كل مرحلة، من تسجيل المتسابق حتى إصدار شهادته، تتم داخل نظام واحد وتحت نظر الإدارة."},
+    {show:["#demoFlowPanel"],kicker:"الصورة الكاملة",title:"رحلة المتسابق من التسجيل إلى النتيجة",sec:14,text:"كل مرحلة، من تسجيل المتسابق حتى اعتماد نتيجته، تتم داخل نظام واحد وتحت نظر الإدارة."},
     {show:["#demoKpis"],kicker:"لوحة اليوم",title:"الأرقام لحظة بلحظة",sec:10,text:"عدد المختبَرين، ومن يُختبر الآن، ونسبة النجاح، ومتوسط المدة — تتحدث تلقائياً دون أي تدخل."},
     {show:["#demoDrawPanel"],draw:true,kicker:"العدالة قبل الاختبار",title:"سحب عشوائي عادل وآمن",sec:16,text:"لا أحد يختار الأسئلة: النظام يسحب أجزاءً مختلفة من محفوظ المتسابق، وموضعاً عشوائياً من كل جزء."},
     {show:["#demoGridPanel"],kicker:"غرفة المراقبة",title:"كل اللجان على شاشة واحدة",sec:13,text:"كل لجنة في بطاقة: من يُختبر الآن، وأي موضع وصل، وعلامة الرئيس والعضو الحيّة، ومدة الاختبار."},
@@ -37,13 +37,13 @@
     {show:["#demoResultsPanel"],kicker:"النزاهة",title:"نتائج معتمدة ومقفلة",sec:12,text:"النتيجة لا تظهر إلا بعد اعتمادها من رئيس اللجنة، وتُقفل فلا تُعدَّل إلا بصلاحية خاصة تمنحها الإدارة."},
     {show:["#demoLogPanel"],kicker:"الشفافية",title:"سجل تدقيق لكل إجراء",sec:10,text:"كل سحب وبدء اختبار وتغيير موضع واعتماد مسجَّل بوقته ومنفّذه."},
     {show:["#demoPerfPanel"],kicker:"عدالة التقييم",title:"مقارنة أداء اللجان",sec:14,text:"متوسط العلامات ونسبة النجاح والمدة لكل لجنة — فتظهر فوراً أي لجنة متساهلة أو متشددة."},
-    {show:["#demoReportsPanel"],kicker:"المخرجات",title:"تقارير وشهادات بضغطة زر",sec:15,text:"النتائج إلى Excel مرتبة حسب المستوى، وأوراق النتائج والبطاقات والشهادات PDF، دون أي عمل يدوي."},
+    {show:["#demoReportsPanel"],kicker:"المخرجات",title:"تقارير ونتائج بضغطة زر",sec:15,text:"النتائج إلى Excel مرتبة حسب المستوى، وأوراق النتائج وبطاقات الجمعية PDF، دون أي عمل يدوي."},
     {show:["#demoSecurityPanel"],kicker:"الحماية",title:"أمان على مستوى الخادم",sec:14,text:"كل مستخدم يرى ما يخصه فقط، والحماية مفروضة في قاعدة البيانات نفسها لا في الواجهة."},
     {show:["#demoKpis","#demoFlowPanel"],kicker:"الخلاصة",title:"نظام واحد… شفافية كاملة",sec:10,text:"سحب عادل، رصد مزدوج، اعتماد مقفل، ومراقبة لحظية لكل لجنة."}
   ];
-  const FLOW_STEPS=[["user-plus","تسجيل المتسابقين","يدوياً أو باستيراد Excel، بالمستوى والمركز"],["shuffle","سحب عادل","مواضع عشوائية من محفوظ كل متسابق"],["book-open","اختبار إلكتروني","رئيس وعضو يرصدان الأخطاء كلٌّ على جهازه"],["scale","مراجعة الاختلاف","الرئيس يحسم مواضع الاختلاف فقط"],["lock","اعتماد وقفل","العلامة تُحسب تلقائياً وتُقفل"],["award","تقارير وشهادات","Excel وPDF وبطاقات الجمعية"]];
+  const FLOW_STEPS=[["user-plus","تسجيل المتسابقين","يدوياً أو باستيراد Excel، بالمستوى والمركز"],["shuffle","سحب عادل","مواضع عشوائية من محفوظ كل متسابق"],["book-open","اختبار إلكتروني","رئيس وعضو يرصدان الأخطاء كلٌّ على جهازه"],["scale","مراجعة الاختلاف","الرئيس يحسم مواضع الاختلاف فقط"],["lock","اعتماد وقفل","العلامة تُحسب تلقائياً وتُقفل"],["award","تقارير ونتائج","Excel وPDF وبطاقات الجمعية"]];
   const DRAW_FACTS=["مولّد عشوائي آمن (Web Crypto) وليس Math.random","أجزاء مختلفة من محفوظ المتسابق نفسه، بعدد أسئلة مستواه","كل موضع 8 أسطر من المصحف، يبدأ وينتهي عند حدود الآيات","السحب عملية واحدة على الخادم، فلا يُسحب للمتسابق مرتين","رمز تحقق لكل سحب"];
-  const REPORT_ITEMS=[["file-spreadsheet","نتائج وترتيب Excel","شيت لكل مستوى، مع فلترة بالجنس والمراكز والمستويات قبل التنزيل"],["file-text","ورقة نتيجة PDF","لكل متسابق، جاهزة للطباعة"],["award","بطاقات «حفظ للجمعية»","بنموذج الجمعية، مع شبكة الأجزاء المظلَّلة وتفقيط العلامة بالعربية"],["book-open-check","ديوان الحفاظ","تصديق حفظ القرآن كاملاً على 4 مراحل، مع شهادات وتوصيات PDF"],["timer","سجل السحوبات ومدة الاختبار","قابلة للبحث والتصدير إلى Excel"],["database-backup","نسخ احتياطي تلقائي","دوري من الخادم حتى مع إغلاق المتصفح"]];
+  const REPORT_ITEMS=[["file-spreadsheet","نتائج وترتيب Excel","شيت لكل مستوى، مع فلترة بالجنس والمراكز والمستويات قبل التنزيل"],["file-text","ورقة نتيجة PDF","لكل متسابق، جاهزة للطباعة"],["award","بطاقات «حفظ للجمعية»","بنموذج الجمعية، مع شبكة الأجزاء المظلَّلة وتفقيط العلامة بالعربية"],["timer","سجل السحوبات ومدة الاختبار","قابلة للبحث والتصدير إلى Excel"],["database-backup","نسخ احتياطي تلقائي","دوري من الخادم حتى مع إغلاق المتصفح"]];
   const SECURITY_ITEMS=[["users","صلاحيات حسب الدور","مدير، مشرف، مسؤول فرعي، رئيس لجنة، عضو — كلٌّ يرى ما يخصه فقط"],["server","حماية داخل قاعدة البيانات","قواعد الوصول مفروضة على الخادم نفسه، لا في الواجهة"],["key-round","رموز دخول مشفّرة","وقفل الحساب 15 دقيقة بعد 5 محاولات دخول خاطئة"],["log-out","جلسات محمية","جلسة واحدة لكل حساب، وخروج تلقائي بعد 30 دقيقة خمول"],["shield-check","فصل بيانات الذكور والإناث","تُفلتر على الخادم حسب جنس اللجنة"],["lock","منع التضارب","لا يُختبر متسابق في لجنتين، ولا يبدأ اختباران معاً في اللجنة نفسها"],["wifi-off","يعمل بلا إنترنت","وضع محلي كامل على جهاز واحد عند الحاجة"]];
 
   let sim=null,timer=null,speed=1,paused=false,selectedId=null,quranPool=null,quranLoading=null,mushafKey="",deck=null,deckAuto=true,idleTimer=null,drawState=null,drawTimers=[];
@@ -179,7 +179,7 @@
         ${kpiCard("trending-up","gold","نسبة النجاح","demoKpiPass","demoKpiPassSub")}
         ${kpiCard("timer","green","متوسط مدة الاختبار","demoKpiDur","demoKpiDurSub")}
       </div>
-      <section id="demoFlowPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">من التسجيل إلى الشهادة</span><h3>سير العمل في النظام</h3></div><i data-lucide="workflow"></i></div>
+      <section id="demoFlowPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">من التسجيل إلى النتيجة</span><h3>سير العمل في النظام</h3></div><i data-lucide="workflow"></i></div>
         <ol class="demo-flow">${FLOW_STEPS.map(([icon,title,desc],i)=>`<li style="--i:${i}"><span class="demo-flow-num">${formatNumber(i+1)}</span><i data-lucide="${icon}"></i><b>${title}</b><small>${desc}</small></li>`).join("")}</ol>
         <p class="demo-flow-note"><i data-lucide="eye"></i> الإدارة تتابع كل مرحلة مباشرة ومن أي جهاز</p></section>
       <section id="demoDrawPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">قبل دخول المتسابق للجنة</span><h3>السحب العشوائي العادل</h3></div><button id="demoDrawBtn" class="compact-btn" type="button"><i data-lucide="shuffle"></i> سحب جديد</button></div>
@@ -197,7 +197,7 @@
         <section id="demoPerfPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">عدالة التقييم بين اللجان</span><h3>مقارنة أداء اللجان</h3></div><i data-lucide="scale"></i></div><div id="demoPerf" class="demo-perf"></div></section>
       </div>
       <div class="demo-columns">
-        <section id="demoReportsPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">بضغطة زر، دون عمل يدوي</span><h3>التقارير والشهادات</h3></div><i data-lucide="file-spreadsheet"></i></div>
+        <section id="demoReportsPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">بضغطة زر، دون عمل يدوي</span><h3>التقارير والنتائج</h3></div><i data-lucide="file-spreadsheet"></i></div>
           <div class="demo-cards">${featureCards(REPORT_ITEMS)}</div>
           <h4 class="demo-subhead">ملخص نتائج اليوم حسب المستوى (يتحدث تلقائياً)</h4><div class="table-wrap"><table class="demo-results-table demo-compact"><thead><tr><th>المستوى</th><th>عدد المعتمَدين</th><th>نسبة النجاح</th><th>متوسط العلامة</th><th>أعلى علامة</th></tr></thead><tbody id="demoLevelSummary"></tbody></table></div></section>
         <section id="demoSecurityPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">الحماية مفروضة على الخادم</span><h3>الأمان والصلاحيات</h3></div><i data-lucide="fingerprint"></i></div>
