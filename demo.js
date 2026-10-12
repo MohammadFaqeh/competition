@@ -47,6 +47,8 @@
   const SECURITY_ITEMS=[["users","صلاحيات حسب الدور","مدير، مشرف، مسؤول فرعي، رئيس لجنة، عضو — كلٌّ يرى ما يخصه فقط"],["server","حماية داخل قاعدة البيانات","قواعد الوصول مفروضة على الخادم نفسه، لا في الواجهة"],["key-round","رموز دخول مشفّرة","وقفل الحساب 15 دقيقة بعد 5 محاولات دخول خاطئة"],["log-out","جلسات محمية","جلسة واحدة لكل حساب، وخروج تلقائي بعد 30 دقيقة خمول"],["shield-check","فصل بيانات الذكور والإناث","تُفلتر على الخادم حسب جنس اللجنة"],["lock","منع التضارب","لا يُختبر متسابق في لجنتين، ولا يبدأ اختباران معاً في اللجنة نفسها"],["wifi-off","يعمل بلا إنترنت","وضع محلي كامل على جهاز واحد عند الحاجة"]];
 
   let sim=null,timer=null,speed=1,paused=false,selectedId=null,quranPool=null,quranLoading=null,mushafKey="",deck=null,deckAuto=true,idleTimer=null,drawState=null,drawTimers=[];
+  const NUMBER_FORMAT=new Intl.NumberFormat("ar-JO",{numberingSystem:"latn"}),SCORE_FORMAT=new Intl.NumberFormat("en-US",{maximumFractionDigits:2,useGrouping:false});
+  const formatNumber=value=>NUMBER_FORMAT.format(value),formatAssessmentNumber=value=>SCORE_FORMAT.format(Number(value)||0);
   const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
   const pick=list=>list[Math.floor(Math.random()*list.length)];
   const view=()=>$("#demoView");
@@ -238,10 +240,19 @@
   function render(){
     if(!sim||!view())return;
     $("#demoClock").textContent=formatTime(Date.now());
-    renderKpis();renderGrid();renderDetail();renderAlerts();renderResults();renderLog();renderPerf();renderLevelSummary();
+    // بوضع الشرائح نرسم القسم الظاهر فقط — رسم كل الأقسام كل ثانية كان يثقل الأجهزة الضعيفة.
+    const shown=deck?SLIDES[deck.index]?.show||[]:null;
+    [["#demoKpis",renderKpis],["#demoGridPanel",renderGrid],["#demoDetailPanel",renderDetail],["#demoAlertsPanel",renderAlerts],["#demoResultsPanel",renderResults],["#demoLogPanel",renderLog],["#demoPerfPanel",renderPerf],["#demoReportsPanel",renderLevelSummary]]
+      .forEach(([sel,fn])=>{if(!shown||shown.includes(sel))fn()});
     const spot=deck&&SLIDES[deck.index]?.spot;if(spot)$(spot)?.classList.add("demo-spotlight");
-    lucide.createIcons();
     sim.flash=null;
+  }
+  // أيقونات الأجزاء التي تُرسم كل ثانية تُبنى مرة واحدة وتُحفظ كنص SVG — تشغيل lucide.createIcons كل ثانية
+  // كان أثقل عمل بالصفحة ويسبب تقطّعاً واضحاً على الأجهزة الضعيفة.
+  const iconCache=new Map();
+  function svg(name){
+    if(!iconCache.has(name)){const box=document.createElement("span");box.hidden=true;box.innerHTML=`<i data-lucide="${name}"></i>`;document.body.appendChild(box);lucide.createIcons();iconCache.set(name,box.innerHTML);box.remove()}
+    return iconCache.get(name);
   }
   function renderKpis(){
     const results=sim.results,done=results.length,live=sim.committees.filter(c=>c.state==="exam"||c.state==="review").length;
@@ -283,16 +294,16 @@
     const c=sim.committees.find(x=>x.id===selectedId),s=c.session,main=$("#demoDetailMain");
     if(!s){
       const r=c.lastResult;
-      main.innerHTML=`<div class="demo-detail-head"><div><span class="eyebrow">${escapeHtml(c.name)} · ${c.gender} · مراقبة دون إشعار اللجنة</span><h3>${STATE_LABEL.idle}</h3><small>الرئيس: ${escapeHtml(c.chairName)} · العضو: ${escapeHtml(c.memberName)}</small></div></div>${r?`<div class="demo-idle-result"><span>آخر نتيجة معتمدة لهذه اللجنة</span><b>${escapeHtml(r.name)}</b><div><span class="outcome ${r.passed?"pass":"fail"}">${r.passed?"ناجح":"راسب"}</span> العلامة المعتمدة <b>${formatAssessmentNumber(r.score)}</b> · المدة ${formatDuration(r.duration)} · <i data-lucide="lock"></i> مقفلة</div></div>`:""}<p class="demo-muted">يبدأ المتسابق التالي خلال لحظات — اختر لجنة أخرى من البطاقات أعلاه.</p>`;
+      main.innerHTML=`<div class="demo-detail-head"><div><span class="eyebrow">${escapeHtml(c.name)} · ${c.gender} · مراقبة دون إشعار اللجنة</span><h3>${STATE_LABEL.idle}</h3><small>الرئيس: ${escapeHtml(c.chairName)} · العضو: ${escapeHtml(c.memberName)}</small></div></div>${r?`<div class="demo-idle-result"><span>آخر نتيجة معتمدة لهذه اللجنة</span><b>${escapeHtml(r.name)}</b><div><span class="outcome ${r.passed?"pass":"fail"}">${r.passed?"ناجح":"راسب"}</span> العلامة المعتمدة <b>${formatAssessmentNumber(r.score)}</b> · المدة ${formatDuration(r.duration)} · ${svg("lock")} مقفلة</div></div>`:""}<p class="demo-muted">يبدأ المتسابق التالي خلال لحظات — اختر لجنة أخرى من البطاقات أعلاه.</p>`;
       setMushaf(null);return;
     }
     const p=s.participant,chair=scoreOf(s.chair),member=scoreOf(s.member),gap=Math.abs(chair.score-member.score);
     const current=Math.min(s.current,s.positions.length-1);
     const reviewing=c.state==="review",drawing=c.state==="drawing";
     main.innerHTML=`<div class="demo-detail-head"><div><span class="eyebrow">${escapeHtml(c.name)} · ${c.gender} · مراقبة دون إشعار اللجنة</span><h3>${escapeHtml(p.name)}</h3><small>${p.level} أجزاء · ${escapeHtml(p.center)} · رقم الجلوس ${p.seat}</small></div>
-        <div class="demo-detail-meta"><span class="status-pill ${c.state==="exam"?"is-live":""}">${STATE_LABEL[c.state]}</span><span class="demo-timer"><i data-lucide="timer"></i> ${formatDuration(s.ticks*SIM_SECONDS_PER_TICK)}</span></div></div>
-      ${reviewing?`<div class="demo-review-note"><i data-lucide="scale"></i> انتهى الاختبار — الرئيس يراجع ${s.diffCount?`${formatNumber(s.diffCount)} ${s.diffCount===1?"موضع اختلاف":"مواضع اختلاف"}`:"الرصدين (متطابقان)"} قبل اعتماد النتيجة النهائية.</div>`:""}
-      ${drawing?`<div class="demo-review-note"><i data-lucide="shield-check"></i> يُجرى الآن سحب عشوائي آمن لمواضع المتسابق من أجزائه المسجّلة.</div>`:""}
+        <div class="demo-detail-meta"><span class="status-pill ${c.state==="exam"?"is-live":""}">${STATE_LABEL[c.state]}</span><span class="demo-timer">${svg("timer")} ${formatDuration(s.ticks*SIM_SECONDS_PER_TICK)}</span></div></div>
+      ${reviewing?`<div class="demo-review-note">${svg("scale")} انتهى الاختبار — الرئيس يراجع ${s.diffCount?`${formatNumber(s.diffCount)} ${s.diffCount===1?"موضع اختلاف":"مواضع اختلاف"}`:"الرصدين (متطابقان)"} قبل اعتماد النتيجة النهائية.</div>`:""}
+      ${drawing?`<div class="demo-review-note">${svg("shield-check")} يُجرى الآن سحب عشوائي آمن لمواضع المتسابق من أجزائه المسجّلة.</div>`:""}
       <div id="demoExaminers" class="demo-examiners">
         <div class="demo-examiner"><span>رصد الرئيس · ${escapeHtml(c.chairName)}</span><b class="${scoreTone(chair)}">${formatAssessmentNumber(chair.score)}</b><small>الخصم ${formatAssessmentNumber(chair.totalDeduction)}</small></div>
         <div class="demo-examiner"><span>رصد العضو · ${escapeHtml(c.memberName)}</span><b class="${scoreTone(member)}">${formatAssessmentNumber(member.score)}</b><small>الخصم ${formatAssessmentNumber(member.totalDeduction)}</small></div>
@@ -311,14 +322,14 @@
     const key=position?`${selectedId}-${position.page}`:"none";
     if(key===mushafKey)return;mushafKey=key;
     const fig=$("#demoMushaf");
-    fig.innerHTML=position?`<img src="assets/quran-pages/page-${String(position.page).padStart(3,"0")}.jpg" alt="صفحة المصحف ${position.page}"><figcaption>الموضع الحالي · الصفحة ${position.page}</figcaption>`:`<div class="demo-mushaf-empty"><i data-lucide="eye"></i><span>تظهر هنا صفحة المصحف للموضع الذي يُقرأ الآن</span></div>`;
+    fig.innerHTML=position?`<img src="assets/quran-pages/page-${String(position.page).padStart(3,"0")}.jpg" alt="صفحة المصحف ${position.page}"><figcaption>الموضع الحالي · الصفحة ${position.page}</figcaption>`:`<div class="demo-mushaf-empty">${svg("eye")}<span>تظهر هنا صفحة المصحف للموضع الذي يُقرأ الآن</span></div>`;
   }
   function renderAlerts(){
     const list=sim.alerts.slice(0,7);
-    $("#demoAlerts").innerHTML=list.length?list.map(a=>`<article class="demo-alert is-${a.level}"><i data-lucide="${a.level==="warn"?"triangle-alert":"bell-ring"}"></i><div><b>${escapeHtml(a.text)}</b><small>${timeAgo(a.at)}</small></div></article>`).join(""):`<p class="demo-muted">لا توجد تنبيهات حالياً.</p>`;
+    $("#demoAlerts").innerHTML=list.length?list.map(a=>`<article class="demo-alert is-${a.level}">${svg(a.level==="warn"?"triangle-alert":"bell-ring")}<div><b>${escapeHtml(a.text)}</b><small>${timeAgo(a.at)}</small></div></article>`).join(""):`<p class="demo-muted">لا توجد تنبيهات حالياً.</p>`;
   }
   function renderResults(){
-    $("#demoResults").innerHTML=sim.results.slice(0,8).map(r=>`<tr class="${r.id===sim.flash?"demo-flash":""}"><td><b>${escapeHtml(r.name)}</b><small class="demo-cell-sub">${r.level} أجزاء · ${escapeHtml(r.center)}</small></td><td>${escapeHtml(r.committee)}</td><td>${formatAssessmentNumber(r.chairScore)}</td><td>${formatAssessmentNumber(r.memberScore)}</td><td><b>${formatAssessmentNumber(r.score)}</b></td><td><span class="outcome ${r.passed?"pass":"fail"}">${r.passed?"ناجح":"راسب"}</span></td><td class="demo-cell-time"><i data-lucide="lock"></i> ${formatTime(r.approvedAt)}</td></tr>`).join("");
+    $("#demoResults").innerHTML=sim.results.slice(0,8).map(r=>`<tr class="${r.id===sim.flash?"demo-flash":""}"><td><b>${escapeHtml(r.name)}</b><small class="demo-cell-sub">${r.level} أجزاء · ${escapeHtml(r.center)}</small></td><td>${escapeHtml(r.committee)}</td><td>${formatAssessmentNumber(r.chairScore)}</td><td>${formatAssessmentNumber(r.memberScore)}</td><td><b>${formatAssessmentNumber(r.score)}</b></td><td><span class="outcome ${r.passed?"pass":"fail"}">${r.passed?"ناجح":"راسب"}</span></td><td class="demo-cell-time">${svg("lock")} ${formatTime(r.approvedAt)}</td></tr>`).join("");
   }
   function renderLog(){
     $("#demoLog").innerHTML=sim.log.slice(0,14).map(e=>`<div class="demo-log-row is-${e.kind}"><time>${formatTime(e.at)}</time><span>${escapeHtml(e.text)}</span></div>`).join("");
@@ -340,8 +351,10 @@
   }
   // فحص عشوائية حقيقي بالمتصفح: 100,000 سحب بنفس المولّد الآمن الذي يستخدمه السحب الفعلي.
   function renderFairness(){
-    const counts=new Array(30).fill(0),total=100000;
-    for(let i=0;i<total;i++)counts[randomIndex(30)]++;
+    // نفس خوارزمية randomIndex (crypto + rejection sampling) لكن بدفعات من 16384 رقماً (حد getRandomValues هو 65536 بايت) بدل طلب لكل رقم —
+    // الطلب المنفرد 100,000 مرة كان يجمّد الصفحة ~1.4 ث (وأكثر بكثير على الأجهزة الضعيفة).
+    const counts=new Array(30).fill(0),total=100000,limit=0x100000000-(0x100000000%30),buf=new Uint32Array(16384);
+    for(let n=0;n<total;){crypto.getRandomValues(buf);for(let i=0;i<buf.length&&n<total;i++)if(buf[i]<limit){counts[buf[i]%30]++;n++}}
     const mean=total/30,max=Math.max(...counts),dev=Math.max(...counts.map(c=>Math.abs(c-mean)))/mean*100;
     $("#demoFairTitle").textContent=`فحص العشوائية: ${formatNumber(total)} سحب تجريبي على الأجزاء الثلاثين`;
     $("#demoFairBars").innerHTML=counts.map((c,i)=>`<span title="الجزء ${i+1}: ${formatNumber(c)}" style="height:${Math.round(c/max*100)}%"></span>`).join("");
@@ -361,7 +374,7 @@
       clearInterval(spin);
       drawState.positions=drawPositions(level);drawState.flicker=new Set();drawState.phase="done";
       drawState.code=Array.from({length:2},()=>randomIndex(0x10000).toString(16).toUpperCase().padStart(4,"0")).join("-");
-      renderDraw();lucide.createIcons();
+      renderDraw();
       if(deck&&SLIDES[deck.index]?.draw)drawTimers.push(setTimeout(runDraw,9000));
     },2600));
   }
@@ -369,7 +382,7 @@
     const d=drawState,main=$("#demoDrawMain");if(!d||!main)return;
     const chosen=new Set(d.positions.map(p=>p.juz));
     main.innerHTML=`<div class="demo-draw-who"><div><span class="eyebrow">المتسابق</span><h4>${escapeHtml(d.name)}</h4><small>${d.level} أجزاء · ${escapeHtml(d.center)} · رقم الجلوس ${d.seat} · ${formatNumber(d.count)} أسئلة</small></div>
-        <span class="status-pill ${d.phase==="spin"?"is-live":""}">${d.phase==="spin"?"جارٍ السحب…":`<i data-lucide="shield-check"></i> رمز التحقق ${d.code}`}</span></div>
+        <span class="status-pill ${d.phase==="spin"?"is-live":""}">${d.phase==="spin"?"جارٍ السحب…":`${svg("shield-check")} رمز التحقق ${d.code}`}</span></div>
       <p class="demo-draw-label">أجزاء المتسابق المسجّلة (${formatNumber(d.level)})</p>
       <div class="demo-juz-grid">${d.parts.map(j=>`<span class="${d.flicker.has(j)?"is-flicker":""} ${chosen.has(j)?"is-chosen":""}">${j}</span>`).join("")}</div>
       ${d.phase==="done"?`<p class="demo-draw-label">المواضع المسحوبة</p><ol class="demo-draw-list">${d.positions.slice().sort((a,b)=>a.juz-b.juz).map(p=>`<li><b>الجزء ${p.juz}</b><span>${escapeHtml(positionLabel(p))}</span><small>الصفحة ${p.page}</small></li>`).join("")}</ol>`:`<p class="demo-muted">يختار المولّد الآمن ${formatNumber(d.count)} أجزاء مختلفة، ثم موضعاً عشوائياً من كل جزء…</p>`}`;
@@ -412,10 +425,14 @@
   function startPan(){
     stopPan();
     const total=(SLIDES[deck.index]?.sec||12)*1000,delay=1500,run=Math.max(1500,total-delay-1200),begin=performance.now()+delay;
+    // طول الصفحة يُقاس كل نصف ثانية فقط لا بكل إطار (القياس يفرض إعادة حساب التخطيط).
+    let max=0,measuredAt=-Infinity;
     const step=now=>{
       if(!deck)return stopPan();
-      const max=document.documentElement.scrollHeight-window.innerHeight;
-      if(now>=begin&&max>0){const t=Math.min(1,(now-begin)/run),eased=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;window.scrollTo(0,max*eased);if(t>=1)return stopPan()}
+      if(now<begin){panFrame=requestAnimationFrame(step);return}
+      if(now-measuredAt>500){max=document.documentElement.scrollHeight-window.innerHeight;measuredAt=now}
+      if(max<=0)return stopPan();
+      {const t=Math.min(1,(now-begin)/run),eased=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;window.scrollTo(0,max*eased);if(t>=1)return stopPan()}
       panFrame=requestAnimationFrame(step);
     };
     panFrame=requestAnimationFrame(step);
