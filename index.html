@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261007-theme-contrast">
+  <link rel="stylesheet" href="styles.css?v=20261012-demo">
   <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
@@ -324,6 +324,9 @@
           </div>
         </section>
 
+        <!-- «تجربة عملية»: عرض توضيحي ببيانات وهمية بالكامل، يرسمه demo.js. لا زر له بالقائمة — يُفتح بخمس نقرات سريعة على شعار القائمة الجانبية (للمدير الرئيسي أو الوضع المحلي فقط). -->
+        <section id="demoView" class="view"></section>
+
         <section id="analyticsView" class="view">
           <div class="page-head"><div><span class="eyebrow">شفافية الخوارزمية</span><h1>العدالة والإحصاءات</h1><p>مراقبة توزيع المواضع المستخدمة على أجزاء القرآن أثناء الدورة.</p></div><button id="runAuditBtn" class="secondary-btn"><i data-lucide="activity"></i> تشغيل فحص العشوائية</button></div>
           <div class="analytics-grid"><section class="panel"><div class="panel-head"><h3>الاستخدام حسب الجزء</h3><span id="fairnessLabel" class="status-pill">لا توجد بيانات كافية</span></div><div id="distributionChart" class="distribution-chart"></div></section><section class="panel audit-panel"><div class="audit-score"><span>نتيجة الفحص</span><b id="auditScore">--</b><small id="auditDetail">شغّل الفحص لمحاكاة 100,000 سحب</small></div><div class="audit-notes"><p><i data-lucide="shield-check"></i> يستخدم النظام Web Crypto بدلاً من Math.random.</p><p><i data-lucide="database"></i> سلامة قاعدة الآيات تُفحص عند كل تشغيل.</p><p><i data-lucide="scale"></i> لا توجد أفضلية رقمية لأي جزء داخل المجموعة المختارة.</p></div></section></div>
@@ -358,6 +361,7 @@
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20261007-batch-restore"></script>
-  <script src="app.js?v=20261007-polish"></script>
+  <script src="app.js?v=20261012-demo"></script>
+  <script src="demo.js?v=20261012-demo"></script>
 </body>
 </html>
