@@ -25,19 +25,29 @@
   const MARK_TYPES=["memorization","language","tajweed","hesitation","positionChange"];
   const TYPE_SHORT={memorization:"حفظ",language:"لغة",tajweed:"تجويد",hesitation:"تردد",positionChange:"تغيير موضع"};
   const STATE_LABEL={idle:"بانتظار المتسابق التالي",drawing:"سحب المواضع…",exam:"قيد الاختبار",review:"مراجعة الرصدين"};
-  const TOUR_STEPS=[
-    {target:"#demoKpis",text:"هذه غرفة المراقبة المركزية: كل ما يجري في لجان الاختبار يصل إلى الإدارة لحظة بلحظة.",ms:7000},
-    {target:"#demoGridPanel",text:"كل لجنة في بطاقة: من يُختبر الآن، وأي موضع وصل، وعلامة الرئيس والعضو الحيّة، ومدة الاختبار.",ms:8500},
-    {target:"#demoDetailPanel",select:true,text:"ندخل أي لجنة دون أي إشعار لها، فنرى كل خطأ يُسجَّل في كل موضع، ومعه صفحة المصحف نفسها.",ms:9500},
-    {target:"#demoExaminers",text:"رصد الرئيس ورصد العضو مستقلان تماماً، وأي اختلاف بينهما يظهر فوراً ولا تُعتمد النتيجة قبل مراجعته.",ms:9000},
-    {target:"#demoAlertsPanel",text:"أي اختلاف بين الممتحنَين، أو تغيير موضع، أو تأخّر في المدة يصل للإدارة كتنبيه مباشر.",ms:7500},
-    {target:"#demoResultsPanel",text:"النتيجة لا تظهر إلا بعد اعتمادها من رئيس اللجنة، وتُقفل فوراً فلا يمكن تعديلها.",ms:8000},
-    {target:"#demoLogPanel",text:"وكل إجراء مسجَّل بوقته ومنفّذه: سجل تدقيق كامل لا يُحذف منه شيء.",ms:7000},
-    {target:"#demoPerfPanel",text:"ومقارنة أداء اللجان (متوسط العلامات، نسبة النجاح، المدة) تكشف أي لجنة متساهلة أو متشددة.",ms:9000},
-    {target:"#demoKpis",text:"نظام واحد: سحب عادل، رصد مزدوج، اعتماد مقفل، ومراقبة لحظية لكل لجنة.",ms:7000}
+  // شرائح العرض: كل شريحة تُظهر قسماً واحداً بملء الشاشة. show = العناصر الظاهرة، spot = إطار مضيء داخلها.
+  const SLIDES=[
+    {show:["#demoFlowPanel"],kicker:"الصورة الكاملة",title:"رحلة المتسابق من التسجيل إلى الشهادة",text:"كل مرحلة، من تسجيل المتسابق حتى إصدار شهادته، تتم داخل نظام واحد وتحت نظر الإدارة."},
+    {show:["#demoKpis"],kicker:"لوحة اليوم",title:"الأرقام لحظة بلحظة",text:"عدد المختبَرين، ومن يُختبر الآن، ونسبة النجاح، ومتوسط المدة — تتحدث تلقائياً دون أي تدخل."},
+    {show:["#demoDrawPanel"],draw:true,kicker:"العدالة قبل الاختبار",title:"سحب عشوائي عادل وآمن",text:"لا أحد يختار الأسئلة: النظام يسحب أجزاءً مختلفة من محفوظ المتسابق، وموضعاً عشوائياً من كل جزء."},
+    {show:["#demoGridPanel"],kicker:"غرفة المراقبة",title:"كل اللجان على شاشة واحدة",text:"كل لجنة في بطاقة: من يُختبر الآن، وأي موضع وصل، وعلامة الرئيس والعضو الحيّة، ومدة الاختبار."},
+    {show:["#demoDetailPanel"],select:true,kicker:"داخل اللجنة",title:"نرى كل خطأ لحظة تسجيله",text:"ندخل أي لجنة دون إشعارها، فنرى الأخطاء تُسجَّل في كل موضع، ومعها صفحة المصحف نفسها."},
+    {show:["#demoDetailPanel"],spot:"#demoExaminers",kicker:"الرصد المزدوج",title:"رئيس وعضو يرصدان باستقلال",text:"رصد الرئيس ورصد العضو مستقلان تماماً، وأي اختلاف بينهما يظهر فوراً ولا تُعتمد النتيجة قبل مراجعته."},
+    {show:["#demoAlertsPanel"],kicker:"إنذار مبكر",title:"تنبيهات فورية للإدارة",text:"أي اختلاف بين الممتحنَين، أو تغيير موضع، أو تأخّر في المدة يصل للإدارة مباشرة."},
+    {show:["#demoResultsPanel"],kicker:"النزاهة",title:"نتائج معتمدة ومقفلة",text:"النتيجة لا تظهر إلا بعد اعتمادها من رئيس اللجنة، وتُقفل فلا تُعدَّل إلا بصلاحية خاصة تمنحها الإدارة."},
+    {show:["#demoLogPanel"],kicker:"الشفافية",title:"سجل تدقيق لكل إجراء",text:"كل سحب وبدء اختبار وتغيير موضع واعتماد مسجَّل بوقته ومنفّذه."},
+    {show:["#demoPerfPanel"],kicker:"عدالة التقييم",title:"مقارنة أداء اللجان",text:"متوسط العلامات ونسبة النجاح والمدة لكل لجنة — فتظهر فوراً أي لجنة متساهلة أو متشددة."},
+    {show:["#demoReportsPanel"],kicker:"المخرجات",title:"تقارير وشهادات بضغطة زر",text:"النتائج إلى Excel مرتبة حسب المستوى، وأوراق النتائج والبطاقات والشهادات PDF، دون أي عمل يدوي."},
+    {show:["#demoSecurityPanel"],kicker:"الحماية",title:"أمان على مستوى الخادم",text:"كل مستخدم يرى ما يخصه فقط، والحماية مفروضة في قاعدة البيانات نفسها لا في الواجهة."},
+    {show:["#demoKpis","#demoFlowPanel"],kicker:"الخلاصة",title:"نظام واحد… شفافية كاملة",text:"سحب عادل، رصد مزدوج، اعتماد مقفل، ومراقبة لحظية لكل لجنة."}
   ];
+  const DECK_SECONDS=[5,8,12,0]; // 0 = تنقّل يدوي فقط
+  const FLOW_STEPS=[["user-plus","تسجيل المتسابقين","يدوياً أو باستيراد Excel، بالمستوى والمركز"],["shuffle","سحب عادل","مواضع عشوائية من محفوظ كل متسابق"],["book-open","اختبار إلكتروني","رئيس وعضو يرصدان الأخطاء كلٌّ على جهازه"],["scale","مراجعة الاختلاف","الرئيس يحسم مواضع الاختلاف فقط"],["lock","اعتماد وقفل","العلامة تُحسب تلقائياً وتُقفل"],["award","تقارير وشهادات","Excel وPDF وبطاقات الجمعية"]];
+  const DRAW_FACTS=["مولّد عشوائي آمن (Web Crypto) وليس Math.random","أجزاء مختلفة من محفوظ المتسابق نفسه، بعدد أسئلة مستواه","كل موضع 8 أسطر من المصحف، يبدأ وينتهي عند حدود الآيات","السحب عملية واحدة على الخادم، فلا يُسحب للمتسابق مرتين","رمز تحقق لكل سحب"];
+  const REPORT_ITEMS=[["file-spreadsheet","نتائج وترتيب Excel","شيت لكل مستوى، مع فلترة بالجنس والمراكز والمستويات قبل التنزيل"],["file-text","ورقة نتيجة PDF","لكل متسابق، جاهزة للطباعة"],["award","بطاقات «حفظ للجمعية»","بنموذج الجمعية، مع شبكة الأجزاء المظلَّلة وتفقيط العلامة بالعربية"],["book-open-check","ديوان الحفاظ","تصديق حفظ القرآن كاملاً على 4 مراحل، مع شهادات وتوصيات PDF"],["timer","سجل السحوبات ومدة الاختبار","قابلة للبحث والتصدير إلى Excel"],["database-backup","نسخ احتياطي تلقائي","دوري من الخادم حتى مع إغلاق المتصفح"]];
+  const SECURITY_ITEMS=[["users","صلاحيات حسب الدور","مدير، مشرف، مسؤول فرعي، رئيس لجنة، عضو — كلٌّ يرى ما يخصه فقط"],["server","حماية داخل قاعدة البيانات","قواعد الوصول مفروضة على الخادم نفسه، لا في الواجهة"],["key-round","رموز دخول مشفّرة","وقفل الحساب 15 دقيقة بعد 5 محاولات دخول خاطئة"],["log-out","جلسات محمية","جلسة واحدة لكل حساب، وخروج تلقائي بعد 30 دقيقة خمول"],["shield-check","فصل بيانات الذكور والإناث","تُفلتر على الخادم حسب جنس اللجنة"],["lock","منع التضارب","لا يُختبر متسابق في لجنتين، ولا يبدأ اختباران معاً في اللجنة نفسها"],["wifi-off","يعمل بلا إنترنت","وضع محلي كامل على جهاز واحد عند الحاجة"]];
 
-  let sim=null,timer=null,speed=1,paused=false,selectedId=null,quranPool=null,quranLoading=null,mushafKey="",tour=null;
+  let sim=null,timer=null,speed=1,paused=false,selectedId=null,quranPool=null,quranLoading=null,mushafKey="",deck=null,deckSeconds=8,idleTimer=null,drawState=null,drawTimers=[];
   const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
   const pick=list=>list[Math.floor(Math.random()*list.length)];
   const view=()=>$("#demoView");
@@ -161,6 +171,7 @@
           <button id="demoResetBtn" class="secondary-btn" type="button" title="توليد بيانات جديدة"><i data-lucide="rotate-ccw"></i> <span>بيانات جديدة</span></button>
         </div></div>
       <div class="demo-live-bar"><span class="demo-live-dot"></span><b>مباشر</b><span>آخر تحديث <b id="demoClock"></b></span><span class="demo-sim-chip"><i data-lucide="flask-conical"></i> محاكاة — لا يوجد متسابقون حقيقيون</span></div>
+      <div class="demo-stage-head"><div><span id="demoStageKicker" class="eyebrow"></span><h2 id="demoStageTitle"></h2><p id="demoStageText"></p></div><span id="demoStageCount" class="demo-stage-count"></span></div>
       <div id="demoKpis" class="stats-grid demo-kpis">
         ${kpiCard("users","green","المسجَّلون اليوم","demoKpiTotal","demoKpiTotalSub")}
         ${kpiCard("radio","red","قيد الاختبار الآن","demoKpiLive","demoKpiLiveSub")}
@@ -169,6 +180,13 @@
         ${kpiCard("trending-up","gold","نسبة النجاح","demoKpiPass","demoKpiPassSub")}
         ${kpiCard("timer","green","متوسط مدة الاختبار","demoKpiDur","demoKpiDurSub")}
       </div>
+      <section id="demoFlowPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">من التسجيل إلى الشهادة</span><h3>سير العمل في النظام</h3></div><i data-lucide="workflow"></i></div>
+        <ol class="demo-flow">${FLOW_STEPS.map(([icon,title,desc],i)=>`<li style="--i:${i}"><span class="demo-flow-num">${formatNumber(i+1)}</span><i data-lucide="${icon}"></i><b>${title}</b><small>${desc}</small></li>`).join("")}</ol>
+        <p class="demo-flow-note"><i data-lucide="eye"></i> الإدارة تتابع كل مرحلة مباشرة ومن أي جهاز</p></section>
+      <section id="demoDrawPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">قبل دخول المتسابق للجنة</span><h3>السحب العشوائي العادل</h3></div><button id="demoDrawBtn" class="compact-btn" type="button"><i data-lucide="shuffle"></i> سحب جديد</button></div>
+        <div class="demo-draw-layout"><div id="demoDrawMain"></div>
+          <aside class="demo-draw-facts"><h4>ضمانات العدالة</h4><ul>${DRAW_FACTS.map(f=>`<li><i data-lucide="shield-check"></i>${f}</li>`).join("")}</ul>
+            <div class="demo-fair"><b id="demoFairTitle"></b><div id="demoFairBars" class="demo-fair-bars"></div><small id="demoFairNote"></small></div></aside></div></section>
       <section id="demoGridPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">كل اللجان على شاشة واحدة</span><h3>اللجان الآن</h3></div><span id="demoGridSummary" class="status-pill"></span></div><div id="demoGrid" class="demo-grid"></div></section>
       <section id="demoDetailPanel" class="panel demo-section"><div class="demo-detail-layout"><div id="demoDetailMain"></div><figure id="demoMushaf" class="demo-mushaf"></figure></div></section>
       <div class="demo-columns">
@@ -179,18 +197,40 @@
         <section id="demoLogPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">كل إجراء بوقته ومنفّذه</span><h3>سجل التدقيق</h3></div><i data-lucide="scroll-text"></i></div><div id="demoLog" class="demo-log"></div></section>
         <section id="demoPerfPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">عدالة التقييم بين اللجان</span><h3>مقارنة أداء اللجان</h3></div><i data-lucide="scale"></i></div><div id="demoPerf" class="demo-perf"></div></section>
       </div>
-      <div id="demoCaption" class="demo-caption hidden" aria-live="polite"></div>`;
-    $("#demoTourBtn").onclick=()=>tour?endTour():startTour();
+      <div class="demo-columns">
+        <section id="demoReportsPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">بضغطة زر، دون عمل يدوي</span><h3>التقارير والشهادات</h3></div><i data-lucide="file-spreadsheet"></i></div>
+          <div class="demo-cards">${featureCards(REPORT_ITEMS)}</div>
+          <h4 class="demo-subhead">ملخص نتائج اليوم حسب المستوى (يتحدث تلقائياً)</h4><div class="table-wrap"><table class="demo-results-table demo-compact"><thead><tr><th>المستوى</th><th>عدد المعتمَدين</th><th>نسبة النجاح</th><th>متوسط العلامة</th><th>أعلى علامة</th></tr></thead><tbody id="demoLevelSummary"></tbody></table></div></section>
+        <section id="demoSecurityPanel" class="panel demo-section"><div class="panel-head"><div><span class="eyebrow">الحماية مفروضة على الخادم</span><h3>الأمان والصلاحيات</h3></div><i data-lucide="fingerprint"></i></div>
+          <div class="demo-cards">${featureCards(SECURITY_ITEMS)}</div></section>
+      </div>
+      <div id="demoControls" class="demo-controls">
+        <button type="button" class="compact-btn" data-deck="prev"><i data-lucide="chevron-right"></i> السابق</button>
+        <button type="button" class="compact-btn" data-deck="pause" id="demoDeckPause"></button>
+        <button type="button" class="compact-btn" data-deck="next">التالي <i data-lucide="chevron-left"></i></button>
+        <span class="demo-controls-label">مدة كل قسم</span>
+        <div class="demo-speed">${DECK_SECONDS.map(v=>`<button type="button" class="compact-btn" data-deck-seconds="${v}">${v?`${v} ث`:"يدوي"}</button>`).join("")}</div>
+        <button type="button" class="compact-btn" data-deck="exit"><i data-lucide="x"></i> خروج</button>
+        <div class="demo-deck-progress"><span id="demoDeckBar"></span></div>
+      </div>`;
+    $("#demoTourBtn").onclick=()=>deck?endDeck():startDeck();
+    $("#demoDrawBtn").onclick=runDraw;
+    $("#demoControls").onclick=event=>{const btn=event.target.closest("button");if(!btn||!deck)return;wakeControls();
+      if(btn.dataset.deckSeconds!==undefined){deckSeconds=Number(btn.dataset.deckSeconds);deck.paused=false;scheduleNext();syncControls();return}
+      const action=btn.dataset.deck;if(action==="prev")goSlide(deck.index-1);else if(action==="next")goSlide(deck.index+1);else if(action==="pause"){deck.paused=!deck.paused;if(deck.paused)stopPan();else startPan();scheduleNext();syncControls()}else if(action==="exit")endDeck()};
     $("#demoPauseBtn").onclick=()=>{paused=!paused;syncControls()};
-    $("#demoResetBtn").onclick=()=>{endTour();buildSim();render()};
+    $("#demoResetBtn").onclick=()=>{buildSim();render();runDraw()};
     view().querySelectorAll("[data-demo-speed]").forEach(btn=>btn.onclick=()=>setSpeed(Number(btn.dataset.demoSpeed)));
-    $("#demoGrid").onclick=event=>{const card=event.target.closest("[data-demo-committee]");if(!card)return;selectedId=card.dataset.demoCommittee;mushafKey="";render();if(!tour)$("#demoDetailPanel").scrollIntoView({behavior:"smooth",block:"start"})};
+    $("#demoGrid").onclick=event=>{const card=event.target.closest("[data-demo-committee]");if(!card)return;selectedId=card.dataset.demoCommittee;mushafKey="";render();if(!deck)$("#demoDetailPanel").scrollIntoView({behavior:"smooth",block:"start"})};
+    renderFairness();runDraw();
     lucide.createIcons();
   }
+  const featureCards=items=>items.map(([icon,title,desc])=>`<article class="demo-feature"><i data-lucide="${icon}"></i><div><b>${title}</b><small>${desc}</small></div></article>`).join("");
   function kpiCard(icon,tone,label,valueId,subId){return `<article class="stat"><div class="stat-icon ${tone}"><i data-lucide="${icon}"></i></div><div><span>${label}</span><b id="${valueId}">0</b><small id="${subId}" class="demo-kpi-sub"></small></div></article>`}
   function syncControls(){
     const pause=$("#demoPauseBtn");if(pause)pause.innerHTML=paused?`<i data-lucide="play"></i> <span>متابعة</span>`:`<i data-lucide="pause"></i> <span>إيقاف مؤقت</span>`;
-    const tourBtn=$("#demoTourBtn");if(tourBtn)tourBtn.innerHTML=tour?`<i data-lucide="square"></i> <span>إنهاء العرض</span>`:`<i data-lucide="clapperboard"></i> <span>تشغيل العرض التلقائي</span>`;
+    const deckPause=$("#demoDeckPause");if(deckPause)deckPause.innerHTML=deck?.paused?`<i data-lucide="play"></i> متابعة`:`<i data-lucide="pause"></i> إيقاف`;
+    view()?.querySelectorAll("[data-deck-seconds]").forEach(btn=>btn.classList.toggle("is-active",Number(btn.dataset.deckSeconds)===deckSeconds));
     view()?.querySelectorAll("[data-demo-speed]").forEach(btn=>btn.classList.toggle("is-active",Number(btn.dataset.demoSpeed)===speed));
     lucide.createIcons();
   }
@@ -199,8 +239,8 @@
   function render(){
     if(!sim||!view())return;
     $("#demoClock").textContent=formatTime(Date.now());
-    renderKpis();renderGrid();renderDetail();renderAlerts();renderResults();renderLog();renderPerf();
-    if(tour)$(TOUR_STEPS[tour.step]?.target||"")?.classList.add("demo-spotlight");
+    renderKpis();renderGrid();renderDetail();renderAlerts();renderResults();renderLog();renderPerf();renderLevelSummary();
+    const spot=deck&&SLIDES[deck.index]?.spot;if(spot)$(spot)?.classList.add("demo-spotlight");
     lucide.createIcons();
     sim.flash=null;
   }
@@ -259,13 +299,13 @@
         <div class="demo-examiner"><span>رصد العضو · ${escapeHtml(c.memberName)}</span><b class="${scoreTone(member)}">${formatAssessmentNumber(member.score)}</b><small>الخصم ${formatAssessmentNumber(member.totalDeduction)}</small></div>
         <div class="demo-examiner ${gap>=3?"is-gap":""}"><span>الفرق بين الرصدين</span><b>${formatAssessmentNumber(Math.round(gap*100)/100)}</b><small>${gap>=3?"اختلاف يستدعي المراجعة":"ضمن الطبيعي"}</small></div>
       </div>
-      <div class="demo-positions">${s.positions.slice(0,Math.min(s.positions.length,s.current+2)).map((pos,i)=>{
+      <div class="demo-positions">${s.positions.map((pos,i)=>{
         const started=i<s.current||(i===s.current&&c.state==="exam"),isCurrent=i===s.current&&c.state==="exam",diff=started&&positionDiffers(s.chair[i],s.member[i]);
         return `<article class="demo-pos ${isCurrent?"is-current":""} ${i<s.current?"is-done":""} ${diff?"has-diff":""}">
           <div class="demo-pos-title"><b>الموضع ${formatNumber(i+1)}${isCurrent?" · يُقرأ الآن":""}</b><span>${escapeHtml(positionLabel(pos))} · الجزء ${pos.juz} · الصفحة ${pos.page}</span></div>
           <div class="demo-pos-marks"><small>الرئيس</small>${marksBadges(s.chair[i],started)}</div>
           <div class="demo-pos-marks"><small>العضو</small>${marksBadges(s.member[i],started)}</div>
-          <span class="demo-pos-flag">${!started?"":diff?"اختلاف":"متطابق"}</span></article>`}).join("")}${s.positions.length>s.current+2?`<p class="demo-pos-more">+ ${formatNumber(s.positions.length-s.current-2)} مواضع أخرى مسحوبة لم يصلها الاختبار بعد</p>`:""}</div>`;
+          <span class="demo-pos-flag">${!started?"":diff?"اختلاف":"متطابق"}</span></article>`}).join("")}</div>`;
     setMushaf(c.state==="exam"?s.positions[current]:null);
   }
   function setMushaf(position){
@@ -294,27 +334,127 @@
     }).join("")+`<p class="demo-muted">المعدل العام لكل اللجان: <b>${formatAssessmentNumber(Math.round(overall*10)/10)}</b> — تُبرز أي لجنة يبتعد متوسطها عنه بـ 5 علامات أو أكثر.</p>`;
   }
 
-  function startTour(){
-    tour={step:-1,timer:null};paused=false;setSpeed(Math.max(speed,2));
-    nextTourStep();syncControls();
+  function renderLevelSummary(){
+    const levels=[...new Set(sim.results.map(r=>r.level))].sort((a,b)=>a-b);
+    $("#demoLevelSummary").innerHTML=levels.map(level=>{const rs=sim.results.filter(r=>r.level===level),n=rs.length;
+      return `<tr><td><b>${level} أجزاء</b></td><td>${formatNumber(n)}</td><td>${formatNumber(Math.round(rs.filter(r=>r.passed).length/n*100))}%</td><td>${formatAssessmentNumber(Math.round(rs.reduce((s,r)=>s+r.score,0)/n*10)/10)}</td><td>${formatAssessmentNumber(Math.max(...rs.map(r=>r.score)))}</td></tr>`}).join("");
   }
-  function nextTourStep(){
-    if(!tour)return;
-    view().querySelectorAll(".demo-spotlight").forEach(el=>el.classList.remove("demo-spotlight"));
-    tour.step++;
-    const step=TOUR_STEPS[tour.step];
-    if(!step){endTour();return}
-    if(step.select){const exams=sim.committees.filter(c=>c.state==="exam"),left=c=>c.session.positions.length-c.session.current;const best=exams.filter(c=>c.session.current>=2&&left(c)>=2).sort((a,b)=>left(b)-left(a))[0]||exams.sort((a,b)=>b.session.current-a.session.current)[0];if(best){selectedId=best.id;mushafKey="";render()}}
-    const target=$(step.target);
-    if(target){target.classList.add("demo-spotlight");target.scrollIntoView({behavior:"smooth",block:target.offsetHeight>window.innerHeight*.65?"start":"center"})}
-    const caption=$("#demoCaption");caption.textContent=step.text;caption.classList.remove("hidden");caption.classList.remove("demo-caption-in");void caption.offsetWidth;caption.classList.add("demo-caption-in");
-    tour.timer=setTimeout(nextTourStep,step.ms);
+  // فحص عشوائية حقيقي بالمتصفح: 100,000 سحب بنفس المولّد الآمن الذي يستخدمه السحب الفعلي.
+  function renderFairness(){
+    const counts=new Array(30).fill(0),total=100000;
+    for(let i=0;i<total;i++)counts[randomIndex(30)]++;
+    const mean=total/30,max=Math.max(...counts),dev=Math.max(...counts.map(c=>Math.abs(c-mean)))/mean*100;
+    $("#demoFairTitle").textContent=`فحص العشوائية: ${formatNumber(total)} سحب تجريبي على الأجزاء الثلاثين`;
+    $("#demoFairBars").innerHTML=counts.map((c,i)=>`<span title="الجزء ${i+1}: ${formatNumber(c)}" style="height:${Math.round(c/max*100)}%"></span>`).join("");
+    $("#demoFairNote").textContent=`أقصى انحراف عن التوزيع المتساوي ${dev.toFixed(1)}% فقط — لا أفضلية لأي جزء`;
   }
-  function endTour(){
-    if(!tour)return;
-    clearTimeout(tour.timer);tour=null;
-    view()?.querySelectorAll(".demo-spotlight").forEach(el=>el.classList.remove("demo-spotlight"));
-    $("#demoCaption")?.classList.add("hidden");
+  function clearDrawTimers(){drawTimers.forEach(t=>clearTimeout(t));drawTimers=[]}
+  function runDraw(){
+    if(!$("#demoDrawMain"))return;
+    clearDrawTimers();
+    const level=pick([10,15,20]),female=Math.random()<.4,count=Math.min(LEVEL_QUESTIONS[level]||3,level);
+    const parts=Array.from({length:level},(_,i)=>31-level+i);
+    drawState={name:`${pick(female?FIRST_F:FIRST_M)} ${pick(FIRST_M)} ${pick(FAMILY)}`,level,center:pick(CENTERS),seat:rnd(1100,1300),parts,count,phase:"spin",flicker:new Set(),positions:[],code:""};
+    renderDraw();
+    const spin=setInterval(()=>{drawState.flicker=new Set(secureShuffle(parts).slice(0,count));renderDraw()},110);
+    drawTimers.push(spin);
+    drawTimers.push(setTimeout(()=>{
+      clearInterval(spin);
+      drawState.positions=drawPositions(level);drawState.flicker=new Set();drawState.phase="done";
+      drawState.code=Array.from({length:2},()=>randomIndex(0x10000).toString(16).toUpperCase().padStart(4,"0")).join("-");
+      renderDraw();lucide.createIcons();
+      if(deck&&SLIDES[deck.index]?.draw)drawTimers.push(setTimeout(runDraw,9000));
+    },2600));
+  }
+  function renderDraw(){
+    const d=drawState,main=$("#demoDrawMain");if(!d||!main)return;
+    const chosen=new Set(d.positions.map(p=>p.juz));
+    main.innerHTML=`<div class="demo-draw-who"><div><span class="eyebrow">المتسابق</span><h4>${escapeHtml(d.name)}</h4><small>${d.level} أجزاء · ${escapeHtml(d.center)} · رقم الجلوس ${d.seat} · ${formatNumber(d.count)} أسئلة</small></div>
+        <span class="status-pill ${d.phase==="spin"?"is-live":""}">${d.phase==="spin"?"جارٍ السحب…":`<i data-lucide="shield-check"></i> رمز التحقق ${d.code}`}</span></div>
+      <p class="demo-draw-label">أجزاء المتسابق المسجّلة (${formatNumber(d.level)})</p>
+      <div class="demo-juz-grid">${d.parts.map(j=>`<span class="${d.flicker.has(j)?"is-flicker":""} ${chosen.has(j)?"is-chosen":""}">${j}</span>`).join("")}</div>
+      ${d.phase==="done"?`<p class="demo-draw-label">المواضع المسحوبة</p><ol class="demo-draw-list">${d.positions.slice().sort((a,b)=>a.juz-b.juz).map(p=>`<li><b>الجزء ${p.juz}</b><span>${escapeHtml(positionLabel(p))}</span><small>الصفحة ${p.page}</small></li>`).join("")}</ol>`:`<p class="demo-muted">يختار المولّد الآمن ${formatNumber(d.count)} أجزاء مختلفة، ثم موضعاً عشوائياً من كل جزء…</p>`}`;
+  }
+
+  function chooseShowcaseCommittee(){
+    const exams=sim.committees.filter(c=>c.state==="exam"),left=c=>c.session.positions.length-c.session.current;
+    const best=exams.filter(c=>c.session.current>=2&&left(c)>=2).sort((a,b)=>left(b)-left(a))[0]||exams.sort((a,b)=>b.session.current-a.session.current)[0];
+    if(best){selectedId=best.id;mushafKey=""}
+  }
+  function startDeck(){
+    deck={index:-1,timer:null,paused:false};
+    paused=false;if(speed<2)setSpeed(2);
+    document.documentElement.classList.add("demo-presenting");view().classList.add("demo-present");
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+    document.addEventListener("keydown",deckKeys);document.addEventListener("mousemove",wakeControls);
+    window.addEventListener("wheel",stopPan,{passive:true});window.addEventListener("touchstart",stopPan,{passive:true});
+    wakeControls();goSlide(0);
+  }
+  function goSlide(index){
+    if(!deck)return;
+    deck.index=Math.max(0,Math.min(SLIDES.length-1,index));
+    const slide=SLIDES[deck.index];
+    if(slide.select)chooseShowcaseCommittee();
+    view().querySelectorAll(".demo-shown,.demo-spotlight").forEach(el=>el.classList.remove("demo-shown","demo-spotlight"));
+    render();
+    slide.show.forEach(sel=>$(sel)?.classList.add("demo-shown"));
+    if(slide.draw)runDraw();
+    $("#demoStageKicker").textContent=slide.kicker;$("#demoStageTitle").textContent=slide.title;
+    $("#demoStageCount").textContent=`${formatNumber(deck.index+1)} من ${formatNumber(SLIDES.length)}`;$("#demoStageText").textContent=slide.text;
+    const head=view().querySelector(".demo-stage-head");
+    [head,...slide.show.map(sel=>$(sel))].forEach(el=>{if(!el)return;el.classList.remove("demo-slide-in");void el.offsetWidth;el.classList.add("demo-slide-in")});
+    window.scrollTo({top:0});
+    startPan();
+    scheduleNext();syncControls();
+  }
+  // الشريحة الأطول من الشاشة تنزل تدريجياً حتى آخرها خلال مدة القسم؛ تتوقف إن مرّر المستخدم بنفسه.
+  let panFrame=null;
+  function stopPan(){if(panFrame)cancelAnimationFrame(panFrame);panFrame=null}
+  function startPan(){
+    stopPan();
+    const total=(deckSeconds||10)*1000,delay=1500,run=Math.max(1500,total-delay-1200),begin=performance.now()+delay;
+    const step=now=>{
+      if(!deck)return stopPan();
+      const max=document.documentElement.scrollHeight-window.innerHeight;
+      if(now>=begin&&max>0){const t=Math.min(1,(now-begin)/run),eased=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;window.scrollTo(0,max*eased);if(t>=1)return stopPan()}
+      panFrame=requestAnimationFrame(step);
+    };
+    panFrame=requestAnimationFrame(step);
+  }
+  function scheduleNext(){
+    if(!deck)return;
+    clearTimeout(deck.timer);
+    const bar=$("#demoDeckBar"),last=deck.index>=SLIDES.length-1;
+    bar.style.animation="none";void bar.offsetWidth;
+    if(!deckSeconds||deck.paused||last){bar.style.width=last?"100%":"0";return}
+    bar.style.width="";bar.style.animation=`demoDeckBar ${deckSeconds}s linear forwards`;
+    deck.timer=setTimeout(()=>goSlide(deck.index+1),deckSeconds*1000);
+  }
+  function deckKeys(event){
+    if(!deck)return;
+    const key=event.key;
+    if(["ArrowLeft","PageDown","Enter"].includes(key)){event.preventDefault();goSlide(deck.index+1)}
+    else if(["ArrowRight","PageUp","Backspace"].includes(key)){event.preventDefault();goSlide(deck.index-1)}
+    else if(key===" "){event.preventDefault();deck.paused=!deck.paused;if(deck.paused)stopPan();else startPan();scheduleNext();syncControls()}
+    else if(key==="Escape")endDeck();
+    else return;
+    wakeControls();
+  }
+  // أزرار التحكم والمؤشر يختفيان بعد ثانيتين ونصف بلا حركة، حتى يبقى الفيديو نظيفاً.
+  function wakeControls(){
+    document.documentElement.classList.remove("demo-idle");
+    clearTimeout(idleTimer);
+    if(deck)idleTimer=setTimeout(()=>document.documentElement.classList.add("demo-idle"),2500);
+  }
+  function endDeck(){
+    if(!deck)return;
+    clearTimeout(deck.timer);deck=null;clearTimeout(idleTimer);stopPan();
+    window.removeEventListener("wheel",stopPan);window.removeEventListener("touchstart",stopPan);
+    document.removeEventListener("keydown",deckKeys);document.removeEventListener("mousemove",wakeControls);
+    document.documentElement.classList.remove("demo-presenting","demo-idle");
+    view()?.classList.remove("demo-present");
+    view()?.querySelectorAll(".demo-shown,.demo-spotlight").forEach(el=>el.classList.remove("demo-shown","demo-spotlight"));
+    if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{});
     syncControls();
   }
 
@@ -333,7 +473,7 @@
     syncControls();render();
     if(!timer)timer=setInterval(tick,TICK_MS/speed);
   }
-  function stop(){if(timer)clearInterval(timer);timer=null;endTour()}
+  function stop(){if(timer)clearInterval(timer);timer=null;clearDrawTimers();endDeck()}
   // المدخل السري: خمس نقرات خلال ثانيتين على شعار القائمة الجانبية. للمدير الرئيسي بالسحابة أو الوضع المحلي فقط.
   let logoClicks=[];
   document.addEventListener("click",event=>{
