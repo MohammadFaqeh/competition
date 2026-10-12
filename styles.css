@@ -1592,10 +1592,20 @@ html.theme-dark #demoView{--demo-pass:#86dfb3;--demo-fail:#e8a3a3;--demo-warn:#e
 .demo-stage-head,.demo-controls{display:none}
 html.demo-presenting .sidebar,html.demo-presenting .topbar,html.demo-presenting #localModeNotice,html.demo-presenting .color-mode-toggle{display:none!important}
 html.demo-presenting .workspace{margin-right:0!important}
+/* الشريحة تُصغَّر لتتسع بالشاشة (fitSlide)، فلا حاجة لأي تمرير أثناء العرض */
+html.demo-presenting,html.demo-presenting body{overflow:hidden}
+html.demo-presenting footer{display:none}
 html.demo-presenting main{padding:22px 32px 110px}
 html.demo-presenting.demo-idle,html.demo-presenting.demo-idle *{cursor:none!important}
 .demo-present .page-head,.demo-present .demo-section,.demo-present #demoKpis{display:none}
 .demo-present .demo-columns{display:block}
+.demo-present .demo-columns:has(.demo-shown ~ .demo-shown){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:1320px;margin-inline:auto}
+.demo-present .demo-columns:has(.demo-shown ~ .demo-shown)>.demo-shown{max-width:none}
+.demo-present .demo-positions{grid-template-columns:repeat(2,minmax(0,1fr))}
+.demo-present .demo-log{max-height:none;overflow:hidden}
+.demo-present .demo-pos{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
+.demo-present .demo-pos-title{grid-column:1/-1}
+.demo-present #demoKpis.demo-shown{margin-bottom:14px}
 .demo-present .demo-section.demo-shown{display:block;max-width:1320px;margin-inline:auto}
 .demo-present #demoKpis.demo-shown{display:grid;max-width:1320px;margin:0 auto 18px}
 .demo-present .demo-live-bar{max-width:1320px}
