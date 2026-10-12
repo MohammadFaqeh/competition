@@ -27,27 +27,26 @@
   const STATE_LABEL={idle:"بانتظار المتسابق التالي",drawing:"سحب المواضع…",exam:"قيد الاختبار",review:"مراجعة الرصدين"};
   // شرائح العرض: كل شريحة تُظهر قسماً واحداً بملء الشاشة. show = العناصر الظاهرة، spot = إطار مضيء داخلها.
   const SLIDES=[
-    {show:["#demoFlowPanel"],kicker:"الصورة الكاملة",title:"رحلة المتسابق من التسجيل إلى الشهادة",text:"كل مرحلة، من تسجيل المتسابق حتى إصدار شهادته، تتم داخل نظام واحد وتحت نظر الإدارة."},
-    {show:["#demoKpis"],kicker:"لوحة اليوم",title:"الأرقام لحظة بلحظة",text:"عدد المختبَرين، ومن يُختبر الآن، ونسبة النجاح، ومتوسط المدة — تتحدث تلقائياً دون أي تدخل."},
-    {show:["#demoDrawPanel"],draw:true,kicker:"العدالة قبل الاختبار",title:"سحب عشوائي عادل وآمن",text:"لا أحد يختار الأسئلة: النظام يسحب أجزاءً مختلفة من محفوظ المتسابق، وموضعاً عشوائياً من كل جزء."},
-    {show:["#demoGridPanel"],kicker:"غرفة المراقبة",title:"كل اللجان على شاشة واحدة",text:"كل لجنة في بطاقة: من يُختبر الآن، وأي موضع وصل، وعلامة الرئيس والعضو الحيّة، ومدة الاختبار."},
-    {show:["#demoDetailPanel"],select:true,kicker:"داخل اللجنة",title:"نرى كل خطأ لحظة تسجيله",text:"ندخل أي لجنة دون إشعارها، فنرى الأخطاء تُسجَّل في كل موضع، ومعها صفحة المصحف نفسها."},
-    {show:["#demoDetailPanel"],spot:"#demoExaminers",kicker:"الرصد المزدوج",title:"رئيس وعضو يرصدان باستقلال",text:"رصد الرئيس ورصد العضو مستقلان تماماً، وأي اختلاف بينهما يظهر فوراً ولا تُعتمد النتيجة قبل مراجعته."},
-    {show:["#demoAlertsPanel"],kicker:"إنذار مبكر",title:"تنبيهات فورية للإدارة",text:"أي اختلاف بين الممتحنَين، أو تغيير موضع، أو تأخّر في المدة يصل للإدارة مباشرة."},
-    {show:["#demoResultsPanel"],kicker:"النزاهة",title:"نتائج معتمدة ومقفلة",text:"النتيجة لا تظهر إلا بعد اعتمادها من رئيس اللجنة، وتُقفل فلا تُعدَّل إلا بصلاحية خاصة تمنحها الإدارة."},
-    {show:["#demoLogPanel"],kicker:"الشفافية",title:"سجل تدقيق لكل إجراء",text:"كل سحب وبدء اختبار وتغيير موضع واعتماد مسجَّل بوقته ومنفّذه."},
-    {show:["#demoPerfPanel"],kicker:"عدالة التقييم",title:"مقارنة أداء اللجان",text:"متوسط العلامات ونسبة النجاح والمدة لكل لجنة — فتظهر فوراً أي لجنة متساهلة أو متشددة."},
-    {show:["#demoReportsPanel"],kicker:"المخرجات",title:"تقارير وشهادات بضغطة زر",text:"النتائج إلى Excel مرتبة حسب المستوى، وأوراق النتائج والبطاقات والشهادات PDF، دون أي عمل يدوي."},
-    {show:["#demoSecurityPanel"],kicker:"الحماية",title:"أمان على مستوى الخادم",text:"كل مستخدم يرى ما يخصه فقط، والحماية مفروضة في قاعدة البيانات نفسها لا في الواجهة."},
-    {show:["#demoKpis","#demoFlowPanel"],kicker:"الخلاصة",title:"نظام واحد… شفافية كاملة",text:"سحب عادل، رصد مزدوج، اعتماد مقفل، ومراقبة لحظية لكل لجنة."}
+    {show:["#demoFlowPanel"],kicker:"الصورة الكاملة",title:"رحلة المتسابق من التسجيل إلى الشهادة",sec:14,text:"كل مرحلة، من تسجيل المتسابق حتى إصدار شهادته، تتم داخل نظام واحد وتحت نظر الإدارة."},
+    {show:["#demoKpis"],kicker:"لوحة اليوم",title:"الأرقام لحظة بلحظة",sec:10,text:"عدد المختبَرين، ومن يُختبر الآن، ونسبة النجاح، ومتوسط المدة — تتحدث تلقائياً دون أي تدخل."},
+    {show:["#demoDrawPanel"],draw:true,kicker:"العدالة قبل الاختبار",title:"سحب عشوائي عادل وآمن",sec:16,text:"لا أحد يختار الأسئلة: النظام يسحب أجزاءً مختلفة من محفوظ المتسابق، وموضعاً عشوائياً من كل جزء."},
+    {show:["#demoGridPanel"],kicker:"غرفة المراقبة",title:"كل اللجان على شاشة واحدة",sec:13,text:"كل لجنة في بطاقة: من يُختبر الآن، وأي موضع وصل، وعلامة الرئيس والعضو الحيّة، ومدة الاختبار."},
+    {show:["#demoDetailPanel"],select:true,kicker:"داخل اللجنة",title:"نرى كل خطأ لحظة تسجيله",sec:16,text:"ندخل أي لجنة دون إشعارها، فنرى الأخطاء تُسجَّل في كل موضع، ومعها صفحة المصحف نفسها."},
+    {show:["#demoDetailPanel"],spot:"#demoExaminers",kicker:"الرصد المزدوج",title:"رئيس وعضو يرصدان باستقلال",sec:12,text:"رصد الرئيس ورصد العضو مستقلان تماماً، وأي اختلاف بينهما يظهر فوراً ولا تُعتمد النتيجة قبل مراجعته."},
+    {show:["#demoAlertsPanel"],kicker:"إنذار مبكر",title:"تنبيهات فورية للإدارة",sec:11,text:"أي اختلاف بين الممتحنَين، أو تغيير موضع، أو تأخّر في المدة يصل للإدارة مباشرة."},
+    {show:["#demoResultsPanel"],kicker:"النزاهة",title:"نتائج معتمدة ومقفلة",sec:12,text:"النتيجة لا تظهر إلا بعد اعتمادها من رئيس اللجنة، وتُقفل فلا تُعدَّل إلا بصلاحية خاصة تمنحها الإدارة."},
+    {show:["#demoLogPanel"],kicker:"الشفافية",title:"سجل تدقيق لكل إجراء",sec:10,text:"كل سحب وبدء اختبار وتغيير موضع واعتماد مسجَّل بوقته ومنفّذه."},
+    {show:["#demoPerfPanel"],kicker:"عدالة التقييم",title:"مقارنة أداء اللجان",sec:14,text:"متوسط العلامات ونسبة النجاح والمدة لكل لجنة — فتظهر فوراً أي لجنة متساهلة أو متشددة."},
+    {show:["#demoReportsPanel"],kicker:"المخرجات",title:"تقارير وشهادات بضغطة زر",sec:15,text:"النتائج إلى Excel مرتبة حسب المستوى، وأوراق النتائج والبطاقات والشهادات PDF، دون أي عمل يدوي."},
+    {show:["#demoSecurityPanel"],kicker:"الحماية",title:"أمان على مستوى الخادم",sec:14,text:"كل مستخدم يرى ما يخصه فقط، والحماية مفروضة في قاعدة البيانات نفسها لا في الواجهة."},
+    {show:["#demoKpis","#demoFlowPanel"],kicker:"الخلاصة",title:"نظام واحد… شفافية كاملة",sec:10,text:"سحب عادل، رصد مزدوج، اعتماد مقفل، ومراقبة لحظية لكل لجنة."}
   ];
-  const DECK_SECONDS=[5,8,12,0]; // 0 = تنقّل يدوي فقط
   const FLOW_STEPS=[["user-plus","تسجيل المتسابقين","يدوياً أو باستيراد Excel، بالمستوى والمركز"],["shuffle","سحب عادل","مواضع عشوائية من محفوظ كل متسابق"],["book-open","اختبار إلكتروني","رئيس وعضو يرصدان الأخطاء كلٌّ على جهازه"],["scale","مراجعة الاختلاف","الرئيس يحسم مواضع الاختلاف فقط"],["lock","اعتماد وقفل","العلامة تُحسب تلقائياً وتُقفل"],["award","تقارير وشهادات","Excel وPDF وبطاقات الجمعية"]];
   const DRAW_FACTS=["مولّد عشوائي آمن (Web Crypto) وليس Math.random","أجزاء مختلفة من محفوظ المتسابق نفسه، بعدد أسئلة مستواه","كل موضع 8 أسطر من المصحف، يبدأ وينتهي عند حدود الآيات","السحب عملية واحدة على الخادم، فلا يُسحب للمتسابق مرتين","رمز تحقق لكل سحب"];
   const REPORT_ITEMS=[["file-spreadsheet","نتائج وترتيب Excel","شيت لكل مستوى، مع فلترة بالجنس والمراكز والمستويات قبل التنزيل"],["file-text","ورقة نتيجة PDF","لكل متسابق، جاهزة للطباعة"],["award","بطاقات «حفظ للجمعية»","بنموذج الجمعية، مع شبكة الأجزاء المظلَّلة وتفقيط العلامة بالعربية"],["book-open-check","ديوان الحفاظ","تصديق حفظ القرآن كاملاً على 4 مراحل، مع شهادات وتوصيات PDF"],["timer","سجل السحوبات ومدة الاختبار","قابلة للبحث والتصدير إلى Excel"],["database-backup","نسخ احتياطي تلقائي","دوري من الخادم حتى مع إغلاق المتصفح"]];
   const SECURITY_ITEMS=[["users","صلاحيات حسب الدور","مدير، مشرف، مسؤول فرعي، رئيس لجنة، عضو — كلٌّ يرى ما يخصه فقط"],["server","حماية داخل قاعدة البيانات","قواعد الوصول مفروضة على الخادم نفسه، لا في الواجهة"],["key-round","رموز دخول مشفّرة","وقفل الحساب 15 دقيقة بعد 5 محاولات دخول خاطئة"],["log-out","جلسات محمية","جلسة واحدة لكل حساب، وخروج تلقائي بعد 30 دقيقة خمول"],["shield-check","فصل بيانات الذكور والإناث","تُفلتر على الخادم حسب جنس اللجنة"],["lock","منع التضارب","لا يُختبر متسابق في لجنتين، ولا يبدأ اختباران معاً في اللجنة نفسها"],["wifi-off","يعمل بلا إنترنت","وضع محلي كامل على جهاز واحد عند الحاجة"]];
 
-  let sim=null,timer=null,speed=1,paused=false,selectedId=null,quranPool=null,quranLoading=null,mushafKey="",deck=null,deckSeconds=8,idleTimer=null,drawState=null,drawTimers=[];
+  let sim=null,timer=null,speed=1,paused=false,selectedId=null,quranPool=null,quranLoading=null,mushafKey="",deck=null,deckAuto=true,idleTimer=null,drawState=null,drawTimers=[];
   const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
   const pick=list=>list[Math.floor(Math.random()*list.length)];
   const view=()=>$("#demoView");
@@ -208,15 +207,15 @@
         <button type="button" class="compact-btn" data-deck="prev"><i data-lucide="chevron-right"></i> السابق</button>
         <button type="button" class="compact-btn" data-deck="pause" id="demoDeckPause"></button>
         <button type="button" class="compact-btn" data-deck="next">التالي <i data-lucide="chevron-left"></i></button>
-        <span class="demo-controls-label">مدة كل قسم</span>
-        <div class="demo-speed">${DECK_SECONDS.map(v=>`<button type="button" class="compact-btn" data-deck-seconds="${v}">${v?`${v} ث`:"يدوي"}</button>`).join("")}</div>
+        <span class="demo-controls-label">التنقل</span>
+        <div class="demo-speed"><button type="button" class="compact-btn" data-deck-mode="auto">تلقائي</button><button type="button" class="compact-btn" data-deck-mode="manual">يدوي</button></div>
         <button type="button" class="compact-btn" data-deck="exit"><i data-lucide="x"></i> خروج</button>
         <div class="demo-deck-progress"><span id="demoDeckBar"></span></div>
       </div>`;
     $("#demoTourBtn").onclick=()=>deck?endDeck():startDeck();
     $("#demoDrawBtn").onclick=runDraw;
     $("#demoControls").onclick=event=>{const btn=event.target.closest("button");if(!btn||!deck)return;wakeControls();
-      if(btn.dataset.deckSeconds!==undefined){deckSeconds=Number(btn.dataset.deckSeconds);deck.paused=false;scheduleNext();syncControls();return}
+      if(btn.dataset.deckMode){deckAuto=btn.dataset.deckMode==="auto";deck.paused=false;scheduleNext();syncControls();return}
       const action=btn.dataset.deck;if(action==="prev")goSlide(deck.index-1);else if(action==="next")goSlide(deck.index+1);else if(action==="pause"){deck.paused=!deck.paused;if(deck.paused)stopPan();else startPan();scheduleNext();syncControls()}else if(action==="exit")endDeck()};
     $("#demoPauseBtn").onclick=()=>{paused=!paused;syncControls()};
     $("#demoResetBtn").onclick=()=>{buildSim();render();runDraw()};
@@ -230,7 +229,7 @@
   function syncControls(){
     const pause=$("#demoPauseBtn");if(pause)pause.innerHTML=paused?`<i data-lucide="play"></i> <span>متابعة</span>`:`<i data-lucide="pause"></i> <span>إيقاف مؤقت</span>`;
     const deckPause=$("#demoDeckPause");if(deckPause)deckPause.innerHTML=deck?.paused?`<i data-lucide="play"></i> متابعة`:`<i data-lucide="pause"></i> إيقاف`;
-    view()?.querySelectorAll("[data-deck-seconds]").forEach(btn=>btn.classList.toggle("is-active",Number(btn.dataset.deckSeconds)===deckSeconds));
+    view()?.querySelectorAll("[data-deck-mode]").forEach(btn=>btn.classList.toggle("is-active",(btn.dataset.deckMode==="auto")===deckAuto));
     view()?.querySelectorAll("[data-demo-speed]").forEach(btn=>btn.classList.toggle("is-active",Number(btn.dataset.demoSpeed)===speed));
     lucide.createIcons();
   }
@@ -412,7 +411,7 @@
   function stopPan(){if(panFrame)cancelAnimationFrame(panFrame);panFrame=null}
   function startPan(){
     stopPan();
-    const total=(deckSeconds||10)*1000,delay=1500,run=Math.max(1500,total-delay-1200),begin=performance.now()+delay;
+    const total=(SLIDES[deck.index]?.sec||12)*1000,delay=1500,run=Math.max(1500,total-delay-1200),begin=performance.now()+delay;
     const step=now=>{
       if(!deck)return stopPan();
       const max=document.documentElement.scrollHeight-window.innerHeight;
@@ -426,9 +425,10 @@
     clearTimeout(deck.timer);
     const bar=$("#demoDeckBar"),last=deck.index>=SLIDES.length-1;
     bar.style.animation="none";void bar.offsetWidth;
-    if(!deckSeconds||deck.paused||last){bar.style.width=last?"100%":"0";return}
-    bar.style.width="";bar.style.animation=`demoDeckBar ${deckSeconds}s linear forwards`;
-    deck.timer=setTimeout(()=>goSlide(deck.index+1),deckSeconds*1000);
+    if(!deckAuto||deck.paused||last){bar.style.width=last?"100%":"0";return}
+    const seconds=SLIDES[deck.index].sec||12;
+    bar.style.width="";bar.style.animation=`demoDeckBar ${seconds}s linear forwards`;
+    deck.timer=setTimeout(()=>goSlide(deck.index+1),seconds*1000);
   }
   function deckKeys(event){
     if(!deck)return;
