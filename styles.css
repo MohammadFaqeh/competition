@@ -912,6 +912,7 @@ body.exam-fullscreen .examiner-mode-modal{width:100%;max-width:none;height:100dv
    الصندوق دائمًا (sticky bottom) ليبقى بمتناول اليد بلا أي حاجة للتمرير اكتشافه أصلاً.  */
 .exam-position-complete{width:100%;justify-content:center;margin-top:8px;position:sticky;bottom:0;background:var(--surface);box-shadow:0 -8px 10px -6px rgb(0 0 0 / .08);z-index:1}
 .exam-position-complete.is-done{background:var(--green-100);border-color:var(--green-600);color:var(--green-800)}
+.exam-undo-position-change{display:inline-flex;margin-top:6px}
 .exam-position-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow-sm)}.exam-position-label{display:flex;justify-content:space-between;gap:10px;color:var(--green-700);font-size:11px;font-weight:800}.exam-position-label b{color:var(--red)}.exam-position-card>h2{font-size:18px;margin:5px 0 2px}.exam-position-card>p{color:var(--muted);font-size:11px}
 .exam-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
 .exam-split-quran{position:sticky;top:54px;align-self:start;min-width:0}
@@ -1163,6 +1164,8 @@ img,svg{max-width:100%}
 .gateway-option small svg{width:15px;flex:0 0 auto}.gateway-card>.developer-credit{margin-top:24px;padding-top:16px;border-top:1px solid var(--line-soft)}
 .local-mode-notice{margin:14px 36px 0;padding:11px 14px;border:1px solid #d9c27d;border-radius:12px;background:#fff8df;display:flex;align-items:center;gap:10px;color:#654c0d}
 .local-mode-notice>svg{width:20px;flex:0 0 auto}.local-mode-notice>div{display:flex;flex-direction:column;flex:1}.local-mode-notice b{font-size:12px}.local-mode-notice span{font-size:10px}
+.local-cloud-notice{margin:0 0 16px}
+.local-branch-app [data-view="diwan"],.local-branch-app [data-view="diwanStudents"],.local-branch-app #diwanView,.local-branch-app #diwanStudentsView,.local-branch-app .koura-only{display:none!important}
 .local-mode-notice button{border:0;border-radius:8px;padding:8px 11px;background:#765b14;color:#fff;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
 .local-branch-app #cloudCommitteesPanel,.local-branch-app #syncCloudBtn{display:none!important}
 @media(max-width:760px){.gateway-back-button{top:10px;right:10px;padding:7px}.gateway-back-button span{display:none}.gateway-screen{padding:0}.gateway-card{min-height:100dvh;border-radius:0;padding:22px 16px}.gateway-intro .auth-logo{width:84px;height:84px}.gateway-options{grid-template-columns:1fr}.gateway-option{padding:18px}.local-mode-notice{margin:8px 9px 0;align-items:flex-start}.local-mode-notice button{display:none}}
