@@ -305,6 +305,29 @@ window.DiwanCompetition=(()=>{
   async function replacePosition(participantId,drawId,index,position,assessment){const {data,error}=await client().rpc("diwan_committee_replace_position",{p_token:committeeToken(),p_participant_id:participantId,p_draw_id:drawId,p_position_index:Number(index),p_position:position,p_assessment:assessment});if(error)throw rpcError(error);return data}
   // التراجع عن آخر تغيير موضع (نفس undoCommitteePositionChange بالسنوية).
   async function undoPositionChange(participantId,drawId,index,oldPosition,assessment){const {data,error}=await client().rpc("diwan_committee_undo_position_change",{p_token:committeeToken(),p_participant_id:participantId,p_draw_id:drawId,p_position_index:Number(index),p_old_position:oldPosition,p_assessment:assessment});if(error)throw rpcError(error);return data}
+  // استعادة نسخة احتياطية للديوان (المدير فقط) — نفس restoreCompetitionStateInBatches بالسنوية: دفعات، دمج بلا حذف
+  // (ما ليس بالملف يبقى)، ثم تحقق من الخادم. عدّاد الشهادات الداخلي لا يرجع للخلف (الأكبر بين الملف والخادم).
+  async function restoreStateInBatches(payload,onProgress,batchSize=40){
+    if(!isAdmin())throw new Error("استعادة النسخة السحابية للمدير فقط");
+    clearTimeout(saveTimer);++saveGeneration;
+    const current=await loadState();
+    const config={...(payload.config||{}),nextCertificateSeq:Math.max(Number(payload.config?.nextCertificateSeq)||0,Number(current?.payload?.config?.nextCertificateSeq)||0)};
+    const participants=payload.participants||[],draws=payload.draws||[],batches=[];
+    for(let i=0;i<participants.length;i+=batchSize)batches.push({kind:"participants",items:participants.slice(i,i+batchSize),done:Math.min(i+batchSize,participants.length),total:participants.length});
+    for(let i=0;i<draws.length;i+=batchSize)batches.push({kind:"draws",items:draws.slice(i,i+batchSize),done:Math.min(i+batchSize,draws.length),total:draws.length});
+    if(!batches.length)batches.push({kind:"participants",items:[],done:0,total:0});
+    for(const [index,batch] of batches.entries()){
+      try{await withRetry(async()=>{const {error}=await client().rpc("diwan_admin_save_state",{p_config:config,p_participants:batch.kind==="participants"?batch.items:[],p_draws:batch.kind==="draws"?batch.items:[],p_deleted_participant_ids:[],p_deleted_draw_ids:[]}).abortSignal(timeoutSignal(30000));if(error)throw rpcError(error)},()=>false)}
+      catch(error){throw new Error(`فشلت دفعة ديوان الحفاظ ${index+1} من ${batches.length} (${batch.kind==="participants"?"المتسابقين":"السحوبات"}): ${error.message}`)}
+      onProgress?.({...batch,batchIndex:index+1,batchCount:batches.length});
+    }
+    const remote=await loadState();
+    const remoteParticipantIds=new Set((remote.payload?.participants||[]).map(p=>p.id)),remoteDrawIds=new Set((remote.payload?.draws||[]).map(d=>d.id));
+    const missingParticipants=participants.filter(p=>!remoteParticipantIds.has(p.id)).length,missingDraws=draws.filter(d=>!remoteDrawIds.has(d.id)).length;
+    if(missingParticipants||missingDraws)throw new Error(`اكتملت دفعات ديوان الحفاظ لكن التحقق فشل: ${missingParticipants} متسابق و${missingDraws} سحب غير موجودين بالسحابة`);
+    markAdminKnownIds(remote.payload?.participants,remote.payload?.draws);
+    return remote;
+  }
   // مسودة تلقائية مؤجَّلة (300ms، نفس queueSessionSave بالسنوية) — cancelQueuedSessionSave تُستدعى
   // قبل أي حفظ مباشر (اعتماد/فتح مراجعة) لمنع مسودة متأخرة من إرجاع الجلسة "قيد الاختبار" بعلامة فارغة.
   let sessionSaveTimer=null;
@@ -312,5 +335,5 @@ window.DiwanCompetition=(()=>{
   function cancelQueuedSessionSave(){clearTimeout(sessionSaveTimer);sessionSaveTimer=null}
 
   return {loadState,loadViewerState,listViewerSessions,getStateVersion,saveState,queueStateSave,markAdminKnownIds,createDraw,transferParticipant,deleteParticipantDraw,listSessions,
-    loadCommitteeState,listCommitteeSessions,listTakenDraws,claimStudent,saveSession,cancelSession,getSession,replacePosition,undoPositionChange,queueSessionSave,cancelQueuedSessionSave};
+    loadCommitteeState,listCommitteeSessions,listTakenDraws,claimStudent,saveSession,cancelSession,getSession,replacePosition,undoPositionChange,restoreStateInBatches,queueSessionSave,cancelQueuedSessionSave};
 })();

@@ -269,13 +269,14 @@ function currentDiwanDraw(participant,draws){
 // نأخذ فقط الجلسات المطابقة لمرحلته الحالية (jلسات مراحل سابقة اعتُمدت أصلاً ولا تؤثر بعد الآن)،
 // وبمعرّف lastGradedDrawId نمنع معالجة نفس النتيجة مرتين. النجاح (علامة ≥ DIWAN_PASS_SCORE بلا
 // "غير مكتمل") يرحّل الأجزاء إلى usedJuz ويرقّي المرحلة تلقائياً؛ الرسوب يبقي المرحلة كما هي.
-function mergeFinalDiwanSessionsIntoState(sessions){
+// target/persist: النسخة الاحتياطية تدمج النتائج بنسخة منفصلة (persist=false) دون تعديل أو حفظ بيانات الديوان الحية.
+function mergeFinalDiwanSessionsIntoState(sessions,target=diwanState,{persist=true}={}){
   let changed=false;
   const finalByParticipant=new Map();
   sessions.filter(session=>session.status==="final").forEach(session=>{
     const list=finalByParticipant.get(session.participant_id)||[];list.push(session);finalByParticipant.set(session.participant_id,list);
   });
-  diwanState.participants.forEach(participant=>{
+  target.participants.forEach(participant=>{
     const list=finalByParticipant.get(participant.id);if(!list||participant.certified||participant.withdrawn||participant.unenrolled)return;
     const enteredAt=participant.stageEnteredAt?new Date(participant.stageEnteredAt):null;const currentStageSessions=list.filter(session=>session.stage===participant.stage&&(!enteredAt||new Date(session.finalized_at||session.updated_at)>=enteredAt));if(!currentStageSessions.length)return;
     const latest=currentStageSessions.reduce((best,item)=>new Date(item.finalized_at||item.updated_at)>new Date(best.finalized_at||best.updated_at)?item:best);
@@ -288,12 +289,12 @@ function mergeFinalDiwanSessionsIntoState(sessions){
     if(!incomplete&&Number.isFinite(latest.score)&&latest.score>=DIWAN_PASS_SCORE){
       participant.usedJuz=[...new Set([...(participant.usedJuz||[]),...(participant.parts||[])])];
       if(participant.stage<4)participant.stage+=1;
-      else{participant.certified=true;diwanState.config.nextCertificateSeq=(diwanState.config.nextCertificateSeq||0)+1;participant.certificateNumber=diwanState.config.nextCertificateSeq}
+      else{participant.certified=true;target.config.nextCertificateSeq=(target.config.nextCertificateSeq||0)+1;participant.certificateNumber=target.config.nextCertificateSeq}
       participant.parts=[];
     }
     changed=true;
   });
-  if(changed)saveDiwanState();
+  if(changed&&persist)saveDiwanState();
   return changed;
 }
 // ensureDiwanStateLoaded تجيب نتائج اللجان مرة وحدة بس عند أول دخول للصفحة (تفادياً لإبطاء لوحة
@@ -2453,8 +2454,8 @@ function openDiwanRecommendationEditModal(participant,draw){
 // تعديل نتيجة اختبار (محاولة) بعينها من «السجل»: تعديل العلامة، انسحاب (صفر)، أو حذف الاختبار.
 // جلسات اللجان (diwan_exam_sessions) لا تُعدَّل على السيرفر — التعديل يُحفظ على السحب نفسه
 // (draw.resultOverride داخل diwan_state) ويُطبَّق فوق علامة اللجنة الأصلية أينما قُرئت الجلسات.
-function applyDiwanResultOverrides(sessions){
-  const overrides=new Map((diwanState.draws||[]).filter(d=>d.resultOverride).map(d=>[d.id,d.resultOverride]));
+function applyDiwanResultOverrides(sessions,draws=diwanState.draws){
+  const overrides=new Map((draws||[]).filter(d=>d.resultOverride).map(d=>[d.id,d.resultOverride]));
   return (sessions||[]).map(raw=>{
     const base=raw.overridden?{...raw,score:raw.original_score,assessment:raw.original_assessment}:{...raw};
     delete base.overridden;delete base.original_score;delete base.original_assessment;
@@ -4118,14 +4119,44 @@ function removeManagedCenter(name){
   saveState();renderManagedCenters();toast("تم حذف المركز من القائمة المُدارة");
 }
 async function saveSettings(event){event.preventDefault();state.config.competitionName=$("#settingsCompetitionName").value.trim();state.config.showFullQuranStats=$("#settingsShowFullQuran").checked;state.config.showDrawsToCommittees=$("#settingsShowDraws").checked;saveState();$("#topCompetitionName").textContent=state.config.competitionName;renderDashboard();toast("تم حفظ الإعدادات")}
-function downloadBackup(){downloadFile(`نسخة-المسابقة-${dateStamp()}.json`,JSON.stringify({schema:2,exportedAt:new Date().toISOString(),data:state},null,2),"application/json")}
-async function restoreBackup(event){let parsed;try{parsed=JSON.parse(await event.target.files[0].text());if(!parsed.data?.config||!Array.isArray(parsed.data.draws))throw new Error()}catch{toast("ملف النسخة الاحتياطية غير صالح");event.target.value="";return}event.target.value="";
+// النسخة الاحتياطية اليدوية: ملف واحد. data = المسابقة السنوية (بنفس مكانه القديم، فالملفات القديمة والجديدة تُستعاد بنفس الطريقة).
+// للمدير على السحابة يُضاف diwan (بيانات ديوان الحفاظ من الخادم مباشرة + جلسات اختباره) وexamSessions (جلسات السنوية، أرشيف).
+// نتائج لجان الديوان المعتمدة التي لم تُدمج بعد (لم تُفتح صفحة الديوان منذ اعتمادها) تُدمج داخل النسخة نفسها فقط.
+// الوضع المحلي لا يشمل الديوان: القسم مخفي فيه، ونسخة الديوان المخزّنة بالجهاز قد تكون بيانات فرع الكورة.
+async function collectCloudBackupExtras(){
+  if(!(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin"))return {};
+  const [remote,diwanSessions,examSessions]=await Promise.all([window.DiwanCompetition.loadState(),window.DiwanCompetition.listSessions(),window.CloudCompetition.listSessions()]);
+  const diwan={...defaultDiwanState(),...JSON.parse(JSON.stringify(remote?.payload||{}))};
+  diwan.config={...defaultDiwanState().config,...(diwan.config||{})};
+  mergeFinalDiwanSessionsIntoState(applyDiwanResultOverrides(diwanSessions,diwan.draws),diwan,{persist:false});
+  return {diwan:{state:diwan,sessions:diwanSessions||[]},examSessions:examSessions||[]};
+}
+async function downloadBackup(){
+  let extras={};
+  try{extras=await withBusyOverlay("جارٍ تجهيز النسخة الاحتياطية...",collectCloudBackupExtras)}
+  catch(error){if(!confirm(`تعذر جلب بيانات ديوان الحفاظ وجلسات الاختبار من الخادم: ${error.message}\nهل تريد تنزيل نسخة المسابقة السنوية فقط؟`))return}
+  downloadFile(`نسخة-المسابقة-${dateStamp()}.json`,JSON.stringify({schema:3,exportedAt:new Date().toISOString(),data:state,...extras},null,2),"application/json");
+  toast(extras.diwan?`تم تنزيل النسخة: ${state.participants.length} متسابق بالسنوية و${extras.diwan.state.participants.length} بديوان الحفاظ`:"تم تنزيل النسخة الاحتياطية");
+}
+// يقبل النسخة اليدوية (data / diwan.state) والنسخة التلقائية المرسلة بالإيميل (competitionState / diwanState).
+function readBackupFile(parsed){
+  const data=parsed?.data||parsed?.competitionState||null,diwanRaw=parsed?.diwan?.state||parsed?.diwanState||null;
+  if(!data?.config||!Array.isArray(data.draws))return null;
+  if(!(diwanRaw&&Array.isArray(diwanRaw.participants)&&Array.isArray(diwanRaw.draws)))return {data,diwan:null};
+  // نتائج لجان الديوان المعتمدة الموجودة بجلسات الملف ولم تُدمج بعد (النسخة التلقائية تحفظ الجلسات كما هي) تُدمج قبل الرفع،
+  // فلا تضيع علامة حتى لو فُقدت جلسات الخادم. النسخة اليدوية مدموجة أصلاً، والدمج لا يكرر نتيجة دُمجت (lastGradedDrawId).
+  const diwan={...defaultDiwanState(),...JSON.parse(JSON.stringify(diwanRaw))};diwan.config={...defaultDiwanState().config,...(diwan.config||{})};
+  const sessions=parsed?.diwan?.sessions||parsed?.diwanExamSessions||[];
+  if(Array.isArray(sessions)&&sessions.length)mergeFinalDiwanSessionsIntoState(applyDiwanResultOverrides(sessions,diwan.draws),diwan,{persist:false});
+  return {data,diwan};
+}
+async function restoreBackup(event){let backup;try{backup=readBackupFile(JSON.parse(await event.target.files[0].text()));if(!backup)throw new Error()}catch{toast("ملف النسخة الاحتياطية غير صالح");event.target.value="";return}event.target.value="";
   // بالسحابة (المدير): استعادة على دفعات بدل saveState() الذي يرسل كل شيء بطلب واحد فيتجاوز المهلة.
-  if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin"){await restoreBackupToCloud(parsed.data);return}
-  state=parsed.data;saveState();renderAll();hydrateSettings();toast("تمت استعادة النسخة الاحتياطية")}
+  if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin"){await restoreBackupToCloud(backup.data,backup.diwan);return}
+  state={...defaultState(),...backup.data};saveState();renderAll();hydrateSettings();toast(backup.diwan&&operationMode==="local"?"تمت استعادة المسابقة السنوية (بيانات ديوان الحفاظ بالملف لا تُستعاد بالاستخدام المحلي)":"تمت استعادة النسخة الاحتياطية")}
 function blockUnloadDuringRestore(event){event.preventDefault();event.returnValue=""}
-async function restoreBackupToCloud(data){
-  const participantsTotal=(data.participants||[]).length,drawsTotal=data.draws.length;
+async function restoreBackupToCloud(data,diwan=null){
+  const participantsTotal=(data.participants||[]).length,drawsTotal=data.draws.length;let annualDone=false;
   cloudRestoreBusy=true;window.addEventListener("beforeunload",blockUnloadDuringRestore);
   openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة النسخة الاحتياطية</span><h2>جارٍ رفع البيانات للسحابة</h2></div></div><div class="modal-body"><p class="field-help">لا تغلق الصفحة أو تحدّثها حتى تنتهي العملية.</p><p id="restoreProgressLabel">استعادة المتسابقين 0 / ${participantsTotal}</p><progress id="restoreProgressBar" max="1" value="0" style="width:100%"></progress></div>`);
   try{
@@ -4135,10 +4166,22 @@ async function restoreBackupToCloud(data){
       if(bar)bar.value=progress.batchIndex/progress.batchCount;
     });
     state={...defaultState(),...remote.payload};safeSetItem(CLOUD_STORAGE_KEY,JSON.stringify(state));lastAdminStateUpdatedAt=remote.updated_at||null;
-    renderAll();hydrateSettings();
-    openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة النسخة الاحتياطية</span><h2>تمت الاستعادة بنجاح</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>تم التحقق من السحابة: ${(remote.payload?.participants||[]).length} متسابق و${(remote.payload?.draws||[]).length} سحب (الملف: ${participantsTotal} متسابق و${drawsTotal} سحب).</p></div>`);
+    renderAll();hydrateSettings();annualDone=true;
+    // ديوان الحفاظ (إن وُجد بالملف): نفس الأسلوب — دفعات، دمج بلا حذف، وتحقق من الخادم بالنهاية.
+    let diwanRemote=null;
+    if(diwan){
+      const diwanParticipantsTotal=diwan.participants.length,diwanDrawsTotal=diwan.draws.length;
+      diwanRemote=await window.DiwanCompetition.restoreStateInBatches(diwan,progress=>{
+        const label=$("#restoreProgressLabel"),bar=$("#restoreProgressBar");
+        if(label)label.textContent=progress.kind==="participants"?`ديوان الحفاظ: استعادة المتسابقين ${progress.done} / ${diwanParticipantsTotal}`:`ديوان الحفاظ: استعادة السحوبات ${progress.done} / ${diwanDrawsTotal}`;
+        if(bar)bar.value=progress.batchIndex/progress.batchCount;
+      });
+      // تُعاد قراءة الديوان من الخادم (مع دمج نتائج اللجان) عند أول فتح لصفحته بعد الاستعادة.
+      diwanState={...defaultDiwanState(),...diwanRemote.payload};diwanStateLoaded=false;
+    }
+    openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة النسخة الاحتياطية</span><h2>تمت الاستعادة بنجاح</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>المسابقة السنوية — تم التحقق من السحابة: ${(remote.payload?.participants||[]).length} متسابق و${(remote.payload?.draws||[]).length} سحب (الملف: ${participantsTotal} متسابق و${drawsTotal} سحب).</p>${diwan?`<p>ديوان الحفاظ — تم التحقق من السحابة: ${(diwanRemote.payload?.participants||[]).length} متسابق و${(diwanRemote.payload?.draws||[]).length} سحب (الملف: ${diwan.participants.length} متسابق و${diwan.draws.length} سحب).</p>`:`<p class="field-help">هذا الملف لا يحتوي بيانات ديوان الحفاظ (نسخة قديمة)، فلم يتغير الديوان.</p>`}</div>`);
   }catch(error){
-    openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة النسخة الاحتياطية</span><h2>توقفت الاستعادة</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>${escapeHtml(error.message)}</p><p class="field-help">الدفعات التي نجحت محفوظة بالسحابة. أعد اختيار نفس الملف لإكمال الاستعادة — لن تتكرر أي بيانات.</p></div>`);
+    openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة النسخة الاحتياطية</span><h2>توقفت الاستعادة</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body">${annualDone?`<p>تمت استعادة المسابقة السنوية بنجاح، لكن توقفت استعادة ديوان الحفاظ:</p>`:""}<p>${escapeHtml(error.message)}</p><p class="field-help">الدفعات التي نجحت محفوظة بالسحابة. أعد اختيار نفس الملف لإكمال الاستعادة — لن تتكرر أي بيانات.</p></div>`);
   }finally{cloudRestoreBusy=false;window.removeEventListener("beforeunload",blockUnloadDuringRestore)}
 }
 function confirmNewCycle(){openModal(`<div class="modal-head"><h2>بدء دورة مسابقة جديدة</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>سيتم مسح المتسابقين وسجل السحوبات من الجهاز، وستبقى إعدادات الدخول. نزّل نسخة احتياطية أولاً للاحتفاظ بسجل الدورة الحالية.</p><label>اكتب كلمة <b>دورة جديدة</b> للتأكيد<input id="cycleConfirm" autocomplete="off"></label></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="confirmCycleBtn" class="danger-btn">بدء الدورة الجديدة</button></div>`);$("#confirmCycleBtn").onclick=()=>{if($("#cycleConfirm").value.trim()!=="دورة جديدة")return toast("اكتب عبارة التأكيد كما تظهر");state.participants=[];state.draws=[];state.resets.push({at:new Date().toISOString(),by:state.config.adminName});saveState();closeModal();renderAll();navigate("dashboard");toast("بدأت دورة جديدة")}}

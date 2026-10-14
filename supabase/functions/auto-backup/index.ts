@@ -4,9 +4,10 @@
 // كل تشغيلة (كل بضع دقائق حسب جدولة الـ Cron):
 //  1) يقرأ public.backup_settings — لو enabled=false يتوقف فوراً.
 //  2) لو ما مرّ الوقت الكافي (interval_minutes) منذ آخر إرسال، يتوقف بدون إرسال.
-//  3) يجمع نسخة كاملة من حالة المسابقة (config/participants/draws من competition_state،
-//     زائد committees وsub_admins وexam_sessions) ويرسلها كمرفق JSON عبر Resend للإيميل
-//     المسجَّل بـ notify_email.
+//  3) يجمع نسخة كاملة بملف واحد: المسابقة السنوية (competition_state) + ديوان الحفاظ
+//     (diwan_state) + committees وsub_admins وexam_sessions وdiwan_exam_sessions، ويرسلها كمرفق
+//     JSON عبر Resend للإيميل المسجَّل بـ notify_email. الملف نفسه يُستعاد من الإعدادات
+//     («استعادة نسخة JSON» — يقرأ competitionState وdiwanState).
 //
 // السرّان المطلوبان كـ Secrets على مستوى الدالة نفسها (Edge Function Secrets):
 //   RESEND_API_KEY        — من https://resend.com (الخطة المجانية كافية).
@@ -39,24 +40,30 @@ Deno.serve(async ()=>{
   if(Date.now()-lastSent<intervalMs)return jsonResponse({ok:true,skipped:"not-due-yet"});
 
   try{
-    const [state,committees,subAdmins,sessions]=await Promise.all([
+    const [state,committees,subAdmins,sessions,diwanState,diwanSessions]=await Promise.all([
       supabase.from("competition_state").select("payload,updated_at").eq("id",1).single(),
       supabase.from("committees").select("*"),
       supabase.from("sub_admins").select("*"),
       supabase.from("exam_sessions").select("*"),
+      supabase.from("diwan_state").select("payload,updated_at").eq("id",1).maybeSingle(),
+      supabase.from("diwan_exam_sessions").select("*"),
     ]);
     if(state.error)throw new Error(`competition_state: ${state.error.message}`);
     if(committees.error)throw new Error(`committees: ${committees.error.message}`);
     if(subAdmins.error)throw new Error(`sub_admins: ${subAdmins.error.message}`);
     if(sessions.error)throw new Error(`exam_sessions: ${sessions.error.message}`);
+    if(diwanState.error)throw new Error(`diwan_state: ${diwanState.error.message}`);
+    if(diwanSessions.error)throw new Error(`diwan_exam_sessions: ${diwanSessions.error.message}`);
 
     const backup={
-      schema:1,
+      schema:2,
       exportedAt:new Date().toISOString(),
       competitionState:state.data?.payload||null,
+      diwanState:diwanState.data?.payload||null,
       committees:committees.data||[],
       subAdmins:subAdmins.data||[],
       examSessions:sessions.data||[],
+      diwanExamSessions:diwanSessions.data||[],
     };
     const stamp=new Date().toISOString().slice(0,16).replace(/[-:T]/g,"");
     const base64Content=btoa(unescape(encodeURIComponent(JSON.stringify(backup))));
@@ -68,7 +75,7 @@ Deno.serve(async ()=>{
         from:"نسخ احتياطي المسابقة <onboarding@resend.dev>",
         to:[settings.notify_email||"loordmohammad79@gmail.com"],
         subject:`نسخة احتياطية تلقائية — المسابقة القرآنية — ${new Date().toLocaleString("ar-JO")}`,
-        text:`نسخة احتياطية تلقائية بحالة المسابقة الحالية.\nعدد المتسابقين: ${backup.competitionState?.participants?.length||0}\nعدد اللجان: ${backup.committees.length}\nعدد جلسات الاختبار: ${backup.examSessions.length}`,
+        text:`نسخة احتياطية تلقائية بحالة المسابقة الحالية (المسابقة السنوية + ديوان الحفاظ).\nعدد متسابقي المسابقة السنوية: ${backup.competitionState?.participants?.length||0}\nعدد متسابقي ديوان الحفاظ: ${backup.diwanState?.participants?.length||0}\nعدد اللجان: ${backup.committees.length}\nعدد جلسات الاختبار: ${backup.examSessions.length} (السنوية) و${backup.diwanExamSessions.length} (الديوان)\nللاستعادة: الإعدادات ← «استعادة نسخة JSON» واختر هذا الملف.`,
         attachments:[{filename:`نسخة-احتياطية-${stamp}.json`,content:base64Content}],
       }),
     });
