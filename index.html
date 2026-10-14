@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261014-backup-diwan">
+  <link rel="stylesheet" href="styles.css?v=20261014-level-chips">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -340,18 +340,102 @@
         </section>
 
         <section id="settingsView" class="view">
-          <div class="page-head"><div><span class="eyebrow">إعداد دورة المسابقة</span><h1>الإعدادات والنسخ الاحتياطي</h1><p>اضبط بيانات الدورة واحفظ نسخة احتياطية قبل يوم المسابقة.</p></div></div>
-          <div id="rootOnlySettingsGrid" class="settings-grid"><form id="settingsForm" class="panel"><h3>بيانات الدورة</h3><label>اسم المسابقة<input id="settingsCompetitionName" required></label><label class="committee-member-toggle"><input id="settingsShowFullQuran" type="checkbox"> إظهار مستوى القرآن الكامل (30 جزءاً) بالإحصائيات</label><label class="committee-member-toggle"><input id="settingsShowDraws" type="checkbox"> إظهار مواضع السحب للجان (عطّلها لإخفاء المواضع عن اللجان مؤقتاً دون حذفها، وفعّلها عند بدء المسابقة)</label><button class="primary-btn" type="submit">حفظ التغييرات</button></form><section class="panel"><h3>البيانات والنسخ الاحتياطي</h3><div class="backup-actions"><button id="backupBtn" class="secondary-btn"><i data-lucide="archive"></i> تنزيل نسخة احتياطية JSON</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استعادة نسخة JSON<input id="restoreInput" type="file" accept="application/json,.json"></label><a class="secondary-btn" href="participants-template.xlsx" download><i data-lucide="file-spreadsheet"></i> قالب Excel للمتسابقين</a><button id="newCycleBtn" class="danger-btn"><i data-lucide="rotate-ccw"></i> بدء دورة جديدة</button></div><div class="data-source"><i data-lucide="badge-check"></i><div><b>مصدر القرآن</b><span>Quran Foundation Content API v4</span><small>النص العثماني، ترقيم مصحف المدينة 604 صفحات</small></div></div></section><section class="panel settings-wide"><h3>المراكز</h3><p class="field-help">أضف أسماء المراكز هنا لتظهر بقائمة اختيار المركز عند تسجيل متسابق جديد<span class="koura-only"> (السنوية وديوان الحفاظ)</span>، حتى قبل تسجيل أي متسابق فيها.</p><form id="centerForm" class="committee-account-form"><label>اسم المركز<input id="newCenterName" required placeholder="مثال: مركز الرسالة"></label><div class="committee-form-actions"><button class="primary-btn" type="submit"><i data-lucide="plus"></i> إضافة المركز</button></div></form><div id="managedCentersList" class="committees-list"></div></section></div>
-          <section class="panel"><h3>المزامنة المباشرة (هذا الجهاز فقط)</h3><label class="committee-member-toggle"><input id="settingsLiveAutoRefresh" type="checkbox"> تحديث تلقائي مباشر كل 9 ثوانٍ لمتابعة اللجان لحظياً — يُطبَّق فوراً بلا حاجة لحفظ. فعّله يوم الامتحان فقط، وعطّله باقي الوقت لتوفير الداتا والبطارية (زر «تحديث نتائج اللجان» بالأعلى يبقى متاحاً دائماً)</label></section>
-          <section id="cloudCommitteesPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">جاهزة لأي عدد من اللجان</span><h3>إدارة لجان الاختبار</h3></div><div class="panel-head-actions"><button id="sendCommitteeBroadcastBtn" class="secondary-btn hidden" type="button"><i data-lucide="megaphone"></i> إرسال رسالة للجان</button><span class="status-pill">رمز وPIN لكل لجنة</span></div></div><form id="committeeAccountForm" class="committee-account-form"><input id="editingCommitteeId" type="hidden"><label>اسم اللجنة<input id="newCommitteeName" required placeholder="مثال: لجنة المستوى الأول"></label><label>الجنس الذي تُشرف عليه اللجنة<select id="newCommitteeGender" required><option value="">اختر</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select></label><label>اسم رئيس اللجنة<input id="newCommitteeChairmanName" required placeholder="الاسم الثلاثي"></label><label>رمز رئيس اللجنة<input id="newCommitteeCode" required maxlength="20" placeholder="مثال: L01"></label><label>PIN رئيس اللجنة<input id="newCommitteePin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label><fieldset><legend>المستويات المسؤولة عنها</legend><div id="committeeLevelOptions" class="committee-level-options"></div></fieldset><div class="committee-form-actions"><button class="primary-btn" type="submit"><i data-lucide="user-plus"></i> <span id="committeeSubmitLabel">إضافة اللجنة</span></button><button id="cancelCommitteeEdit" class="secondary-btn hidden" type="button">إلغاء التعديل</button></div></form><p class="field-help">يمكن إضافة اللجان وتوزيع المستويات لاحقاً دون تعديل الكود أو قاعدة البيانات. عند تعديل لجنة، اترك PIN فارغاً للاحتفاظ بالرقم الحالي.</p><div id="committeesList" class="committees-list"></div></section>
-
-          <section id="subAdminsPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">صلاحيات محدودة بجنس واحد</span><h3>حسابات المسؤول الفرعي</h3></div><span class="status-pill">رمز وPIN لكل حساب</span></div><form id="subAdminAccountForm" class="committee-account-form"><input id="editingSubAdminId" type="hidden"><label>اسم الحساب<input id="newSubAdminName" required placeholder="مثال: مسؤول الذكور"></label><label>الجنس<select id="newSubAdminGender" required><option value="">اختر</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select></label><label>رمز الدخول<input id="newSubAdminCode" required maxlength="20" placeholder="مثال: SA-M"></label><label>PIN<input id="newSubAdminPin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label><div class="committee-form-actions"><button class="primary-btn" type="submit"><i data-lucide="user-plus"></i> <span id="subAdminSubmitLabel">إضافة الحساب</span></button><button id="cancelSubAdminEdit" class="secondary-btn hidden" type="button">إلغاء التعديل</button></div></form><p class="field-help">يرى مسؤول الذكور متسابقي الذكور فقط، وترى مسؤولة الإناث متسابقات الإناث فقط، ولا يمكن لأيّ منهما إدارة اللجان. صلاحيات تعديل النتائج المعتمدة وحذف البيانات ونقل المتسابقين بين اللجان مُعطَّلة افتراضيًا لكل حساب، وتُمنَح من شاشة «إدارة الصلاحيات» بعد إضافة الحساب. عند التعديل، اترك PIN فارغاً للاحتفاظ بالرقم الحالي.</p><div id="subAdminsList" class="committees-list"></div></section>
-
-          <section id="permissionsManagementPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">للإداري الرئيسي فقط</span><h3>إدارة الصلاحيات</h3></div></div><div class="monitor-role-tabs committee-track-tabs" id="permissionsCategoryTabs"><button type="button" class="compact-btn is-active" data-permissions-category="supervisor">مشرفو المسابقة</button><button type="button" class="compact-btn" data-permissions-category="sub_admin">المسؤولون الفرعيون</button><button type="button" class="compact-btn" data-permissions-category="committee">اللجان</button></div><div class="monitor-layout"><div class="monitor-committees-panel"><div id="permissionsSubjectList" class="committees-list"></div></div><div class="monitor-detail-panel" id="permissionsDetailPanel"><div class="monitor-empty">اختر حسابًا أو لجنة من القائمة لعرض صلاحياتها.</div></div></div></section>
-
-          <section id="drRequestsPanel" class="panel cloud-committees-panel hidden"><div class="panel-head"><div><span class="eyebrow">تسجيل يدوي طارئ عند تعطل النظام</span><h3>طلبات DR بانتظار الموافقة</h3></div><button id="approveAllDrBtn" class="secondary-btn" type="button">موافقة على الكل</button></div><div id="drRequestsList" class="committees-list"><p class="committee-alerts-empty">لا توجد طلبات حاليًا.</p></div></section>
-
-          <section id="activityLogPanel" class="panel hidden"><div class="panel-head"><div><span class="eyebrow">كل الأفعال، بما فيها المسؤول الفرعي واللجان</span><h3>سجل النشاط الكامل</h3></div><div class="panel-head-actions"><label class="activity-log-filter">الفاعل<select id="activityLogFilter"><option value="all">الكل</option></select></label><button id="refreshActivityLogBtn" class="compact-btn" type="button">تحديث السجل</button></div></div><div id="activityLogList" class="final-edit-audit-list"><p class="committee-alerts-empty">لا يوجد نشاط مسجل بعد.</p></div></section>
+          <div class="page-head"><div><span class="eyebrow">إعداد دورة المسابقة</span><h1>الإعدادات</h1></div></div>
+          <!-- تبويبات الإعدادات: كل تبويب يعرض أقسامه فقط (data-settings-pane). التبويب يختفي تلقائياً إن كانت كل أقسامه مخفية لهذا الحساب. -->
+          <nav id="settingsTabs" class="settings-tabs" role="tablist" aria-label="أقسام الإعدادات">
+            <button type="button" role="tab" data-settings-tab="general"><i data-lucide="sliders-horizontal"></i><span>عام</span></button>
+            <button type="button" role="tab" data-settings-tab="committees"><i data-lucide="users-round"></i><span>اللجان</span></button>
+            <button type="button" role="tab" data-settings-tab="accounts"><i data-lucide="key-round"></i><span>الحسابات والصلاحيات</span></button>
+            <button type="button" role="tab" data-settings-tab="requests"><i data-lucide="inbox"></i><span>الطلبات</span><b id="settingsRequestsBadge" class="settings-tab-badge hidden"></b></button>
+            <button type="button" role="tab" data-settings-tab="data"><i data-lucide="database"></i><span>البيانات والنسخ</span></button>
+            <button type="button" role="tab" data-settings-tab="activity"><i data-lucide="history"></i><span>سجل النشاط</span></button>
+          </nav>
+          <div class="settings-body">
+          <div id="rootOnlySettingsGrid" class="settings-grid">
+            <form id="settingsForm" class="panel" data-settings-pane="general">
+              <h3>بيانات الدورة</h3>
+              <label>اسم المسابقة<input id="settingsCompetitionName" required></label>
+              <label class="settings-toggle"><span class="settings-toggle-text"><b>إظهار مستوى القرآن الكامل بالإحصائيات</b><small>مستوى 30 جزءاً</small></span><span class="switch"><input id="settingsShowFullQuran" type="checkbox"><span class="switch-slider"></span></span></label>
+              <label class="settings-toggle"><span class="settings-toggle-text"><b>إظهار مواضع السحب للجان</b><small>عطّلها لإخفاء المواضع مؤقتاً دون حذفها، وفعّلها عند بدء المسابقة</small></span><span class="switch"><input id="settingsShowDraws" type="checkbox"><span class="switch-slider"></span></span></label>
+              <div id="settingsSaveBar" class="settings-save-bar hidden" role="status"><span><i data-lucide="info"></i> لديك تغييرات غير محفوظة</span><div><button id="settingsSaveUndo" type="button" class="secondary-btn">تراجع</button><button type="submit" class="primary-btn">حفظ</button></div></div>
+            </form>
+            <section class="panel" data-settings-pane="general">
+              <div class="panel-head"><h3>المراكز</h3></div>
+              <form id="centerForm" class="settings-inline-form"><label class="sr-only" for="newCenterName">اسم المركز</label><input id="newCenterName" required placeholder="اسم مركز جديد، مثال: مركز الرسالة"><button class="secondary-btn" type="submit"><i data-lucide="plus"></i> إضافة</button></form>
+              <p class="settings-note">تظهر بقائمة اختيار المركز عند تسجيل متسابق<span class="koura-only"> (السنوية وديوان الحفاظ)</span>، حتى قبل تسجيل أي متسابق فيها.</p>
+              <div id="managedCentersList" class="committees-list"></div>
+            </section>
+            <section class="panel" data-settings-pane="data">
+              <h3>النسخ الاحتياطي</h3>
+              <p class="settings-note">نزّل نسخة قبل يوم المسابقة وبعده واحفظها بمكان آمن.</p>
+              <div class="backup-actions">
+                <button id="backupBtn" class="primary-btn"><i data-lucide="archive"></i> تنزيل نسخة احتياطية</button>
+                <label class="secondary-btn file-btn"><i data-lucide="upload"></i> استعادة نسخة<input id="restoreInput" type="file" accept="application/json,.json"></label>
+                <a class="secondary-btn" href="participants-template.xlsx" download><i data-lucide="file-spreadsheet"></i> قالب Excel للمتسابقين</a>
+              </div>
+              <div class="settings-danger">
+                <div><b><i data-lucide="triangle-alert"></i> بدء دورة جديدة</b><small>يمسح المتسابقين وسجل السحوبات من هذه الدورة. نزّل نسخة احتياطية أولاً.</small></div>
+                <button id="newCycleBtn" class="danger-btn"><i data-lucide="rotate-ccw"></i> بدء دورة جديدة</button>
+              </div>
+              <div class="data-source"><i data-lucide="badge-check"></i><div><b>مصدر القرآن</b><span>Quran Foundation Content API v4</span><small>النص العثماني، ترقيم مصحف المدينة 604 صفحات</small></div></div>
+            </section>
+          </div>
+          <section class="panel" data-settings-pane="general">
+            <h3>هذا الجهاز</h3>
+            <label class="settings-toggle"><span class="settings-toggle-text"><b>تحديث تلقائي مباشر كل 9 ثوانٍ</b><small>فعّله يوم الامتحان فقط لتوفير الداتا والبطارية — يُطبَّق فوراً على هذا الجهاز</small></span><span class="switch"><input id="settingsLiveAutoRefresh" type="checkbox"><span class="switch-slider"></span></span></label>
+          </section>
+          <section id="cloudCommitteesPanel" class="panel cloud-committees-panel hidden" data-settings-pane="committees">
+            <div class="panel-head"><h3>لجان الاختبار</h3><div class="panel-head-actions"><button id="sendCommitteeBroadcastBtn" class="secondary-btn hidden" type="button"><i data-lucide="megaphone"></i> رسالة للجان</button><button type="button" class="primary-btn" data-settings-drawer-open="committeeDrawer"><i data-lucide="plus"></i> إضافة لجنة</button></div></div>
+            <div id="committeesList" class="committees-list"></div>
+            <div id="committeeDrawer" class="settings-drawer" aria-hidden="true">
+              <div class="settings-drawer-card" role="dialog" aria-modal="true" aria-labelledby="committeeDrawerTitle">
+                <div class="settings-drawer-head"><h3 id="committeeDrawerTitle">إضافة لجنة</h3><button type="button" class="icon-btn" data-settings-drawer-close aria-label="إغلاق"><i data-lucide="x"></i></button></div>
+                <form id="committeeAccountForm" class="committee-account-form">
+                  <input id="editingCommitteeId" type="hidden">
+                  <label>اسم اللجنة<input id="newCommitteeName" required placeholder="مثال: لجنة المستوى الأول"></label>
+                  <label>الجنس الذي تُشرف عليه اللجنة<select id="newCommitteeGender" required><option value="">اختر</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select></label>
+                  <label>اسم رئيس اللجنة<input id="newCommitteeChairmanName" required placeholder="الاسم الثلاثي"></label>
+                  <label>رمز رئيس اللجنة<input id="newCommitteeCode" required maxlength="20" placeholder="مثال: L01"></label>
+                  <label>PIN رئيس اللجنة<input id="newCommitteePin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label>
+                  <fieldset><legend>المستويات المسؤولة عنها</legend><div id="committeeLevelOptions" class="committee-level-options"></div></fieldset>
+                  <div class="committee-form-actions"><button class="primary-btn" type="submit"><i data-lucide="user-plus"></i> <span id="committeeSubmitLabel">إضافة اللجنة</span></button><button id="cancelCommitteeEdit" class="secondary-btn hidden" type="button">إلغاء التعديل</button></div>
+                </form>
+                <p class="settings-note">لكل لجنة رمز وPIN للدخول. عند التعديل، اترك PIN فارغاً للاحتفاظ بالرقم الحالي.</p>
+              </div>
+            </div>
+          </section>
+          <section id="subAdminsPanel" class="panel cloud-committees-panel hidden" data-settings-pane="accounts">
+            <div class="panel-head"><h3>حسابات المسؤول الفرعي</h3><button type="button" class="primary-btn" data-settings-drawer-open="subAdminDrawer"><i data-lucide="plus"></i> إضافة حساب</button></div>
+            <div id="subAdminsList" class="committees-list"></div>
+            <div id="subAdminDrawer" class="settings-drawer" aria-hidden="true">
+              <div class="settings-drawer-card" role="dialog" aria-modal="true" aria-labelledby="subAdminDrawerTitle">
+                <div class="settings-drawer-head"><h3 id="subAdminDrawerTitle">إضافة حساب مسؤول فرعي</h3><button type="button" class="icon-btn" data-settings-drawer-close aria-label="إغلاق"><i data-lucide="x"></i></button></div>
+                <form id="subAdminAccountForm" class="committee-account-form">
+                  <input id="editingSubAdminId" type="hidden">
+                  <label>اسم الحساب<input id="newSubAdminName" required placeholder="مثال: مسؤول الذكور"></label>
+                  <label>الجنس<select id="newSubAdminGender" required><option value="">اختر</option><option value="ذكر">ذكور</option><option value="أنثى">إناث</option></select></label>
+                  <label>رمز الدخول<input id="newSubAdminCode" required maxlength="20" placeholder="مثال: SA-M"></label>
+                  <label>PIN<input id="newSubAdminPin" type="password" inputmode="numeric" minlength="4" placeholder="4 خانات أو أكثر"></label>
+                  <div class="committee-form-actions"><button class="primary-btn" type="submit"><i data-lucide="user-plus"></i> <span id="subAdminSubmitLabel">إضافة الحساب</span></button><button id="cancelSubAdminEdit" class="secondary-btn hidden" type="button">إلغاء التعديل</button></div>
+                </form>
+                <details class="settings-help"><summary><i data-lucide="info"></i> ماذا يستطيع المسؤول الفرعي؟</summary><p>يرى مسؤول الذكور متسابقي الذكور فقط، وترى مسؤولة الإناث متسابقات الإناث فقط، ولا يمكن لأيّ منهما إدارة اللجان. صلاحيات تعديل النتائج المعتمدة وحذف البيانات ونقل المتسابقين مُعطَّلة افتراضيًا، وتُمنَح من «إدارة الصلاحيات». عند التعديل، اترك PIN فارغاً للاحتفاظ بالرقم الحالي.</p></details>
+              </div>
+            </div>
+          </section>
+          <section id="permissionsManagementPanel" class="panel cloud-committees-panel hidden" data-settings-pane="accounts">
+            <div class="panel-head"><h3>إدارة الصلاحيات</h3></div>
+            <div class="monitor-role-tabs committee-track-tabs" id="permissionsCategoryTabs"><button type="button" class="compact-btn is-active" data-permissions-category="supervisor">مشرفو المسابقة</button><button type="button" class="compact-btn" data-permissions-category="sub_admin">المسؤولون الفرعيون</button><button type="button" class="compact-btn" data-permissions-category="committee">اللجان</button></div>
+            <div class="monitor-layout"><div class="monitor-committees-panel"><div id="permissionsSubjectList" class="committees-list"></div></div><div class="monitor-detail-panel" id="permissionsDetailPanel"><div class="monitor-empty">اختر حسابًا أو لجنة من القائمة لعرض صلاحياتها.</div></div></div>
+          </section>
+          <section id="drRequestsPanel" class="panel cloud-committees-panel hidden" data-settings-pane="requests">
+            <div class="panel-head"><div><h3>طلبات DR بانتظار الموافقة</h3><p class="settings-note">تسجيل علامة يدوي طارئ عند تعطل النظام.</p></div><button id="approveAllDrBtn" class="secondary-btn" type="button">موافقة على الكل</button></div>
+            <div id="drRequestsList" class="committees-list"><p class="committee-alerts-empty">لا توجد طلبات حاليًا.</p></div>
+          </section>
+          <section id="activityLogPanel" class="panel hidden" data-settings-pane="activity">
+            <div class="panel-head"><h3>سجل النشاط</h3><div class="panel-head-actions"><label class="activity-log-filter">الفاعل<select id="activityLogFilter"><option value="all">الكل</option></select></label><button id="refreshActivityLogBtn" class="compact-btn" type="button">تحديث السجل</button></div></div>
+            <div id="activityLogList" class="final-edit-audit-list"><p class="committee-alerts-empty">لا يوجد نشاط مسجل بعد.</p></div>
+          </section>
+          </div>
         </section>
       </main>
       <footer><div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div></footer>
@@ -365,8 +449,8 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20261014-backup-diwan"></script>
-  <script src="app.js?v=20261014-backup-diwan"></script>
+  <script src="cloud.js?v=20261014-level-chips"></script>
+  <script src="app.js?v=20261014-level-chips"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>
