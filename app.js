@@ -177,6 +177,7 @@ async function init(){
     setupIdleLogout();
     buildPartsGrid();
     initColorModeToggle();
+    setupInstallAppButton();
     lucide.createIcons();
     $("#setupPositions").textContent = "عند السحب";
     initializeBrowserNavigation();
@@ -546,6 +547,32 @@ function setColorMode(mode){
   safeSetItem(COLOR_MODE_KEY,mode);
   const btn=$("#colorModeToggle");
   if(btn){btn.innerHTML=mode==="dark"?`<i data-lucide="sun"></i>`:`<i data-lucide="moon"></i>`;lucide.createIcons()}
+}
+// تثبيت المنصة كتطبيق (PWA): Chrome/Edge/أندرويد تعطي نافذة تثبيت رسمية عبر beforeinstallprompt (يُلتقط مبكراً
+// لأنه قد يصل قبل init)؛ آيفون/آيباد (Safari) لا يدعمها، فيظهر شرح "مشاركة ← إضافة إلى الشاشة الرئيسية".
+let deferredInstallPrompt=null;
+function isRunningAsInstalledApp(){return Boolean(window.matchMedia?.("(display-mode: standalone)").matches||navigator.standalone===true)}
+function isAppleMobileDevice(){return /iphone|ipad|ipod/i.test(navigator.userAgent||"")||(/macintosh/i.test(navigator.userAgent||"")&&navigator.maxTouchPoints>1)}
+if(typeof window.addEventListener==="function"){
+  window.addEventListener("beforeinstallprompt",event=>{event.preventDefault();deferredInstallPrompt=event});
+  window.addEventListener("appinstalled",()=>{deferredInstallPrompt=null;$("#installAppBtn")?.classList.add("hidden");toast("تم تثبيت التطبيق على جهازك")});
+}
+function openInstallHelp(){
+  const steps=isAppleMobileDevice()
+    ?`<li>افتح الموقع من متصفح <b>Safari</b>.</li><li>اضغط زر <b>المشاركة</b> <i data-lucide="share"></i> أسفل الشاشة.</li><li>اختر <b>«إضافة إلى الشاشة الرئيسية»</b> ثم <b>إضافة</b>.</li>`
+    :`<li>افتح قائمة المتصفح <b>⋮</b> (أعلى الشاشة).</li><li>اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.</li>`;
+  openModal(`<div class="modal-head"><div><span class="eyebrow">تنزيل التطبيق</span><h2>ثبّت المنصة على جهازك</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><ol class="install-help-steps">${steps}</ol><p class="field-help">بعدها تظهر أيقونة المنصة على الشاشة الرئيسية وتفتح كتطبيق.</p></div><div class="modal-actions"><button class="primary-btn" data-close>تم</button></div>`);
+  lucide.createIcons();
+}
+function setupInstallAppButton(){
+  const button=$("#installAppBtn");if(!button)return;
+  if(isRunningAsInstalledApp())return button.classList.add("hidden");
+  button.classList.remove("hidden");
+  button.onclick=async()=>{
+    if(!deferredInstallPrompt)return openInstallHelp();
+    const prompt=deferredInstallPrompt;deferredInstallPrompt=null;
+    try{await prompt.prompt();await prompt.userChoice}catch(error){console.warn("Install prompt failed",error);openInstallHelp()}
+  };
 }
 function initColorModeToggle(){
   const btn=$("#colorModeToggle");if(!btn)return;

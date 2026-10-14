@@ -12,8 +12,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261013-local-no-diwan">
+  <link rel="stylesheet" href="styles.css?v=20261014-install-app">
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="المسابقة السنوية">
 </head>
 <body>
   <div id="loadingScreen" class="loading-screen hidden">
@@ -24,6 +27,7 @@
 
   <section id="gatewayScreen" class="auth-screen gateway-screen">
     <div class="gateway-card">
+      <button id="installAppBtn" class="install-app-btn hidden" type="button" title="تثبيت المنصة كتطبيق على جهازك"><i data-lucide="download"></i><span>تنزيل التطبيق</span></button>
       <div class="gateway-intro">
         <img class="auth-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
         <span class="eyebrow">منصة إدارة المسابقات القرآنية</span>
@@ -360,8 +364,8 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20261013-local-no-diwan"></script>
-  <script src="app.js?v=20261013-local-no-diwan"></script>
+  <script src="cloud.js?v=20261014-install-app"></script>
+  <script src="app.js?v=20261014-install-app"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>

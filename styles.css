@@ -1150,7 +1150,7 @@ img,svg{max-width:100%}
 /* Public gateway and isolated local-branch mode */
 .login-card,.auth-form{position:relative}.gateway-back-button{position:absolute;top:16px;right:16px;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--green-800);padding:8px 11px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;z-index:2}.gateway-back-button:hover{background:var(--green-50)}.gateway-back-button svg{width:16px;height:16px}.setup-back-button{top:14px;right:18px}
 .gateway-screen{padding:28px;background:linear-gradient(135deg,var(--green-950),var(--green-800))}
-.gateway-card{width:min(960px,100%);margin:auto;background:var(--surface);border-radius:24px;padding:32px;box-shadow:0 24px 70px rgba(0,0,0,.24)}
+.gateway-card{position:relative;width:min(960px,100%);margin:auto;background:var(--surface);border-radius:24px;padding:32px;box-shadow:0 24px 70px rgba(0,0,0,.24)}
 .gateway-intro{text-align:center;max-width:680px;margin:0 auto 28px}
 .gateway-intro .auth-logo{margin:0 auto 12px;width:112px;height:112px}
 .gateway-intro h1{font-size:clamp(25px,4vw,38px);margin:7px 0}
@@ -1629,3 +1629,9 @@ html.demo-idle .demo-controls{opacity:0}
 @keyframes demoDeckBar{from{width:0}to{width:100%}}
 @media(max-width:1100px){.demo-flow{grid-template-columns:repeat(3,minmax(0,1fr))}.demo-flow li::after{display:none}.demo-draw-layout{grid-template-columns:1fr}}
 @media(max-width:700px){.demo-flow{grid-template-columns:1fr 1fr}html.demo-presenting main{padding:14px 12px 190px}.demo-stage-head h2{font-size:22px}.demo-stage-head p{font-size:14px}.demo-draw-list{grid-template-columns:1fr}.demo-draw-list li{grid-template-columns:1fr}}
+
+/* زر تثبيت المنصة كتطبيق (PWA) بشاشة البداية */
+.install-app-btn{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--green-700);border-radius:999px;background:var(--green-50);color:var(--green-800);padding:7px 13px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;z-index:2}.install-app-btn:hover{background:var(--green-100)}.install-app-btn svg{width:16px;height:16px}
+html.theme-dark .install-app-btn{background:transparent;color:var(--green-100);border-color:var(--green-600)}
+@media(max-width:760px){.install-app-btn{top:10px;right:10px;padding:6px 11px}}
+.install-help-steps{display:grid;gap:10px;margin:0;padding:0 18px 0 0;line-height:1.9}
