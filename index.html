@@ -12,17 +12,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261014-admin-username">
+  <link rel="stylesheet" href="styles.css?v=20261014-jarin">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="المسابقة السنوية">
 </head>
 <body>
+  <div id="busyOverlay" class="loading-screen busy-overlay hidden" role="status" aria-live="polite"><img class="auth-logo loading-logo" src="assets/association-logo.png" alt=""><span class="busy-spinner" aria-hidden="true"></span><strong id="busyOverlayText">جارٍ التحميل...</strong><p>لحظات من فضلك</p></div>
   <div id="loadingScreen" class="loading-screen hidden">
     <img class="auth-logo loading-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
     <strong>منصة المسابقة السنوية</strong>
-    <p>جاري تجهيز المنصة...</p>
+    <p>جارٍ تجهيز المنصة...</p>
   </div>
 
   <section id="gatewayScreen" class="auth-screen gateway-screen">
@@ -364,8 +365,8 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20261014-admin-username"></script>
-  <script src="app.js?v=20261014-admin-username"></script>
+  <script src="cloud.js?v=20261014-jarin"></script>
+  <script src="app.js?v=20261014-jarin"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>

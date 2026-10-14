@@ -1635,3 +1635,7 @@ html.demo-idle .demo-controls{opacity:0}
 html.theme-dark .install-app-btn{background:transparent;color:var(--green-100);border-color:var(--green-600)}
 @media(max-width:760px){.install-app-btn{top:10px;right:10px;padding:6px 11px}}
 .install-help-steps{display:grid;gap:10px;margin:0;padding:0 18px 0 0;line-height:1.9}
+/* شاشة الانتظار (الدخول/تحميل البيانات/تجهيز الاختبار) — نفس شكل شاشة التحميل، فوق النوافذ وتحت التنبيهات */
+.busy-overlay{z-index:90;animation:modalBg var(--dur-med) var(--ease)}
+.busy-spinner{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:var(--gold);animation:syncSpin .8s linear infinite}
+@media (prefers-reduced-motion:reduce){.busy-spinner{animation-duration:2.4s}}

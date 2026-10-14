@@ -187,7 +187,7 @@ async function init(){
       $("#gatewayScreen").classList.add("hidden");$("#loadingScreen").classList.remove("hidden");
       const startup=await initializeCloud();
       $("#loadingScreen").classList.add("hidden");
-      if(startup?.enabled&&startup.context){cloudEnabled=true;await enterCloudContext(startup.context)}
+      if(startup?.enabled&&startup.context){cloudEnabled=true;await withBusyOverlay("جارٍ تحميل البيانات...",()=>enterCloudContext(startup.context),0)}
       else{sessionStorage.removeItem(ACTIVE_MODE_KEY);showScreen("cloudLoginScreen")}
     }else if(rememberedMode==="local"){
       operationMode="local";state=loadState(LOCAL_STORAGE_KEY);applyModeBranding();
@@ -600,7 +600,7 @@ const LOCAL_CLOUD_ONLY_FEATURES={monitorView:"المراقبة الحية للج
 function renderLocalCloudNotices(){Object.entries(LOCAL_CLOUD_ONLY_FEATURES).forEach(([viewId,feature])=>{const view=$("#"+viewId);if(!view)return;const existing=view.querySelector(".local-cloud-notice");if(operationMode!=="local"){existing?.remove();return}if(existing)return;view.querySelector(".page-head")?.insertAdjacentHTML("afterend",`<div class="local-mode-notice local-cloud-notice"><i data-lucide="info"></i><div><b>متوفرة عبر فرع الكورة</b><span>${escapeHtml(feature)}: تعمل بالكامل عند الدخول عبر «فرع الكورة (النظام الرسمي)»، وفي الاستخدام المحلي تكون غير متاحة أو محدودة.</span></div></div>`)});lucide.createIcons()}
 function initializeCloud(){if(cloudStartup)return Promise.resolve(cloudStartup);if(cloudStartupPromise)return cloudStartupPromise;cloudStartupPromise=window.CloudCompetition.init().then(status=>{cloudEnabled=status.enabled;cloudStartup=status;return status}).catch(error=>{console.warn("Cloud initialization failed",error);cloudStartup={enabled:false,context:null,error};return cloudStartup});return cloudStartupPromise}
 function returnToGateway(){sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionStorage.removeItem(LOCAL_ACCESS_KEY);operationMode="gateway";$("#app").classList.add("hidden");showScreen("gatewayScreen");recordBrowserRoute({surface:"gateway"})}
-async function openKouraMode(){operationMode="cloud";sessionStorage.setItem(ACTIVE_MODE_KEY,"cloud");state=loadState(CLOUD_STORAGE_KEY);applyModeBranding();$("#app").classList.remove("local-branch-app");const startup=await initializeCloud();if(!startup?.enabled){sessionStorage.removeItem(ACTIVE_MODE_KEY);return toast("تعذر الاتصال بنظام فرع الكورة حالياً")}cloudEnabled=true;if(startup.context)return enterCloudContext(startup.context);showScreen("cloudLoginScreen")}
+async function openKouraMode(){operationMode="cloud";sessionStorage.setItem(ACTIVE_MODE_KEY,"cloud");state=loadState(CLOUD_STORAGE_KEY);applyModeBranding();$("#app").classList.remove("local-branch-app");const startup=await withBusyOverlay("جارٍ الاتصال بفرع الكورة...",initializeCloud);if(!startup?.enabled){sessionStorage.removeItem(ACTIVE_MODE_KEY);return toast("تعذر الاتصال بنظام فرع الكورة حالياً")}cloudEnabled=true;if(startup.context)return withBusyOverlay("جارٍ تحميل البيانات...",()=>enterCloudContext(startup.context),0);showScreen("cloudLoginScreen")}
 function openLocalMode(){operationMode="local";sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.removeItem(LOCAL_ACCESS_KEY);state=loadState(LOCAL_STORAGE_KEY);applyModeBranding();$("#app").classList.add("local-branch-app");if(!state.config){$("#setupCompetitionName").value="مسابقة تحفيظ القرآن الكريم";$("#setupAdminName").value="";showScreen("setupScreen")}else{$("#loginCompetitionName").textContent=state.config.competitionName;showScreen("loginScreen")}}
 function logout(){if(operationMode==="cloud")return cloudLogout();sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionStorage.removeItem(LOCAL_ACCESS_KEY);$("#app").classList.add("hidden");showScreen("gatewayScreen")}
 function showScreen(id){if(!$("#trialStandaloneScreen").classList.contains("hidden")){closeTrialAssessmentIfOpen();$("#trialStandaloneScreen").classList.add("hidden")}["gatewayScreen","setupScreen","loginScreen","cloudLoginScreen"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id));$("#committeeApp").classList.toggle("hidden",id!=="committeeApp");if(id)dockColorModeToggle(false);if(id&&!applyingBrowserHistory)recordBrowserRoute({surface:id==="committeeApp"?"committee":"screen",screen:id})}
@@ -615,7 +615,13 @@ function recordBrowserRoute(route,{replace=false}={}){if(applyingBrowserHistory)
 function hasUnfinishedAssessment(){if(!activeCloudSession)return false;const participant=state.participants.find(item=>item.id===activeCloudSession.participant_id);return Boolean(participant?.assessment&&participant.assessment.status!=="final")}
 function initializeBrowserNavigation(){if(history.state?.marker!==HISTORY_MARKER)recordBrowserRoute({surface:"gateway"},{replace:true});window.addEventListener("popstate",event=>{const target=event.state;if(!target||target.marker!==HISTORY_MARKER){history.forward();return}if(hasUnfinishedAssessment()&&!confirm("التقييم الحالي غير معتمد بعد، لكنه محفوظ كمسودة. هل تريد مغادرة شاشة التقييم؟")){history.forward();return}applyingBrowserHistory=true;try{closeModal();restoreListControls(target.ui);operationMode=target.mode||operationMode;if(target.surface==="admin"){showScreen("");$("#app").classList.remove("hidden");dockColorModeToggle(true);navigate(target.view||"dashboard",{historyMode:"none",ui:target.ui})}else if(target.surface==="committee"){$("#app").classList.add("hidden");showScreen("committeeApp");renderCommitteeStudents();requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}else{$("#app").classList.add("hidden");showScreen(target.surface==="gateway"?"gatewayScreen":target.screen||"gatewayScreen");requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}}finally{applyingBrowserHistory=false}});let routeTimer;document.addEventListener("input",event=>{if(!["participantSearch","historySearch","committeeSearch"].includes(event.target.id))return;clearTimeout(routeTimer);routeTimer=setTimeout(()=>{if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})},150)});document.addEventListener("change",event=>{if(!["participantFilter","committeeStatusFilter"].includes(event.target.id))return;if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})})}
 function showApp(){showScreen("");$("#app").classList.remove("hidden");dockColorModeToggle(true);restoreSidebarState();$("#app").classList.toggle("local-branch-app",operationMode==="local");$("#localModeNotice").classList.toggle("hidden",operationMode!=="local");renderLocalCloudNotices();$("#topCompetitionName").textContent=state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric",numberingSystem:"latn"}).format(new Date());updateClock();if(!clockTimer)clockTimer=setInterval(updateClock,1000);hydrateSettings();restoreListControls(loadPersistedParticipantFilters());renderAll();const savedRoute=history.state?.marker===HISTORY_MARKER&&history.state.surface==="admin"?history.state:null;navigate(savedRoute?.view||localStorage.getItem(currentViewKey())||"dashboard",{historyMode:savedRoute?"replace":"push",ui:savedRoute?.ui});if(operationMode==="cloud"&&cloudEnabled&&["admin","supervisor"].includes(window.CloudCompetition.context?.profile.role)){setupCloudAdminPanel();startAdminAutoRefresh()}else stopAdminAutoRefresh();if(operationMode==="cloud"&&cloudEnabled&&["admin","supervisor","subAdmin"].includes(window.CloudCompetition.context?.kind)){renderIssueReports();startIssueReportsPoll()}else stopIssueReportsPoll();prewarmQuranData()}
-async function cloudLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#cloudLoginError");const originalHtml=button.innerHTML;button.disabled=true;button.textContent="جارٍ التحقق من البيانات...";errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInAdmin(adminLoginEmail($("#cloudLoginEmail").value),$("#cloudLoginPassword").value);$("#cloudLoginPassword").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false;button.innerHTML=originalHtml}}
+// شاشة انتظار بملء الشاشة لأي عملية تأخذ ثوانٍ (الدخول، تحميل البيانات، تجهيز الاختبار) — كي لا تبدو الصفحة متجمدة.
+// تظهر بعد مهلة قصيرة فقط (افتراضياً 250ms) حتى لا تومض بالعمليات السريعة؛ فوق النوافذ وتحت رسائل التنبيه.
+let busyOverlayTimer=null;
+function showBusyOverlay(message="جارٍ التحميل...",delay=250){const overlay=$("#busyOverlay");if(!overlay)return;clearTimeout(busyOverlayTimer);$("#busyOverlayText").textContent=message;if(delay<=0)overlay.classList.remove("hidden");else busyOverlayTimer=setTimeout(()=>overlay.classList.remove("hidden"),delay)}
+function hideBusyOverlay(){clearTimeout(busyOverlayTimer);busyOverlayTimer=null;$("#busyOverlay")?.classList.add("hidden")}
+async function withBusyOverlay(message,task,delay=250){showBusyOverlay(message,delay);try{return await task()}finally{hideBusyOverlay()}}
+async function cloudLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#cloudLoginError");const originalHtml=button.innerHTML;button.disabled=true;button.textContent="جارٍ التحقق من البيانات...";errorBox.classList.add("hidden");showBusyOverlay("جارٍ تسجيل الدخول...");try{const context=await window.CloudCompetition.signInAdmin(adminLoginEmail($("#cloudLoginEmail").value),$("#cloudLoginPassword").value);$("#cloudLoginPassword").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{hideBusyOverlay();button.disabled=false;button.innerHTML=originalHtml}}
 // دخول الإدارة/المشرف باسم مستخدم بسيط (مثل admin) بدل الإيميل: أي اسم بلا "@" يُكمَّل لإيميل داخلي ثابت
 // (حساب Supabase Auth يُنشأ بهذا الإيميل نفسه). koura.local نطاق غير حقيقي — لا يصله بريد ولا يملكه أحد.
 const ADMIN_USERNAME_EMAIL_DOMAIN="koura.local";
@@ -660,10 +666,10 @@ async function submitLoginRecoveryReset(event,kind,identifier){
     toast(kind==="admin"?"تم تحديث كلمة السر بنجاح، سجّل دخولك الآن بكلمة السر الجديدة":"تم تحديث الرمز السري بنجاح، سجّل دخولك الآن به");
   }catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden");button.disabled=false}
 }
-async function committeeLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#committeeLoginError");const originalHtml=button.innerHTML;button.disabled=true;button.textContent="جارٍ التحقق من البيانات...";errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInCommittee($("#committeeLoginCode").value.trim(),$("#committeeLoginPin").value);$("#committeeLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false;button.innerHTML=originalHtml}}
+async function committeeLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#committeeLoginError");const originalHtml=button.innerHTML;button.disabled=true;button.textContent="جارٍ التحقق من البيانات...";errorBox.classList.add("hidden");showBusyOverlay("جارٍ تسجيل الدخول...");try{const context=await window.CloudCompetition.signInCommittee($("#committeeLoginCode").value.trim(),$("#committeeLoginPin").value);$("#committeeLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{hideBusyOverlay();button.disabled=false;button.innerHTML=originalHtml}}
 function showCloudLoginMode(mode){const committee=mode==="committee",admin=mode==="admin",subAdmin=mode==="subAdmin";$("#committeeLoginForm").classList.toggle("hidden",!committee);$(".login-mode-links").classList.toggle("hidden",!committee);$("#cloudLoginForm").classList.toggle("hidden",!admin);$("#subAdminLoginForm").classList.toggle("hidden",!subAdmin);$("#cloudLoginTitle").textContent=admin?"دخول إدارة المسابقة":subAdmin?"دخول مسؤول فرعي":"دخول لجنة الاختبار";$(admin?"#cloudLoginEmail":subAdmin?"#subAdminLoginCode":"#committeeLoginCode").focus()}
-async function subAdminLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#subAdminLoginError");const originalHtml=button.innerHTML;button.disabled=true;button.textContent="جارٍ التحقق من البيانات...";errorBox.classList.add("hidden");try{const context=await window.CloudCompetition.signInSubAdmin($("#subAdminLoginCode").value.trim(),$("#subAdminLoginPin").value);$("#subAdminLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{button.disabled=false;button.innerHTML=originalHtml}}
-async function cloudLogout(){stopCommitteeAutoRefresh();stopAdminAutoRefresh();stopMonitorPoll();stopIssueReportsPoll();stopMemberPositionSync();clearTimeout(idleLogoutTimer);sessionStorage.removeItem(ACTIVE_MODE_KEY);try{await window.CloudCompetition.signOut()}catch(error){console.warn("Sign out failed",error)}activeCloudSession=null;committeeSessions=[];cloudStartup={enabled:cloudEnabled,context:null};diwanStateLoaded=false;diwanAdminSessions=[];
+async function subAdminLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#subAdminLoginError");const originalHtml=button.innerHTML;button.disabled=true;button.textContent="جارٍ التحقق من البيانات...";errorBox.classList.add("hidden");showBusyOverlay("جارٍ تسجيل الدخول...");try{const context=await window.CloudCompetition.signInSubAdmin($("#subAdminLoginCode").value.trim(),$("#subAdminLoginPin").value);$("#subAdminLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{hideBusyOverlay();button.disabled=false;button.innerHTML=originalHtml}}
+async function cloudLogout(){stopCommitteeAutoRefresh();stopAdminAutoRefresh();stopMonitorPoll();stopIssueReportsPoll();stopMemberPositionSync();clearTimeout(idleLogoutTimer);sessionStorage.removeItem(ACTIVE_MODE_KEY);showBusyOverlay("جارٍ تسجيل الخروج...");try{await window.CloudCompetition.signOut()}catch(error){console.warn("Sign out failed",error)}finally{hideBusyOverlay()}activeCloudSession=null;committeeSessions=[];cloudStartup={enabled:cloudEnabled,context:null};diwanStateLoaded=false;diwanAdminSessions=[];
   // تصفير صريح لبقايا لجنة سابقة على نفس الجهاز (كشك مشترك) — بدونه ممكن اللجنة التالية تشوف
   // للحظة بيانات اللجنة السابقة بشاشة ديوان الحفاظ قبل ما يكتمل التحديث الفعلي.
   activeDiwanCloudSession=null;diwanCommitteeSessions=[];diwanCommitteeScopedState=defaultDiwanState();diwanCommitteeStudentsPage=1;diwanCommitteeStudentsPageSignature="";
@@ -1227,7 +1233,7 @@ async function submitCommitteeIssueReport(participantId,continueExam){
   errorBox.classList.add("hidden");
   const buttons=[$("#committeeConfirmIssueStopBtn"),$("#committeeConfirmIssueContinueBtn")];
   buttons.forEach(button=>button.disabled=true);
-  (continueExam?$("#committeeConfirmIssueContinueBtn"):$("#committeeConfirmIssueStopBtn")).textContent="جاري الإرسال...";
+  (continueExam?$("#committeeConfirmIssueContinueBtn"):$("#committeeConfirmIssueStopBtn")).textContent="جارٍ الإرسال...";
   try{
     await window.CloudCompetition.reportCommitteeIssue(participantId,message);
     closeModal();
@@ -1252,10 +1258,10 @@ function openCommitteeSelfDrawModal(participantId){
     $("#committeeSelfDrawError").classList.add("hidden");
     const parts=$$(`#committeeSelfDrawParts input`).filter(i=>i.checked).map(i=>Number(i.value)).sort((a,b)=>a-b);
     if(parts.length!==level)return showCommitteeSelfDrawError(`اختر ${level} جزءاً بالضبط`);
-    button.disabled=true;button.textContent="جاري تجهيز بيانات القرآن...";
+    button.disabled=true;button.textContent="جارٍ تجهيز بيانات القرآن...";
     try{
       await ensureQuranReady();
-      button.textContent="جاري السحب...";
+      button.textContent="جارٍ السحب...";
       const questionCount=LEVEL_QUESTIONS[level]||3;
       const pools=new Map(parts.map(j=>[j,availableForParts([j],level)]));
       const eligibleParts=parts.filter(j=>pools.get(j).length);
@@ -1277,7 +1283,7 @@ function openCommitteeSelfDrawModal(participantId){
     }catch(error){button.disabled=false;button.textContent="تسجيل الأجزاء وتنفيذ السحب";showCommitteeSelfDrawError(error.message)}
   };
 }
-async function startCommitteeExam(participantId){const participant=state.participants.find(item=>item.id===participantId);let draw=state.draws.find(item=>item.participantId===participantId);if(!participant)return toast("المتسابق غير موجود");if(participant.scoreSource==="manual"&&participant.manualEntryBy)return toast("عُلامة هذا المتسابق مسجّلة يدويًا من الإدارة؛ لا يمكن فتح تقييم إلكتروني له إلا بعد إلغاء التسجيل اليدوي من الإدارة");const role=currentExaminerRole();const unfinished=state.participants.find(p=>p.id!==participantId&&p.assessment?.examinerRole===role&&p.assessment?.status==="draft"&&!(role==="member"&&p.assessment?.memberSubmittedAt));if(unfinished)return toast(`أنهِ اختبار «${unfinished.name}» أولاً (لا يزال قيد الاختبار) قبل بدء اختبار متسابق آخر`);if(!draw)return toast("بانتظار قيام الإدارة بإجراء السحب لهذا المتسابق");let session=committeeSessions.find(item=>item.participant_id===participantId);try{await ensureQuranReady();if(!session){session=await window.CloudCompetition.claimStudent(participant.id,draw.id,participant.level);committeeSessions.unshift(session);await window.CloudCompetition.log("claim","participant",participant.id,{drawId:draw.id,level:participant.level})}activeCloudSession=session;console.log("[examTrace] startCommitteeExam: بدء/متابعة اختبار",{studentId:participant.id,examId:draw.id,attemptId:session.id,sessionStatus:session.status});const cloudDraft=session.assessment&&Object.keys(session.assessment).length?session.assessment:null,localDraft=loadLocalAssessmentDraft(participant.id),newestDraft=localDraft?.drawId===draw.id&&new Date(localDraft.updatedAt||0)>new Date(cloudDraft?.updatedAt||0)?localDraft:cloudDraft;if(newestDraft)participant.assessment=newestDraft;if(session.status==="final"){localStorage.removeItem(ASSESSMENT_DRAFT_PREFIX+participant.id);return openCompletedAssessment(draw,participant,session)}openElectronicAssessment(draw,session)}catch(error){
+async function startCommitteeExam(participantId){const participant=state.participants.find(item=>item.id===participantId);let draw=state.draws.find(item=>item.participantId===participantId);if(!participant)return toast("المتسابق غير موجود");if(participant.scoreSource==="manual"&&participant.manualEntryBy)return toast("عُلامة هذا المتسابق مسجّلة يدويًا من الإدارة؛ لا يمكن فتح تقييم إلكتروني له إلا بعد إلغاء التسجيل اليدوي من الإدارة");const role=currentExaminerRole();const unfinished=state.participants.find(p=>p.id!==participantId&&p.assessment?.examinerRole===role&&p.assessment?.status==="draft"&&!(role==="member"&&p.assessment?.memberSubmittedAt));if(unfinished)return toast(`أنهِ اختبار «${unfinished.name}» أولاً (لا يزال قيد الاختبار) قبل بدء اختبار متسابق آخر`);if(!draw)return toast("بانتظار قيام الإدارة بإجراء السحب لهذا المتسابق");let session=committeeSessions.find(item=>item.participant_id===participantId);try{showBusyOverlay("جارٍ تجهيز الاختبار...");try{await ensureQuranReady();if(!session){session=await window.CloudCompetition.claimStudent(participant.id,draw.id,participant.level);committeeSessions.unshift(session);await window.CloudCompetition.log("claim","participant",participant.id,{drawId:draw.id,level:participant.level})}}finally{hideBusyOverlay()}activeCloudSession=session;console.log("[examTrace] startCommitteeExam: بدء/متابعة اختبار",{studentId:participant.id,examId:draw.id,attemptId:session.id,sessionStatus:session.status});const cloudDraft=session.assessment&&Object.keys(session.assessment).length?session.assessment:null,localDraft=loadLocalAssessmentDraft(participant.id),newestDraft=localDraft?.drawId===draw.id&&new Date(localDraft.updatedAt||0)>new Date(cloudDraft?.updatedAt||0)?localDraft:cloudDraft;if(newestDraft)participant.assessment=newestDraft;if(session.status==="final"){localStorage.removeItem(ASSESSMENT_DRAFT_PREFIX+participant.id);return openCompletedAssessment(draw,participant,session)}openElectronicAssessment(draw,session)}catch(error){
     // نافذة ثابتة (لا توست يختفي) توضح سبب تعذر تحميل بيانات القرآن مع زر إعادة محاولة مباشر.
     if(String(error?.message||"").includes("تعذر تحميل بيانات")){
       openModal(`<div class="modal-head"><h2>تعذر تحميل بيانات القرآن</h2><button type="button" class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p class="form-error">${escapeHtml(error.message)}</p><p class="field-help">غالبًا بسبب ضعف أو انقطاع الاتصال بالإنترنت عند هذا الجهاز حاليًا. تحقق من اتصال الشبكة (واي فاي أو بيانات الجوال) ثم أعد المحاولة.</p></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إغلاق</button><button type="button" id="retryStartCommitteeExamBtn" class="primary-btn"><i data-lucide="refresh-cw"></i> إعادة المحاولة</button></div>`);
@@ -1751,7 +1757,7 @@ async function runDiwanBulkDraw(participants){
   const button=$("#confirmDiwanBulkDraw");button.disabled=true;
   let completed=0;const missingPartsNames=[],failedNames=[];
   for(const p of participants){
-    button.textContent=`جاري السحب ${completed+missingPartsNames.length+failedNames.length+1} من ${participants.length}`;
+    button.textContent=`جارٍ السحب ${completed+missingPartsNames.length+failedNames.length+1} من ${participants.length}`;
     const isFinal=diwanStageOf(p)===4;
     if(!isFinal&&(p.parts||[]).length!==10){missingPartsNames.push(p.name);continue}
     try{
@@ -2924,14 +2930,14 @@ async function createBulkResultsPdf(filters,options){
     return true;
   });
   if(!draws.length)return toast("لا توجد ملفات مطابقة للاختيار");
-  const originalHtml=button.innerHTML;button.disabled=true;button.textContent=`جاري تجهيز 1 من ${draws.length}`;
+  const originalHtml=button.innerHTML;button.disabled=true;button.textContent=`جارٍ تجهيز 1 من ${draws.length}`;
   let cancelled=false;const cancelBtn=document.createElement("button");cancelBtn.type="button";cancelBtn.className="secondary-btn";cancelBtn.textContent="إلغاء التصدير";cancelBtn.onclick=()=>{cancelled=true;cancelBtn.disabled=true;cancelBtn.textContent="جارٍ الإلغاء..."};button.insertAdjacentElement("afterend",cancelBtn);
   try{
     await ensurePdfLibraries();
     const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
     let produced=0;
     for(let index=0;index<draws.length&&!cancelled;index++){
-      const draw=draws[index];const progressPct=Math.round((index/draws.length)*100);toast(`جاري تجهيز ${index+1} من ${draws.length} (${progressPct}%)`);button.textContent=`جاري تجهيز ${index+1} من ${draws.length}`;
+      const draw=draws[index];const progressPct=Math.round((index/draws.length)*100);toast(`جارٍ تجهيز ${index+1} من ${draws.length} (${progressPct}%)`);button.textContent=`جارٍ تجهيز ${index+1} من ${draws.length}`;
       showResult(draw);const source=$(".result-modal"),clone=source.cloneNode(true);preparePdfClone(clone,draw);clone.querySelectorAll(".modal-actions,.result-warning,img").forEach(item=>item.remove());document.body.appendChild(clone);
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
       const canvas=await window.html2canvas(clone,{scale:1.4,useCORS:false,allowTaint:false,backgroundColor:"#fff",logging:false});
@@ -2976,14 +2982,14 @@ async function createDiwanBulkResultsPdf(filters,options){
     return true;
   });
   if(!draws.length)return toast("لا توجد ملفات مطابقة للاختيار");
-  const originalHtml=button.innerHTML;button.disabled=true;button.textContent=`جاري تجهيز 1 من ${draws.length}`;
+  const originalHtml=button.innerHTML;button.disabled=true;button.textContent=`جارٍ تجهيز 1 من ${draws.length}`;
   let cancelled=false;const cancelBtn=document.createElement("button");cancelBtn.type="button";cancelBtn.className="secondary-btn";cancelBtn.textContent="إلغاء التصدير";cancelBtn.onclick=()=>{cancelled=true;cancelBtn.disabled=true;cancelBtn.textContent="جارٍ الإلغاء..."};button.insertAdjacentElement("afterend",cancelBtn);
   try{
     await ensurePdfLibraries();
     const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
     let produced=0;
     for(let index=0;index<draws.length&&!cancelled;index++){
-      const draw=draws[index];const progressPct=Math.round((index/draws.length)*100);toast(`جاري تجهيز ${index+1} من ${draws.length} (${progressPct}%)`);button.textContent=`جاري تجهيز ${index+1} من ${draws.length}`;
+      const draw=draws[index];const progressPct=Math.round((index/draws.length)*100);toast(`جارٍ تجهيز ${index+1} من ${draws.length} (${progressPct}%)`);button.textContent=`جارٍ تجهيز ${index+1} من ${draws.length}`;
       showDiwanResult(draw);const source=$(".result-modal"),clone=source.cloneNode(true);preparePdfClone(clone,draw);clone.querySelectorAll(".modal-actions,.result-warning,img").forEach(item=>item.remove());document.body.appendChild(clone);
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
       const canvas=await window.html2canvas(clone,{scale:1.4,useCORS:false,allowTaint:false,backgroundColor:"#fff",logging:false});
@@ -3014,7 +3020,7 @@ async function createAssociationCardsPdf(filters,options){
     return true;
   });
   if(!list.length)return toast("لا يوجد متسابقون مطابقون للاختيار");
-  const originalHtml=button.innerHTML;button.disabled=true;button.textContent=`جاري تجهيز 1 من ${list.length}`;
+  const originalHtml=button.innerHTML;button.disabled=true;button.textContent=`جارٍ تجهيز 1 من ${list.length}`;
   let cancelled=false;const cancelBtn=document.createElement("button");cancelBtn.type="button";cancelBtn.className="secondary-btn";cancelBtn.textContent="إلغاء التصدير";cancelBtn.onclick=()=>{cancelled=true;cancelBtn.disabled=true;cancelBtn.textContent="جارٍ الإلغاء..."};button.insertAdjacentElement("afterend",cancelBtn);
   try{
     await ensurePdfLibraries();
@@ -3024,7 +3030,7 @@ async function createAssociationCardsPdf(filters,options){
     for(let index=0;index<list.length&&!cancelled;index++){
       const participant=list[index];
       const progressPct=Math.round((index/list.length)*100);
-      toast(`جاري تجهيز ${index+1} من ${list.length} (${progressPct}%)`);button.textContent=`جاري تجهيز ${index+1} من ${list.length} (${progressPct}%)`;
+      toast(`جارٍ تجهيز ${index+1} من ${list.length} (${progressPct}%)`);button.textContent=`جارٍ تجهيز ${index+1} من ${list.length} (${progressPct}%)`;
       const wrapper=document.createElement("div");wrapper.innerHTML=associationCardHtml(participant,logoSrc);
       const clone=wrapper.firstElementChild;document.body.appendChild(clone);
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -3223,7 +3229,7 @@ function availableForParts(parts,level=null){return candidates.filter(c=>parts.i
 function updateAvailability(){const parts=selectedParts(),level=Number($("#drawLevel")?.value)||null,available=availableForParts(parts,level);$("#availableCount").textContent=parts.length?`${formatNumber(available.length)} موضعاً`:"اختر متسابقًا بأجزاء مكتملة"}
 
 async function performDraw(event){
-  event.preventDefault();const error=$("#drawError");error.classList.add("hidden");const submit=event.submitter;let submitOriginalHtml=null;if(submit){submitOriginalHtml=submit.innerHTML;submit.disabled=true;submit.textContent="جاري تجهيز بيانات القرآن..."}try{await ensureQuranReady()}catch(loadError){if(submit){submit.disabled=false;submit.innerHTML=submitOriginalHtml??"إجراء السحب"}return showDrawError(`تعذر تجهيز بيانات القرآن: ${loadError.message}`)}if(submit){submit.disabled=false;submit.innerHTML=submitOriginalHtml??"إجراء السحب"}const level=Number($("#drawLevel").value),parts=selectedParts(),questionCount=Number($("#drawQuestionCount").value);
+  event.preventDefault();const error=$("#drawError");error.classList.add("hidden");const submit=event.submitter;let submitOriginalHtml=null;if(submit){submitOriginalHtml=submit.innerHTML;submit.disabled=true;submit.textContent="جارٍ تجهيز بيانات القرآن..."}try{await ensureQuranReady()}catch(loadError){if(submit){submit.disabled=false;submit.innerHTML=submitOriginalHtml??"إجراء السحب"}return showDrawError(`تعذر تجهيز بيانات القرآن: ${loadError.message}`)}if(submit){submit.disabled=false;submit.innerHTML=submitOriginalHtml??"إجراء السحب"}const level=Number($("#drawLevel").value),parts=selectedParts(),questionCount=Number($("#drawQuestionCount").value);
   const registeredParticipant=state.participants.find(item=>item.id===$("#drawParticipant").value);
   if(!registeredParticipant)return showDrawError("اختر متسابقًا مسجلًا؛ الأجزاء تُعتمد من بيانات المتسابق فقط");
   if(registeredParticipant&&registeredParticipant.parts?.length!==registeredParticipant.level)return showDrawError("الرجاء إدخال الأجزاء المشاركة فيها للمتسابق من زر تعديل قبل إجراء السحب");
@@ -3237,7 +3243,7 @@ async function performDraw(event){
   try{draw.verification=await createVerification(draw);if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="admin")Object.assign(draw,await window.CloudCompetition.createAdminDraw(draw));else if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="subAdmin")Object.assign(draw,await window.CloudCompetition.createSubAdminDraw(draw));else if(operationMode==="cloud"&&cloudEnabled&&window.CloudCompetition.context?.kind==="supervisor")Object.assign(draw,await window.CloudCompetition.createSupervisorDraw(draw));state.draws.push(draw);if(operationMode!=="cloud")saveState();renderAll();await playIndividualReveal(draw);showResult(draw);$("#drawForm").reset();$("#drawLevel").disabled=false;$("#drawPartsSummary").textContent="اختر متسابقًا مسجلًا";updateAvailability()}catch(drawError){showDrawError(drawError.message)}finally{if(submit){submit.disabled=false;submit.innerHTML=submitOriginalHtml??"إجراء السحب"}}
 }
 async function createVerification(draw){return (await hashText(JSON.stringify({id:draw.id,name:draw.name,positions:draw.positions.map(p=>p.id),createdAt:draw.createdAt}))).slice(0,12).toUpperCase()}
-function playIndividualReveal(draw){return new Promise(resolve=>{openModal(`<div class="draw-reveal"><span class="eyebrow light">جمعية المحافظة على القرآن الكريم | فرع الكورة</span><h2>${escapeHtml(draw.name)}</h2><p>${draw.level} أجزاء · ${draw.positions.length} مواضع</p><div id="revealCountdown" class="reveal-countdown">3</div><small>جاري إجراء السحب</small></div>`,"reveal-modal");let count=3;const timer=setInterval(()=>{count--;if(count>0){$("#revealCountdown").textContent=count}else{clearInterval(timer);$("#revealCountdown").innerHTML=`<i data-lucide="check"></i>`;$(".draw-reveal small").textContent="تم تثبيت المواضع";lucide.createIcons();setTimeout(()=>{closeModal();resolve()},650)}},650)})}
+function playIndividualReveal(draw){return new Promise(resolve=>{openModal(`<div class="draw-reveal"><span class="eyebrow light">جمعية المحافظة على القرآن الكريم | فرع الكورة</span><h2>${escapeHtml(draw.name)}</h2><p>${draw.level} أجزاء · ${draw.positions.length} مواضع</p><div id="revealCountdown" class="reveal-countdown">3</div><small>جارٍ إجراء السحب</small></div>`,"reveal-modal");let count=3;const timer=setInterval(()=>{count--;if(count>0){$("#revealCountdown").textContent=count}else{clearInterval(timer);$("#revealCountdown").innerHTML=`<i data-lucide="check"></i>`;$(".draw-reveal small").textContent="تم تثبيت المواضع";lucide.createIcons();setTimeout(()=>{closeModal();resolve()},650)}},650)})}
 function showDrawError(message){$("#drawError").textContent=message;$("#drawError").classList.remove("hidden")}
 function resultCommitteeName(participant){return participant?.assessment?.committeeName||participant?.assessment?.committee?.name||""}
 function resultCommitteeChairmanName(participant){return participant?.assessment?.committeeChairmanName||""}
@@ -3263,8 +3269,8 @@ function showResult(draw){
 async function saveResultAsPdf(draw){
   const button=$("#saveResultPdf"),originalHtml=button.innerHTML,source=$(".result-modal"),clone=source.cloneNode(true),safeName=String(draw.name||"متسابق").replace(/[\\/:*?"<>|]/g,"-");
   button.disabled=true;
-  let progress=5;button.textContent=`جاري إنشاء PDF... ${progress}%`;
-  const progressTimer=setInterval(()=>{progress=Math.min(92,progress+3+Math.random()*8);button.textContent=`جاري إنشاء PDF... ${Math.round(progress)}%`},200);
+  let progress=5;button.textContent=`جارٍ إنشاء PDF... ${progress}%`;
+  const progressTimer=setInterval(()=>{progress=Math.min(92,progress+3+Math.random()*8);button.textContent=`جارٍ إنشاء PDF... ${Math.round(progress)}%`},200);
   preparePdfClone(clone,draw);clone.removeAttribute("id");clone.querySelectorAll("img").forEach(image=>image.remove());
   document.body.appendChild(clone);
   try{
@@ -3272,7 +3278,7 @@ async function saveResultAsPdf(draw){
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const canvas=await window.html2canvas(clone,{scale:2,useCORS:false,allowTaint:false,backgroundColor:"#ffffff",logging:false,imageTimeout:0,scrollX:0,scrollY:0});
     if(!canvas.width||!canvas.height)throw new Error("تعذر تصوير ورقة المواضع");
-    clearInterval(progressTimer);button.textContent="جاري إنشاء PDF... 100%";
+    clearInterval(progressTimer);button.textContent="جارٍ إنشاء PDF... 100%";
     const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
     await addCanvasAsSinglePdfPage(pdf,canvas,"JPEG",.9);
     const blob=pdf.output("blob");if(!blob.size)throw new Error("تم إنشاء ملف PDF فارغ");
@@ -3496,16 +3502,16 @@ async function launchLocalElectronicAssessment(draw){
   if(!participant)return toast("التقييم الإلكتروني متاح للمتسابقين المسجلين فقط");
   if(participant.withdrawn)return toast("هذا المتسابق منسحب — ألغِ الانسحاب أولاً لبدء اختباره");
   if(Number.isFinite(participant.score)&&participant.scoreSource!=="electronic")return toast("علامة هذا المتسابق مُدخلة يدوياً — امسحها أولاً من جدول المتسابقين ثم ابدأ الاختبار الإلكتروني");
-  try{await ensureQuranReady()}catch(error){return toast(`تعذر تجهيز صفحات المصحف: ${error.message}`)}
+  try{await withBusyOverlay("جارٍ تجهيز الاختبار...",ensureQuranReady)}catch(error){return toast(`تعذر تجهيز صفحات المصحف: ${error.message}`)}
   if(participant.assessment?.status==="final"&&participant.assessment.drawId===draw.id)return openCompletedAssessment(draw,participant,null);
   openElectronicAssessment(draw);
 }
 function openCompletedAssessment(draw,participant,session){const localResult=!session&&operationMode==="local";session=session||{};const assessment=session.assessment||participant.assessment||{},result=assessment.result||calculateAssessment(assessment),incomplete=Boolean(assessment.incomplete),testedAt=session.finalized_at||assessment.finalizedAt||participant.gradedAt,canEdit=localResult||Boolean(window.CloudCompetition.context?.committee?.can_edit_final),canSeeScore=window.CloudCompetition.context?.committee?.show_score!==false;openModal(`<div class="modal-head"><div><span class="eyebrow">نتيجة معتمدة ${canEdit?"· صلاحية التعديل مفعلة":"للعرض فقط"}</span><h2>${escapeHtml(participant.name)}</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="assessment-review-score ${incomplete?"incomplete":result.passed?"passed":"failed"}"><span>العلامة النهائية</span><b>${incomplete?"غير مكتمل":canSeeScore?formatAssessmentNumber(result.score):"—"}</b><strong>${incomplete?"أُنهي الاختبار قبل اكتماله":canSeeScore?(result.passed?"ناجح":"راسب"):"العلامة غير ظاهرة لهذه اللجنة"}</strong></div>${canSeeScore?`<div class="assessment-review-grid">${Object.entries(ASSESSMENT_RULES).map(([type,rule])=>`<div><span>${rule.label}</span><b>${result.totals?.[type]||0}</b><small>خصم ${formatAssessmentNumber(result.deductions?.[type]||0)}</small></div>`).join("")}</div>`:""}<p class="assessment-review-note">لجنة الاختبار: <b>${escapeHtml(assessment.committeeName||window.CloudCompetition.context?.committee?.name||"-")}</b><br>موعد الاختبار: <b>${testedAt?formatExamDate(testedAt):"غير مسجل"}</b><br>${canEdit?"أي تعديل وإعادة اعتماد سيُسجلان في سجل النشاط.":"لا يمكن تعديل النتيجة دون منح الصلاحية من الإدارة."}</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إغلاق</button>${canEdit?`<button id="reopenFinalAssessmentBtn" class="primary-btn"><i data-lucide="file-pen-line"></i> تعديل النتيجة المعتمدة</button>`:""}</div>`,"assessment-review-modal");if(canEdit)$("#reopenFinalAssessmentBtn").onclick=()=>reopenFinalAssessment(draw,participant,session)}
-async function reopenFinalAssessment(draw,participant,session){const button=$("#reopenFinalAssessmentBtn");button.disabled=true;button.textContent="جاري فتح التعديل...";
+async function reopenFinalAssessment(draw,participant,session){const button=$("#reopenFinalAssessmentBtn");button.disabled=true;button.textContent="جارٍ فتح التعديل...";
   // المحلي: لا جلسة سحابية — نفس خطوات الفتح (مسودة + سجل مراجعة + إزالة العلامة حتى إعادة الاعتماد) على state مباشرة.
   if(!session?.id){const assessment=participant.assessment;assessment.status="draft";assessment.updatedAt=new Date().toISOString();assessment.revisions=assessment.revisions||[];assessment.revisions.push({type:"reopened-final",oldScore:participant.score,at:assessment.updatedAt});delete participant.score;delete participant.gradedAt;saveState();renderAll();openElectronicAssessment(draw);return toast("تم فتح النتيجة للتعديل — أعد اعتمادها بعد التعديل")}
   try{const assessment=JSON.parse(JSON.stringify(session.assessment||participant.assessment||{}));assessment.status="draft";assessment.updatedAt=new Date().toISOString();assessment.revisions=assessment.revisions||[];assessment.revisions.push({type:"reopened-final",oldScore:session.score,at:assessment.updatedAt});const reopened=await window.CloudCompetition.saveSession(session.id,assessment,"in_progress",null);activeCloudSession=reopened;committeeSessions=committeeSessions.map(item=>item.id===reopened.id?reopened:item);participant.assessment=assessment;delete participant.score;delete participant.gradedAt;safeSetItem(examinerDraftKey(participant.id),JSON.stringify(assessment));openElectronicAssessment(draw,reopened);toast("تم فتح النتيجة للتعديل وسيُسجل التغيير في سجل النشاط")}catch(error){button.disabled=false;button.textContent="تعديل النتيجة المعتمدة";toast(error.message)}}
-async function finalizeElectronicAssessment(draw,participant,result){const button=$("#finalizeAssessmentBtn");if(button?.disabled||participant.assessment?.status==="final")return toast("هذه النتيجة معتمدة مسبقاً");if(button){button.disabled=true;button.textContent="جاري اعتماد النتيجة..."}
+async function finalizeElectronicAssessment(draw,participant,result){const button=$("#finalizeAssessmentBtn");if(button?.disabled||participant.assessment?.status==="final")return toast("هذه النتيجة معتمدة مسبقاً");if(button){button.disabled=true;button.textContent="جارٍ اعتماد النتيجة..."}
   // يمنع مسودة تلقائية متأخرة (queueSessionSave) من الوصول بعد الاعتماد وإرجاع الجلسة لحالة "قيد الاختبار" بعلامة فارغة (خلل "العلامة رجعت 100").
   window.CloudCompetition.cancelQueuedSessionSave?.();
   console.log("[examTrace] finalizeElectronicAssessment: بدء الاعتماد",{studentId:participant.id,examId:draw.id,attemptId:activeCloudSession?.id||null,scoreBeforeCalc:participant.score,scoreAfterCalc:result.score});
@@ -3655,8 +3661,9 @@ async function startDiwanCommitteeExam(participantId){
   let session=diwanCommitteeSessions.find(item=>item.draw_id===draw.id);
   if(!session&&!diwanSerialOf(participant))return toast("لم تُدخل الإدارة الرقم التسلسلي لهذا المتسابق بعد — يُرجى مراجعة الإدارة قبل بدء الاختبار");
   try{
-    await ensureQuranReady();
-    if(!session){session=await window.DiwanCompetition.claimStudent(participant.id,draw.id,draw.stage,participant.level,participant.levelName);diwanCommitteeSessions.unshift(session)}
+    showBusyOverlay("جارٍ تجهيز الاختبار...");
+    try{await ensureQuranReady();
+    if(!session){session=await window.DiwanCompetition.claimStudent(participant.id,draw.id,draw.stage,participant.level,participant.levelName);diwanCommitteeSessions.unshift(session)}}finally{hideBusyOverlay()}
     activeDiwanCloudSession=session;
     if(session.assessment&&Object.keys(session.assessment).length)participant.assessment=session.assessment;
     if(session.status==="final")return openDiwanCompletedAssessment(draw,participant,session);
@@ -3883,7 +3890,7 @@ async function openDiwanAssessmentReview(draw,participant){
 }
 async function finalizeDiwanElectronicAssessment(draw,participant,result){
   const button=$("#finalizeAssessmentBtn");if(button?.disabled||participant.assessment?.status==="final")return toast("هذه النتيجة معتمدة مسبقاً");
-  if(button){button.disabled=true;button.textContent="جاري اعتماد النتيجة..."}
+  if(button){button.disabled=true;button.textContent="جارٍ اعتماد النتيجة..."}
   window.DiwanCompetition.cancelQueuedSessionSave?.();
   const assessment=participant.assessment,now=new Date().toISOString();assessment.status="final";assessment.finalizedAt=now;assessment.updatedAt=now;assessment.result=result;participant.score=result.score;participant.gradedAt=now;participant.scoreSource="electronic";
   const examiningCommittee=window.CloudCompetition.context?.committee;
@@ -3909,7 +3916,7 @@ function openDiwanCompletedAssessment(draw,participant,session){
   if(canEdit)$("#reopenDiwanFinalAssessmentBtn").onclick=()=>reopenDiwanFinalAssessment(draw,participant,session);
 }
 async function reopenDiwanFinalAssessment(draw,participant,session){
-  const button=$("#reopenDiwanFinalAssessmentBtn");button.disabled=true;button.textContent="جاري فتح التعديل...";
+  const button=$("#reopenDiwanFinalAssessmentBtn");button.disabled=true;button.textContent="جارٍ فتح التعديل...";
   try{
     const assessment=JSON.parse(JSON.stringify(session.assessment||participant.assessment||{}));
     assessment.status="draft";assessment.updatedAt=new Date().toISOString();assessment.revisions=assessment.revisions||[];assessment.revisions.push({type:"reopened-final",oldScore:session.score,at:assessment.updatedAt});
@@ -3938,9 +3945,9 @@ function openBulkDrawModal(){
   };
 }
 async function runBulkDraw(participants){
-  const button=$("#confirmBulkDraw");button.disabled=true;button.textContent="جاري تجهيز بيانات القرآن...";try{await ensureQuranReady()}catch(error){button.disabled=false;button.textContent="تنفيذ السحب لمن أجزاؤه جاهزة";return toast(`تعذر تجهيز بيانات القرآن: ${error.message}`)}let completed=0,missingPartsNames=[],noPositionsNames=[];
+  const button=$("#confirmBulkDraw");button.disabled=true;button.textContent="جارٍ تجهيز بيانات القرآن...";try{await ensureQuranReady()}catch(error){button.disabled=false;button.textContent="تنفيذ السحب لمن أجزاؤه جاهزة";return toast(`تعذر تجهيز بيانات القرآن: ${error.message}`)}let completed=0,missingPartsNames=[],noPositionsNames=[];
   for(const p of participants){
-    button.textContent=`جاري السحب ${completed+1} من ${participants.length}`;
+    button.textContent=`جارٍ السحب ${completed+1} من ${participants.length}`;
     if(p.parts?.length!==p.level){missingPartsNames.push(p.name);continue}const parts=p.parts;const questionCount=Math.min(LEVEL_QUESTIONS[p.level]||3,parts.length);const pools=new Map(parts.map(j=>[j,availableForParts([j],p.level)]));const eligibleParts=parts.filter(j=>pools.get(j).length);
     if(eligibleParts.length<questionCount){noPositionsNames.push(p.name);continue}
     const drawnParts=secureShuffle(eligibleParts).slice(0,questionCount);const positions=drawnParts.map(j=>pools.get(j)[randomIndex(pools.get(j).length)]).sort((a,b)=>a.juz-b.juz);const draw={id:uid("DRAW"),sequence:nextDrawSequence(),participantId:p.id,name:p.name,seat:p.seat,center:p.center,age:p.age,level:p.level,eligibleParts:parts,positions,createdAt:new Date().toISOString(),rerolls:[],verification:""};draw.verification=await createVerification(draw);state.draws.push(draw);saveState();completed++;
@@ -4079,7 +4086,7 @@ function renderCommitteeBreakdownCenterOptions(centers){
     summary.textContent=n===0?"المركز: الكل":n===1?`المركز: ${[...committeeBreakdownCenters][0]}`:`المركز: ${n} مراكز محددة`;
   }
 }
-function runAudit(){const button=$("#runAuditBtn");button.disabled=true;button.textContent="جاري تنفيذ 100,000 سحب...";setTimeout(()=>{const counts=Array(30).fill(0);for(let i=0;i<100000;i++)counts[randomIndex(30)]++;const expected=100000/30;const maxDeviation=Math.max(...counts.map(n=>Math.abs(n-expected)/expected*100));const score=Math.max(0,100-maxDeviation).toFixed(1);$("#auditScore").textContent=`${score}%`;$("#auditDetail").textContent=`أقصى انحراف عن المتوسط ${maxDeviation.toFixed(2)}%`;button.disabled=false;button.innerHTML=`<i data-lucide="activity"></i> إعادة الفحص`;lucide.createIcons();toast("اكتمل اختبار العشوائية")},50)}
+function runAudit(){const button=$("#runAuditBtn");button.disabled=true;button.textContent="جارٍ تنفيذ 100,000 سحب...";setTimeout(()=>{const counts=Array(30).fill(0);for(let i=0;i<100000;i++)counts[randomIndex(30)]++;const expected=100000/30;const maxDeviation=Math.max(...counts.map(n=>Math.abs(n-expected)/expected*100));const score=Math.max(0,100-maxDeviation).toFixed(1);$("#auditScore").textContent=`${score}%`;$("#auditDetail").textContent=`أقصى انحراف عن المتوسط ${maxDeviation.toFixed(2)}%`;button.disabled=false;button.innerHTML=`<i data-lucide="activity"></i> إعادة الفحص`;lucide.createIcons();toast("اكتمل اختبار العشوائية")},50)}
 
 function hydrateSettings(){$("#settingsCompetitionName").value=state.config.competitionName;$("#settingsShowFullQuran").checked=Boolean(state.config.showFullQuranStats);$("#settingsShowDraws").checked=state.config.showDrawsToCommittees!==false;if($("#settingsLiveAutoRefresh"))$("#settingsLiveAutoRefresh").checked=liveAutoRefreshEnabled();renderManagedCenters()}
 // قائمة المراكز: DEFAULT_CENTERS ("مجتمع محلي") استثناء وحيد متاح دائماً، زائد المراكز المُدارة من
@@ -4120,7 +4127,7 @@ function blockUnloadDuringRestore(event){event.preventDefault();event.returnValu
 async function restoreBackupToCloud(data){
   const participantsTotal=(data.participants||[]).length,drawsTotal=data.draws.length;
   cloudRestoreBusy=true;window.addEventListener("beforeunload",blockUnloadDuringRestore);
-  openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة النسخة الاحتياطية</span><h2>جاري رفع البيانات للسحابة</h2></div></div><div class="modal-body"><p class="field-help">لا تغلق الصفحة أو تحدّثها حتى تنتهي العملية.</p><p id="restoreProgressLabel">استعادة المتسابقين 0 / ${participantsTotal}</p><progress id="restoreProgressBar" max="1" value="0" style="width:100%"></progress></div>`);
+  openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة النسخة الاحتياطية</span><h2>جارٍ رفع البيانات للسحابة</h2></div></div><div class="modal-body"><p class="field-help">لا تغلق الصفحة أو تحدّثها حتى تنتهي العملية.</p><p id="restoreProgressLabel">استعادة المتسابقين 0 / ${participantsTotal}</p><progress id="restoreProgressBar" max="1" value="0" style="width:100%"></progress></div>`);
   try{
     const remote=await window.CloudCompetition.restoreCompetitionStateInBatches(data,progress=>{
       const label=$("#restoreProgressLabel"),bar=$("#restoreProgressBar");
