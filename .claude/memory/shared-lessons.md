@@ -12,4 +12,8 @@ it against reality first.
 
 ## Lessons
 
-_(none yet — add entries here only after independently verifying them)_
+### Every UI change is verified on all screen sizes and both themes (standing user rule, 2026-10-15)
+- The user asked that this be standard, never something they must request. Before reporting any visual change, check it at **390 (phone), 768 (tablet), 1024 (small laptop), 1440 (large laptop)**, in **light and dark** mode (`setColorMode("dark")`).
+- Run automated checks (no horizontal overflow, nothing past the viewport edge, no cut-off tabs/buttons, overlays inside the screen) **and** look at the screenshots — automated checks miss contrast problems.
+- Verified pitfall: `--green-800` flips to a light mint (`#6fe3ac`) in dark mode, so white text on it becomes unreadable. For a dark background that stays dark in both themes (with white text), use `--green-900`, the same as `.primary-btn`.
+- How it's done here: headless Chrome via the DevTools protocol against a local static server — no build or install needed. Chrome is at `C:/Program Files/Google/Chrome/Application/chrome.exe`, and Node 24 has a built-in `WebSocket`.
