@@ -14,7 +14,7 @@
 // أما SUPABASE_URL وSUPABASE_SERVICE_ROLE_KEY فمتوفّرتان تلقائياً داخل كل Edge Function من
 // Supabase نفسها، لا حاجة لإضافتهما يدوياً ولا لصقهما بأي مكان.
 
-import {createClient} from "https://esm.sh/@supabase/supabase-js@2";
+import {createClient} from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const RESEND_API_KEY=Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");
@@ -32,8 +32,11 @@ Deno.serve(async ()=>{
 
   const {data:settings,error:settingsError}=await supabase
     .from("backup_settings").select("*").eq("id",1).single();
-  if(settingsError)return jsonResponse({ok:false,reason:"settings-read-failed",error:settingsError.message},500);
+  if(settingsError){console.error("auto-backup: settings read failed",settingsError.message);return jsonResponse({ok:false,reason:"settings-read-failed"},500)}
   if(!settings.enabled)return jsonResponse({ok:true,skipped:"disabled"});
+  // لا يوجد إيميل مكتوب بالكود: الوجهة الوحيدة notify_email المخزّن بجدول backup_settings المحمي.
+  const notifyEmail=String(settings.notify_email||"").trim();
+  if(!notifyEmail){await supabase.from("backup_settings").update({last_error:"notify_email غير مضبوط"}).eq("id",1);return jsonResponse({ok:false,reason:"no-notify-email"},500)}
 
   const intervalMs=Math.max(5,Number(settings.interval_minutes)||30)*60*1000;
   const lastSent=settings.last_sent_at?new Date(settings.last_sent_at).getTime():0;
@@ -73,13 +76,13 @@ Deno.serve(async ()=>{
       headers:{"Authorization":`Bearer ${RESEND_API_KEY}`,"Content-Type":"application/json"},
       body:JSON.stringify({
         from:"نسخ احتياطي المسابقة <onboarding@resend.dev>",
-        to:[settings.notify_email||"loordmohammad79@gmail.com"],
+        to:[notifyEmail],
         subject:`نسخة احتياطية تلقائية — المسابقة القرآنية — ${new Date().toLocaleString("ar-JO")}`,
         text:`نسخة احتياطية تلقائية بحالة المسابقة الحالية (المسابقة السنوية + ديوان الحفاظ).\nعدد متسابقي المسابقة السنوية: ${backup.competitionState?.participants?.length||0}\nعدد متسابقي ديوان الحفاظ: ${backup.diwanState?.participants?.length||0}\nعدد اللجان: ${backup.committees.length}\nعدد جلسات الاختبار: ${backup.examSessions.length} (السنوية) و${backup.diwanExamSessions.length} (الديوان)\nللاستعادة: الإعدادات ← «استعادة نسخة JSON» واختر هذا الملف.`,
         attachments:[{filename:`نسخة-احتياطية-${stamp}.json`,content:base64Content}],
       }),
     });
-    if(!emailResponse.ok)throw new Error(`Resend: ${emailResponse.status} ${await emailResponse.text()}`);
+    if(!emailResponse.ok)throw new Error(`Resend: ${emailResponse.status}`);
 
     await supabase.from("backup_settings").update({
       last_sent_at:new Date().toISOString(),
@@ -91,7 +94,9 @@ Deno.serve(async ()=>{
     // لا نحدّث last_sent_at هنا عمداً — عشان أي فشل مؤقت (شبكة/Resend) يُعاد تجربته بأقرب
     // تشغيلة Cron تالية بدل ما ننتظر دورة كاملة (interval_minutes) قبل إعادة المحاولة.
     const message=error instanceof Error?error.message:String(error);
+    // التفاصيل تبقى بجدول backup_settings المحمي وبسجل الدالة فقط — لا تُرجَع لمن استدعى الدالة.
+    console.error("auto-backup: send failed",message);
     await supabase.from("backup_settings").update({last_error:message}).eq("id",1);
-    return jsonResponse({ok:false,reason:"send-failed",error:message},500);
+    return jsonResponse({ok:false,reason:"send-failed"},500);
   }
 });
