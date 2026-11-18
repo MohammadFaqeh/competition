@@ -2812,12 +2812,14 @@ function diwanCommitteeCellHtml(participant){
 }
 const DIWAN_STAGE_SUBTITLES={1:"عشرة أجزاء تختارها الإدارة",2:"عشرة أجزاء (أو خمسة) تختارها الإدارة",3:"عشرة أجزاء (أو خمسة) تختارها الإدارة",4:"القرآن الكريم كاملاً — ١٨ موضعاً"};
 // أي قيمة مرحلة غير صالحة تُعرض ضمن المرحلة الأولى بدل أن يختفي المتسابق من اللوحة.
+// أجزاء مسجّلة صالحة لمرحلته (١٠، أو ٥ بالثانية والثالثة) ولم يُسحب له بعد — جاهز لـ«سحب للجميع».
+function diwanHasReadyParts(p){return diwanStageOf(p)<4&&diwanAllowedPartCounts(diwanStageOf(p)).includes((p.parts||[]).length)}
 function diwanStageOf(participant){return [1,2,3,4].includes(participant?.stage)?participant.stage:1}
 function diwanParticipantCardHtml(p,showStage=false,viewStage=null){
   const status=diwanStageStatusOf(p,viewStage),passedSession=status==="passed"?diwanPassedStageSession(p,viewStage):null,failedSession=diwanFailedStageSession(p,viewStage);
   if(passedSession)showStage=true;
   const statusLabel=passedSession?`ناجح · ${formatAssessmentNumber(passedSession.score)} — ${p.certified?"حافظ معتمد":p.unenrolled?"غير مسجَّل حالياً بأي اختبار":`انتقل إلى ${DIWAN_STAGE_LABELS[diwanStageOf(p)]}`}`:status==="unenrolled"?"غير مسجَّل حالياً بأي اختبار":status==="certified"?(Number.isFinite(p.score)?`ناجح · ${formatAssessmentNumber(p.score)} — حافظ معتمد`:"حافظ معتمد"):status==="withdrawn"?"منسحب · 0":status==="failed"?(p.assessment?.incomplete?"غير مكتمل":`راسب · ${formatAssessmentNumber(p.score)}`)
-    :(failedSession?`${failedSession.assessment?.incomplete?"غير مكتمل":`راسب · ${formatAssessmentNumber(failedSession.score)}`} — `:"")+(status==="no_draw"?"لم يتم اختيار الأجزاء بعد":failedSession?"إعادة اختبار بانتظار اللجنة":"تم السحب — بانتظار اللجنة");
+    :(failedSession?`${failedSession.assessment?.incomplete?"غير مكتمل":`راسب · ${formatAssessmentNumber(failedSession.score)}`} — `:"")+(status==="no_draw"?(diwanHasReadyParts(p)?`الأجزاء جاهزة (${(p.parts||[]).length}) — بانتظار السحب`:"لم يتم اختيار الأجزاء بعد"):failedSession?"إعادة اختبار بانتظار اللجنة":"تم السحب — بانتظار اللجنة");
   const stateClass=status==="certified"||status==="passed"?"completed":status==="failed"||status==="withdrawn"?"failed":status==="no_draw"||status==="unenrolled"?"not-drawn":"drawn";
   const primaryHtml=passedSession?`<button class="compact-btn" data-diwan-draw-sheet="${escapeAttr(passedSession.draw_id)}"><i data-lucide="eye"></i> ورقة المواضع</button>`
     :status==="withdrawn"?""
@@ -3078,9 +3080,9 @@ function renderDiwanParticipants(){
   // اللوحة الرئيسية: صندوق ملخّص لكل مرحلة (أعداد فقط) — تفاصيل المتسابقين تُفتح بصفحة المرحلة عند الضغط على الصندوق.
   $("#diwanStageBoard").innerHTML=[1,2,3,4].map(stage=>{
     const members=all.filter(p=>diwanStageOf(p)===stage&&!p.unenrolled);
-    const tally=members.reduce((acc,p)=>{const key=diwanParticipantStatusOf(p);acc[key]=(acc[key]||0)+1;return acc},{});
+    const tally=members.reduce((acc,p)=>{let key=diwanParticipantStatusOf(p);if(key==="no_draw"&&diwanHasReadyParts(p))key="ready";acc[key]=(acc[key]||0)+1;return acc},{});
     const passedCount=all.filter(p=>diwanPassedStageSession(p,stage)).length;if(passedCount)tally.passed=passedCount;
-    const chips=[["no_draw","بانتظار الأجزاء"],["pending","بانتظار اللجنة"],["passed","ناجح وانتقل"],["failed","راسب"],["withdrawn","منسحب"],["certified","حافظ معتمد"]].filter(([key])=>tally[key]).map(([key,label])=>`<span class="diwan-stage-chip is-${key}">${label} ${formatNumber(tally[key])}</span>`).join("")||`<span class="diwan-stage-chip">لا يوجد متسابقون</span>`;
+    const chips=[["no_draw","بانتظار الأجزاء"],["ready","بانتظار السحب"],["pending","بانتظار اللجنة"],["passed","ناجح وانتقل"],["failed","راسب"],["withdrawn","منسحب"],["certified","حافظ معتمد"]].filter(([key])=>tally[key]).map(([key,label])=>`<span class="diwan-stage-chip is-${key}">${label} ${formatNumber(tally[key])}</span>`).join("")||`<span class="diwan-stage-chip">لا يوجد متسابقون</span>`;
     return `<button type="button" class="diwan-stage-box stage-${stage}" data-open-stage="${stage}"><span class="diwan-stage-head"><span class="diwan-stage-num">${stage===4?"★":stage}</span><span class="diwan-stage-titles"><strong>${escapeHtml(DIWAN_STAGE_LABELS[stage])}</strong><small>${DIWAN_STAGE_SUBTITLES[stage]}</small></span><b class="diwan-stage-count">${formatNumber(members.length)}</b></span><span class="diwan-stage-chips">${chips}</span><span class="diwan-stage-open">عرض المتسابقين <i data-lucide="arrow-left"></i></span></button>`;
   }).join("");
   // بحث سريع بكل المراحل: يستبدل الصناديق بنتائج البحث ما دام نص البحث غير فارغ.
