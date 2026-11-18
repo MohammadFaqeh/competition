@@ -2327,12 +2327,16 @@ function diwanParticipantStatusOf(participant){
 // بالسنوية بالضبط (poolExcluding/متشابكة) بس بمفرداتها الخاصة (status/stage بدل status/level)، مبنية
 // كدالة موازية منفصلة لا كإعادة استخدام مباشر — نفس نهج ديوان الحفاظ بكل شاشاته السابقة (مثل
 // saveDiwanAssessmentDraft مقابل saveAssessmentDraft) تفادياً لأي مخاطرة على منطق السنوية المعتمد.
-// «ناجح»: من اجتاز هذه المرحلة وانتقل للتالية — يبقى ظاهراً بصفحة المرحلة التي نجح فيها مع علامته (لا يلزم فتح المرحلة التالية لرؤية النتائج).
-function diwanPassedStageSession(p,stage){
+// «ناجح»: من اجتاز هذه المرحلة وانتقل للتالية — يبقى ظاهراً بصفحة المرحلة التي نجح فيها مع علامته (لا يلزم فتح المرحلة التالية لرؤية النتائج)
+// لمدة DIWAN_PASSED_VISIBLE_DAYS من اعتماد نتيجته فقط (طلب الإدارة 2026-11-18)، ثم يظهر بمرحلته الجديدة وحدها؛ نتيجته وشهادته باقيتان بسجله.
+const DIWAN_PASSED_VISIBLE_DAYS=7;
+function diwanPassedStageSession(p,stage,now=Date.now()){
   // المنسحب لا يظهر «ناجح» بأي مرحلة — الانسحاب يعني صفر.
   if(p?.withdrawn||stage==null||diwanStageOf(p)<=stage)return null;
   const passed=diwanAdminSessions.filter(x=>x.participant_id===p.id&&Number(x.stage)===stage&&x.status==="final"&&diwanScorePasses(x));
-  return passed.length?passed.reduce((best,x)=>new Date(x.finalized_at||x.updated_at)>new Date(best.finalized_at||best.updated_at)?x:best):null;
+  const latest=passed.length?passed.reduce((best,x)=>new Date(x.finalized_at||x.updated_at)>new Date(best.finalized_at||best.updated_at)?x:best):null;
+  const at=latest?new Date(latest.finalized_at||latest.updated_at).getTime():NaN;
+  return latest&&!(now-at>DIWAN_PASSED_VISIBLE_DAYS*864e5)?latest:null;
 }
 function diwanStageStatusOf(p,stage){return diwanPassedStageSession(p,stage)?"passed":diwanParticipantStatusOf(p)}
 function diwanStageMembers(stage){return diwanState.participants.filter(p=>(diwanStageOf(p)===stage&&!p.unenrolled)||diwanPassedStageSession(p,stage))}

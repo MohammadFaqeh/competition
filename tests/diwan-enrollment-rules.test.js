@@ -63,7 +63,7 @@ async function run() {
     { id: "dA1", participantId: "A", stage: 1, eligibleParts: [1,2,3,4,5,6,7,8,9,10], positions: [], createdAt: "2026-09-02T00:00:00.000Z" },
     { id: "dB1", participantId: "B", stage: 1, eligibleParts: [1,2,3,4,5,6,7,8,9,10], positions: [], createdAt: "2026-09-02T00:00:00.000Z" }] };
   vm.runInContext(`renderDiwanParticipants=()=>{};saveDiwanState=()=>{};diwanState=__d;diwanAdminSessions=[
-    {id:'sA',participant_id:'A',draw_id:'dA1',stage:1,status:'final',score:95,assessment:{},finalized_at:'2026-09-02T01:00:00.000Z'},
+    {id:'sA',participant_id:'A',draw_id:'dA1',stage:1,status:'final',score:95,assessment:{},finalized_at:'${new Date(Date.now() - 864e5).toISOString()}'},
     {id:'sB',participant_id:'B',draw_id:'dB1',stage:1,status:'final',score:60,assessment:{},finalized_at:'2026-09-02T01:00:00.000Z'}];`, sandbox);
   const list = () => vm.runInContext("diwanState.participants", sandbox);
 

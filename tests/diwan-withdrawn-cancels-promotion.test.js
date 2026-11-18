@@ -51,7 +51,10 @@ vm.runInContext(appSrc, sandbox, { filename: "app.js" });
 
 function run() {
   sandbox.confirm = () => true; sandbox.toast = () => {};
-  vm.runInContext("renderDiwanParticipants=()=>{};saveDiwanState=()=>{};diwanAdminSessions=[{id:'s1',participant_id:'p1',draw_id:'d1',stage:1,status:'final',score:100,assessment:{},finalized_at:'2026-09-20T10:00:00.000Z'}];", sandbox);
+  // نجاح حديث (خلال أسبوع) — الناجح يبقى ظاهراً «ناجح» بمرحلته السابقة ٧ أيام فقط.
+  const recent = new Date(Date.now() - 864e5).toISOString();
+  vm.runInContext(`renderDiwanParticipants=()=>{};saveDiwanState=()=>{};diwanAdminSessions=[{id:'s1',participant_id:'p1',draw_id:'d1',stage:1,status:'final',score:100,assessment:{},finalized_at:'${recent}'}];`, sandbox);
+  assert.strictEqual(sandbox.diwanPassedStageSession({ id: "p1", stage: 2 }, 1, Date.now() + 8 * 864e5), null, "بعد ٧ أيام من النجاح لا يظهر بالمرحلة السابقة");
   const participant = { id: "p1", name: "بسمة", stage: 2, parts: [], usedJuz: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], lastGradedDrawId: "d1", score: 100, gradedAt: "2026-09-20T10:00:00.000Z", assessment: { status: "final" } };
   sandbox.__diwan = { config: {}, participants: [participant], draws: [{ id: "d1", participantId: "p1", stage: 1, eligibleParts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], createdAt: "2026-09-20T09:00:00.000Z" }] };
   vm.runInContext("diwanState = __diwan;", sandbox);
