@@ -67,7 +67,14 @@ async function run() {
   vm.runInContext("toast=()=>{};diwanState=__diwan;diwanAdminSessions=[];", sandbox);
   await sandbox.exportDiwanCentersFile();
   const rows = sheets[0];
-  assert.strictEqual(Object.keys(rows[0]).join("|"), "رقم الجلوس|الرقم التسلسلي|الاسم|الجنس|المركز|الاختبار القادم|النتيجة|أجزاء الاختبار السابق|أجزاء الاختبار القادم", "ترتيب الأعمدة");
+  assert.strictEqual(Object.keys(rows[0]).join("|"), "رقم الجلوس|الرقم التسلسلي|الاسم|الجنس|المركز|الاختبار القادم|رصيد المرحلة|النتيجة|أجزاء الاختبار السابق|عدد الأجزاء|أجزاء الاختبار القادم", "ترتيب الأعمدة");
+  // «عدد الأجزاء» يقرؤه الاستيراد: 10 افتراضياً، وفارغ للنهائي.
+  const byName = Object.fromEntries(rows.map(r => [r["الاسم"], r]));
+  assert.strictEqual(byName["منى"]["عدد الأجزاء"], 10);
+  assert.strictEqual(byName["نهائي"]["عدد الأجزاء"], "");
+  assert.strictEqual(byName["سلمى"]["رصيد المرحلة"], "0 من 10");
+  // ملف المراكز يُستورد كما هو: اسم عمود «عدد الأجزاء» ضمن قائمة الاستيراد.
+  assert.strictEqual(sandbox.pickColumn({ [sandbox.normalizeHeader("عدد الأجزاء")]: "5" }, ["عددالاجزاء"]), "5");
   assert.ok(!rows.some(r => "آخر علامة" in r), "لا علامات");
   assert.strictEqual(rows.length, 5, "الحافظ المعتمد لا يُدرج");
   const by = Object.fromEntries(rows.map(r => [r["الاسم"], r]));

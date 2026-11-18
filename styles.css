@@ -826,6 +826,11 @@ body.exam-fullscreen .color-mode-toggle{display:none}
 .diwan-juz-cell.is-used{background:var(--gold-soft);color:var(--gold-600);border-style:dashed}
 .diwan-juz-cell.is-used::after{content:"سبق";position:absolute;bottom:2px;inset-inline:0;font-size:8px;line-height:1;text-align:center}
 .diwan-juz-cell.is-used.is-selected{background:var(--green-600);border-color:var(--green-700);color:#fff;border-style:solid}
+.diwan-juz-mode{border:0;padding:0;margin:12px 0 0;min-width:0}
+.diwan-juz-mode legend{font-size:12px;font-weight:700;margin-bottom:7px;padding:0}
+.diwan-juz-mode .committee-level-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.diwan-juz-mode .committee-member-toggle{grid-column:auto;padding:9px 10px;font-size:13px}
+@media(max-width:640px){.diwan-juz-mode .committee-level-options{grid-template-columns:1fr}}
 @media(max-width:640px){.diwan-juz-row{grid-template-columns:repeat(5,1fr)}}
 .trial-juz-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:38px;padding:6px 2px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
 .trial-juz-cell.is-selected{border-color:var(--green-600)}

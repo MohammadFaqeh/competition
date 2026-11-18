@@ -32,7 +32,8 @@ const { readBackupFile, mergeFinalDiwanSessionsIntoState, applyDiwanResultOverri
 const annual = { config: { competitionName: "السنوية" }, participants: [{ id: "A1" }], draws: [{ id: "D1" }] };
 const diwan = () => ({
   config: { nextCertificateSeq: 2 },
-  participants: [{ id: "W1", stage: 1, level: 3, parts: [1, 2, 3], usedJuz: [] }],
+  // ١٠ أجزاء: بقاعدة العدّ (2026-11-18) الانتقال يتطلب ١٠ أجزاء محسوبة.
+  participants: [{ id: "W1", stage: 1, level: 3, parts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], usedJuz: [] }],
   draws: [{ id: "WD1", participantId: "W1", stage: 1 }],
 });
 const finalSession = { participant_id: "W1", draw_id: "WD1", stage: 1, status: "final", score: 92, assessment: {}, finalized_at: "2026-10-10T08:20:00Z", updated_at: "2026-10-10T08:20:00Z" };
@@ -43,7 +44,7 @@ assert.ok(r && r.data === annual, "القسم السنوي يُقرأ كما ه�
 let w1 = r.diwan.participants[0];
 assert.strictEqual(w1.score, 92, "علامة لجنة الديوان المعتمدة تُدمج");
 assert.strictEqual(w1.stage, 2, "والنجاح ينقل المتسابق للمرحلة التالية");
-assert.deepStrictEqual(Array.from(w1.usedJuz), [1, 2, 3], "والأجزاء المُجازة تُسجَّل");
+assert.deepStrictEqual(Array.from(w1.usedJuz), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "والأجزاء المُجازة تُسجَّل");
 
 // 2) emailed automatic backup format
 r = readBackupFile({ schema: 2, competitionState: annual, diwanState: diwan(), diwanExamSessions: [finalSession] });

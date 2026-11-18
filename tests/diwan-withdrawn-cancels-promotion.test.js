@@ -72,9 +72,11 @@ function run() {
     assert.strictEqual(participant.score, 100);
     assert.strictEqual(participant.usedJuz.length, 10);
     // السجل: تعديل علامة راسب (آخر اختبار بمرحلته) إلى نجاح يرقّيه، وحذف اختبار النجاح يعيده.
-    const q = { id: "p2", name: "راسبة", stage: 1, parts: [11, 12], usedJuz: [], lastGradedDrawId: "d2", score: 70, assessment: {} };
+    // ١٠ أجزاء: بقاعدة العدّ (2026-11-18) الانتقال يتطلب ١٠ أجزاء محسوبة.
+    const tenParts = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+    const q = { id: "p2", name: "راسبة", stage: 1, parts: tenParts.slice(), usedJuz: [], lastGradedDrawId: "d2", score: 70, assessment: {} };
     sandbox.__diwan.participants.push(q);
-    sandbox.__diwan.draws.push({ id: "d2", participantId: "p2", stage: 1, eligibleParts: [11, 12], createdAt: "2026-09-21T09:00:00.000Z" });
+    sandbox.__diwan.draws.push({ id: "d2", participantId: "p2", stage: 1, eligibleParts: tenParts.slice(), createdAt: "2026-09-21T09:00:00.000Z" });
     vm.runInContext("diwanAdminSessions.push({id:'s2',participant_id:'p2',draw_id:'d2',stage:1,status:'final',score:70,assessment:{},finalized_at:'2026-09-21T10:00:00.000Z'})", sandbox);
     const d2 = sandbox.__diwan.draws.find(d => d.id === "d2");
     return sandbox.setDiwanAttemptResult(q, d2, { score: 90 }).then(ok => {
