@@ -250,6 +250,20 @@ async function run() {
   assert.strictEqual(sorted(removed.parts), sorted(range(11, 20)));
   assert.strictEqual(removed.usedJuz.length, 10, "ورصيدها كما هو");
 
+  // ===== ٨) اسم أكمل بالملف: الرقمان معاً يطابقان ← يُحدَّث الاسم؛ رقم واحد فقط ← يُرفض =====
+  const jana = mk("59", "جنى محمد مقابلة"), saja = mk("92", "سجى حاتم بني عبد الرحمن");
+  setup([jana, saja]);
+  const nameRows = sandbox.planDiwanImportRows([
+    row("جنى محمد عارف مقابلة", { seat: "059", serial: "ث/59/2026" }),
+    row("سجى حاتم عبد النبي بني عبد الرحمن", { serial: "ث/92/2026" }),
+  ].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.strictEqual(nameRows[0].status, "ready", "رقم الجلوس (059 = 59) والتسلسلي يطابقانها");
+  assert.ok(/سيُعدَّل الاسم/.test(nameRows[0].warning));
+  assert.strictEqual(nameRows[1].status, "rejected", "رقم واحد فقط مع اسم مختلف يُرفض");
+  sandbox.applyDiwanImport(nameRows);
+  assert.strictEqual(jana.name, "جنى محمد عارف مقابلة", "حُدّث الاسم");
+  assert.strictEqual(sandbox.__diwan.participants.length, 2, "لم تُضف طالبة جديدة");
+
   console.log("diwan-juz-counting-rule.test.js: نجح — قاعدة العدّ، اختبار الخمسة أجزاء (90، المرحلتان ٢–٣)، التعديل/الانسحاب، والاستيراد بالاسم والترقيم التلقائي");
 }
 run().catch(error => { console.error("diwan-juz-counting-rule.test.js FAILED:", error.stack || error.message); process.exit(1); });

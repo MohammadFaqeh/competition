@@ -2181,7 +2181,8 @@ function planDiwanImportRows(rows){
     if(out.gender!=="ذكر"&&out.gender!=="أنثى")out.gender="";
     if(importerGender){if(!out.gender)out.gender=importerGender;else if(out.gender!==importerGender)return reject(`${out.gender} — خارج صلاحية حسابك`)}
     const bySerial=out.serial?diwanState.participants.find(p=>normalizeDigits(diwanSerialOf(p))===out.serial):null;
-    const bySeat=out.seat?diwanState.participants.find(p=>String(p.seat).trim()===out.seat):null;
+    const seatKey=x=>normalizeDigits(String(x??"")).trim().replace(/^0+(?=\d)/,"");
+    const bySeat=out.seat?diwanState.participants.find(p=>seatKey(p.seat)===seatKey(out.seat)):null;
     if(bySerial&&bySeat&&bySerial!==bySeat)return reject(`رقم الجلوس ${out.seat} يخص ${bySeat.name} بينما الرقم التسلسلي ${out.serial} يخص ${bySerial.name}`);
     let existing=bySerial||bySeat||null,byName=false;
     // بلا رقم مطابق: التعرّف بالاسم إن طابق متسابقاً واحداً فقط (مع تنبيه للمراجعة)، والاسم المكرر يُرفض لتعذّر التمييز.
@@ -2194,7 +2195,10 @@ function planDiwanImportRows(rows){
         existing=match;byName=true;
       }
     }
-    if(existing&&!diwanSameName(existing.name,out.name))return reject(`${bySerial?`الرقم التسلسلي ${out.serial}`:`رقم الجلوس ${out.seat}`} مسجَّل لمتسابق آخر باسم مختلف (${existing.name})`);
+    // اسم مختلف: إن طابق رقم الجلوس والرقم التسلسلي معاً نفس المتسابق فهو هو (غالباً اسم أكمل) ← يُحدَّث اسمه مع تنبيه؛
+    // رقم واحد فقط يطابق ← يُرفض (قد يكون الرقم خطأ بالملف فيُكتب على متسابق آخر).
+    const renameFrom=existing&&!diwanSameName(existing.name,out.name)&&bySerial&&bySeat&&bySerial===bySeat?existing.name:"";
+    if(existing&&!renameFrom&&!diwanSameName(existing.name,out.name))return reject(`${bySerial?`الرقم التسلسلي ${out.serial}`:`رقم الجلوس ${out.seat}`} مسجَّل لمتسابق آخر باسم مختلف (${existing.name}) — إن كان هو نفسه اكتب رقم الجلوس والرقم التسلسلي معاً ليُحدَّث اسمه`);
     const key=existing?existing.id:out.serial?`serial:${out.serial}`:out.seat?`seat:${out.seat}`:`name:${String(out.name).replace(/\s+/g," ").trim()}`;
     if(key){if(seen.has(key))return reject("مكرر في الملف نفسه — اعتُمد أول صف له فقط");seen.add(key)}
     if(Number.isNaN(out.stage))return reject(`لم أفهم خانة الاختبار «${out.stageRaw}» — اكتب: الاختبار الأول / الثاني / الثالث / النهائي`);
@@ -2205,7 +2209,7 @@ function planDiwanImportRows(rows){
     if(plan.kind==="error")return reject(plan.error);
     out.stage=rowStage;
     const note=diwanPartsPlanNote(existing,plan.parts,plan.target??diwanStageOf(existing));
-    Object.assign(out,{existing,byName,plan,action:[!existing?plan.label:plan.kind==="update"?"تحديث بيانات فقط":plan.label,note].filter(Boolean).join(" · "),warning:[plan.warning,byName?`تم التعرّف عليه بالاسم (رقم الجلوس ${existing.seat}) — تأكد أنه الشخص نفسه`:"",existing&&out.seat&&String(existing.seat).trim()!==out.seat?`رقم الجلوس بالملف (${out.seat}) يختلف عن المسجَّل (${existing.seat}) — بقي المسجَّل`:""].filter(Boolean).join(" · ")});
+    Object.assign(out,{existing,byName,plan,action:[!existing?plan.label:plan.kind==="update"?"تحديث بيانات فقط":plan.label,note].filter(Boolean).join(" · "),warning:[plan.warning,renameFrom?`سيُعدَّل الاسم من «${renameFrom}» إلى «${out.name}» (رقم الجلوس والرقم التسلسلي يطابقانه)`:"",byName?`تم التعرّف عليه بالاسم (رقم الجلوس ${existing.seat}) — تأكد أنه الشخص نفسه`:"",existing&&out.seat&&String(existing.seat).trim()!==out.seat?`رقم الجلوس بالملف (${out.seat}) يختلف عن المسجَّل (${existing.seat}) — بقي المسجَّل`:""].filter(Boolean).join(" · ")});
     return out;
   });
   // ترقيم تلقائي لمن لا رقم له: رقم جلوس للجديد، ورقم تسلسلي «ث/…/2026» لمن خانته فارغة (الذكور يُتركون مع تنبيه).
@@ -2261,7 +2265,7 @@ function applyDiwanImport(rows,{empty=0}={}){
     const autoSerial=row.assignedSerial?(serialTaken(row.assignedSerial)?nextDiwanSerial():row.assignedSerial):"";
     if(participant&&autoSerial&&!diwanSerialOf(participant))participant.serialNumber=autoSerial;
     if(!participant){participant={id:uid("DP"),name:row.name,seat:row.seat||autoSeat||nextDiwanSeat(),serialNumber:row.serial||autoSerial,gender:row.gender,center:row.center,age:row.age,stage:plan.target,usedJuz:[],parts:[],level:10,createdAt:new Date().toISOString()};diwanState.participants.push(participant);added++}
-    else{participant.name=row.name;if(row.gender==="ذكر"||row.gender==="أنثى")participant.gender=row.gender;if(row.center)participant.center=row.center;if(row.age)participant.age=row.age;if(row.serial)participant.serialNumber=row.serial;updated++;if(plan.kind==="update")logDiwanEvent(participant,"حُدّثت بياناته (استيراد Excel)")}
+    else{if(!diwanSameName(participant.name,row.name)){logDiwanEvent(participant,`عُدّل الاسم من «${participant.name}» (استيراد Excel)`)}participant.name=row.name;if(row.gender==="ذكر"||row.gender==="أنثى")participant.gender=row.gender;if(row.center)participant.center=row.center;if(row.age)participant.age=row.age;if(row.serial)participant.serialNumber=row.serial;updated++;if(plan.kind==="update")logDiwanEvent(participant,"حُدّثت بياناته (استيراد Excel)")}
     applyDiwanEnrollment(participant,plan,{source:"استيراد Excel"});
     if(["back","up","enroll","retake"].includes(plan.kind))moved++;
     if(plan.parts&&plan.parts.length)partsSet++;
