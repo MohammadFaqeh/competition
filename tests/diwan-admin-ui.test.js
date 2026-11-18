@@ -373,7 +373,7 @@ async function run() {
     assert.strictEqual(sandbox.diwanParticipantStatusOf(w), "failed", "ويعيد الحالة السابقة");
   }
 
-  // 13) التوزيع على لجان الإناث: بلا ذكور/منسحبات/من بدأت، عدد متساوٍ لكل لجنة، وتناوب حسب وقت حضور المركز ثم المركز ثم الجلوس
+  // 13) التوزيع على لجان الإناث: بلا ذكور/منسحبات/من بدأت، طالبات كل مركز على كل اللجان، ومجموع المواضع متساوٍ
   {
     vm.runInContext('diwanState = defaultDiwanState(); diwanAdminSessions = [];', sandbox);
     // جدول «توزيع طالبات ديوان الحفاظ على اللجان» (90 طالبة على اللجان 5–9) بترتيب الدور داخل كل لجنة
@@ -396,20 +396,24 @@ async function run() {
     const list = sandbox.diwanDistributableParticipants();
     assert.strictEqual(list.length, 90, "الإناث ومن بلا جنس فقط، بلا الذكر والمنسحبة ومن بدأت اختبارها");
     const committees = Object.keys(expected).map(name => ({ name }));
-    const plan = sandbox.diwanDistributionPlan(list, committees);
-    plan.forEach(({ committee, members }) => assert.deepStrictEqual(Array.from(members, p => Number(p.seat)), expected[committee.name], `${committee.name} تطابق الجدول المعتمد بالترتيب`));
-    assert.deepStrictEqual(Array.from(sandbox.diwanDistributionPlan(list, [{}, {}, {}, {}]), x => x.members.length), [23, 23, 22, 22], "90 على 4 لجان: 23،23،22،22");
+    // توزيع ثابت: (١) طالبات كل مركز على كل اللجان (فرق ≤ ١)، (٢) مجموع المواضع متساوٍ قدر الإمكان.
+    const loads = new Map(list.map((p, i) => [p.id, i % 3 === 0 ? 5 : 10]));
+    const loadOf = p => loads.get(p.id);
+    const plan = sandbox.diwanDistributionPlan(list, committees, loadOf);
+    assert.strictEqual(plan.reduce((n, e) => n + e.members.length, 0), 90, "الكل موزّع، لا أحد بلا لجنة");
+    for (const [center] of centers) {
+      const counts = Array.from(plan, e => e.members.filter(p => p.center === center).length);
+      assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `${center} موزّع على كل اللجان: ${counts}`);
+    }
+    const planLoads = Array.from(plan, e => e.load);
+    assert.deepStrictEqual(planLoads, Array.from(plan, e => e.members.reduce((n, p) => n + loadOf(p), 0)), "حِمل اللجنة = مجموع مواضع طالباتها");
+    assert.ok(Math.max(...planLoads) - Math.min(...planLoads) <= 5, `المواضع متقاربة: ${planLoads}`);
+    const plan4 = sandbox.diwanDistributionPlan(list, [{}, {}, {}, {}], () => 10);
+    assert.deepStrictEqual(Array.from(plan4, x => x.members.length).sort(), [22, 22, 23, 23], "90 على 4 لجان بحِمل متساوٍ: 23،23،22،22");
     assert.strictEqual(sandbox.diwanCenterArrival("مركز جديد"), "11:00", "المركز غير المعروف آخر وقت افتراضياً");
-    // أعداد مخصصة: مجموعها أقل من العدد → الباقي بلا لجنة
-    const custom = sandbox.diwanDistributionPlan(list, committees, { capacities: [30, 20, 10, 10, 10] });
-    assert.deepStrictEqual(Array.from(custom, x => x.members.length), [30, 20, 10, 10, 10], "كل لجنة بعددها المخصص");
-    assert.strictEqual(custom.leftover.length, 10, "10 بلا لجنة");
-    // مراكز محددة: لجنة 5 لكفر أبيل فقط، ولجنة 6 للأشرفية فقط، والباقي كل المراكز
-    const kafr = "مركز كفر أبيل القرآني", ashr = "مركز الأشرفية القرآني";
-    const limited = sandbox.diwanDistributionPlan(list, committees, { capacities: [21, 16, 20, 20, 13], centers: [[kafr], [ashr], null, null, null] });
-    assert.ok(Array.from(limited[0].members).every(p => p.center === kafr) && limited[0].members.length === 21, "لجنة 5 = كل طالبات كفر أبيل");
-    assert.ok(Array.from(limited[1].members).every(p => p.center === ashr) && limited[1].members.length === 16, "لجنة 6 = كل طالبات الأشرفية");
-    assert.strictEqual(limited.leftover.length, 0, "الإصلاح بالتبديل يضمن مكاناً للجميع");
+    assert.strictEqual(sandbox.diwanPositionsLoad({ id: "X", stage: 2, parts: [1, 2, 3, 4, 5] }, []), 5, "اختبار الخمسة = 5 مواضع");
+    assert.strictEqual(sandbox.diwanPositionsLoad({ id: "X", stage: 4, parts: [] }, []), 18, "النهائي = 18 موضعاً");
+    assert.strictEqual(sandbox.diwanPositionsLoad({ id: "X", stage: 2, parts: [] }, []), 10, "بلا أجزاء = 10 افتراضياً");
   }
 
   // المسؤول الفرعي (مسؤولة الإناث) ومشرف المسابقة: يُحمَّل ديوان الحفاظ من الخادم (لا من نسخة الجهاز)، وبصلاحيات تعديل الإدارة نفسها
