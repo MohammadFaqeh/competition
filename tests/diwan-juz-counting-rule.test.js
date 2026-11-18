@@ -286,6 +286,21 @@ async function run() {
   assert.strictEqual(sandbox.diwanSerialForSeat("098"), "ث/2026/98");
   assert.strictEqual(sandbox.diwanSerialForSeat("10"), "ث/2026/98", "إن أُخذ رقم الجلوس فبعد أكبر رقم مستخدم (97)");
 
+  // ===== ١٠) فلاتر صفحة المرحلة: «بانتظار السحب» و«نوع الاختبار» =====
+  const f5 = mk("201", "خمسة", { stage: 2, usedJuz: range(1, 10), parts: range(11, 15) }), f10 = mk("202", "عشرة", { stage: 2, usedJuz: range(1, 10), parts: range(11, 20) }), f0 = mk("203", "بلا أجزاء", { stage: 2, usedJuz: range(1, 10) });
+  setup([f5, f10, f0]);
+  vm.runInContext("diwanOpenStage=2", sandbox);
+  assert.strictEqual(sandbox.diwanStageFilterKey(f5, 2), "ready", "أجزاؤها مسجّلة بلا سحب = بانتظار السحب");
+  assert.strictEqual(sandbox.diwanStageFilterKey(f0, 2), "no_draw", "بلا أجزاء = بانتظار الأجزاء");
+  assert.strictEqual(sandbox.diwanExamTypeKey(f5, 2), "5");
+  assert.strictEqual(sandbox.diwanExamTypeKey(f10, 2), "10");
+  assert.strictEqual(sandbox.diwanExamTypeKey(f0, 2), "none");
+  const pick = filters => [f5, f10, f0].filter(p => sandbox.diwanParticipantMatchesFilters(p, { status: "all", type: "all", gender: "all", center: "all", committee: "all", ...filters })).map(p => p.id).join(",");
+  assert.strictEqual(pick({ type: "5" }), "201", "فلتر خمسة أجزاء");
+  assert.strictEqual(pick({ status: ["ready"] }), "201,202", "فلتر بانتظار السحب");
+  assert.strictEqual(pick({ status: ["ready"], type: "10" }), "202", "الفلاتر مترابطة");
+  vm.runInContext("diwanOpenStage=null", sandbox);
+
   console.log("diwan-juz-counting-rule.test.js: نجح — قاعدة العدّ، اختبار الخمسة أجزاء (90، المرحلتان ٢–٣)، التعديل/الانسحاب، والاستيراد بالاسم والترقيم التلقائي");
 }
 run().catch(error => { console.error("diwan-juz-counting-rule.test.js FAILED:", error.stack || error.message); process.exit(1); });
