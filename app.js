@@ -2212,12 +2212,14 @@ function planDiwanImportRows(rows){
     if(Number.isNaN(out.stage))return reject(`لم أفهم خانة الاختبار «${out.stageRaw}» — اكتب: الاختبار الأول / الثاني / الثالث / النهائي`);
     out.partsCount=out.partsCountRaw?Number(out.partsCountRaw):null;
     if(out.partsCountRaw&&![10,DIWAN_FIVE_PARTS].includes(out.partsCount))return reject(`خانة «عدد الأجزاء» (${out.partsCountRaw}) يجب أن تكون 10 أو 5`);
+    // المنسحب يبقى منسحباً (طلب الإدارة 2026-11-18): الاستيراد يحدّث بياناته فقط ولا يسجّل له أجزاء ولا ينقله — إلغاء الانسحاب يدوي فقط.
+    if(existing?.withdrawn&&(out.parts?.length||out.stage!=null)){out.parts=null;out.rawParts="";out.stage=null;out.partsCount=null;out.withdrawnKept=true}
     const rowStage=out.stage??(existing?.unenrolled&&out.parts?.length?diwanStageOf(existing):null);
     const plan=planDiwanEnrollment(existing,{stage:rowStage,parts:out.parts,gender:out.gender,partsCount:out.partsCount});
     if(plan.kind==="error")return reject(plan.error);
     out.stage=rowStage;
     const note=diwanPartsPlanNote(existing,plan.parts,plan.target??diwanStageOf(existing));
-    Object.assign(out,{existing,byName,plan,action:[!existing?plan.label:plan.kind==="update"?"تحديث بيانات فقط":plan.label,note].filter(Boolean).join(" · "),warning:[plan.warning,renameFrom?`سيُعدَّل الاسم من «${renameFrom}» إلى «${out.name}» (رقم الجلوس والرقم التسلسلي يطابقانه)`:"",byName?`تم التعرّف عليه بالاسم (رقم الجلوس ${existing.seat}) — تأكد أنه الشخص نفسه`:"",existing&&out.seat&&String(existing.seat).trim()!==out.seat?`رقم الجلوس بالملف (${out.seat}) يختلف عن المسجَّل (${existing.seat}) — بقي المسجَّل`:""].filter(Boolean).join(" · ")});
+    Object.assign(out,{existing,byName,plan,action:[!existing?plan.label:plan.kind==="update"?"تحديث بيانات فقط":plan.label,note].filter(Boolean).join(" · "),warning:[plan.warning,out.withdrawnKept?"منسحبة — بقيت منسحبة ولم تُسجَّل أجزاؤها من الملف (إلغاء الانسحاب يدوي من بطاقتها)":"",renameFrom?`سيُعدَّل الاسم من «${renameFrom}» إلى «${out.name}» (رقم الجلوس والرقم التسلسلي يطابقانه)`:"",byName?`تم التعرّف عليه بالاسم (رقم الجلوس ${existing.seat}) — تأكد أنه الشخص نفسه`:"",existing&&out.seat&&String(existing.seat).trim()!==out.seat?`رقم الجلوس بالملف (${out.seat}) يختلف عن المسجَّل (${existing.seat}) — بقي المسجَّل`:""].filter(Boolean).join(" · ")});
     return out;
   });
   // ترقيم تلقائي لمن لا رقم له: رقم جلوس للجديد، ورقم تسلسلي «ث/…/2026» لمن خانته فارغة (الذكور يُتركون مع تنبيه).

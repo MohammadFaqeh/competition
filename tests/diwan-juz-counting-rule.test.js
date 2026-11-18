@@ -301,6 +301,17 @@ async function run() {
   assert.strictEqual(pick({ status: ["ready"], type: "10" }), "202", "الفلاتر مترابطة");
   vm.runInContext("diwanOpenStage=null", sandbox);
 
+  // ===== ١١) المنسحبة تبقى منسحبة: الاستيراد لا يسجّل لها أجزاء ولا يلغي انسحابها =====
+  const wd = mk("301", "منسحبة", { stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", center: "قديم" });
+  setup([wd]);
+  const wdRows = sandbox.planDiwanImportRows([row("منسحبة", { center: "جديد", rawParts: "1-10", parts: range(1, 10) }), row("منسحبة", { rawParts: "1-5", parts: range(1, 5), partsCountRaw: "5" })].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.strictEqual(wdRows[0].status, "ready", "تُحدَّث بياناتها");
+  assert.ok(/بقيت منسحبة/.test(wdRows[0].warning), "مع تنبيه");
+  sandbox.applyDiwanImport(wdRows);
+  assert.strictEqual(wd.withdrawn, true, "لم يُلغَ انسحابها");
+  assert.strictEqual((wd.parts || []).length, 0, "ولا أجزاء لها");
+  assert.strictEqual(wd.center, "جديد", "وبياناتها حُدّثت");
+
   console.log("diwan-juz-counting-rule.test.js: نجح — قاعدة العدّ، اختبار الخمسة أجزاء (90، المرحلتان ٢–٣)، التعديل/الانسحاب، والاستيراد بالاسم والترقيم التلقائي");
 }
 run().catch(error => { console.error("diwan-juz-counting-rule.test.js FAILED:", error.stack || error.message); process.exit(1); });
