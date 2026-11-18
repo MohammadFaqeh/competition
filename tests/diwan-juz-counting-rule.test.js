@@ -164,10 +164,10 @@ async function run() {
 
   // ===== ٦) الاستيراد: التعرّف بالاسم، والترقيم التلقائي =====
   setup([
-    { id: "x1", name: "ترتيل سعيد", gender: "أنثى", seat: "001", serialNumber: "ث/1/2026", stage: 2, parts: [], usedJuz: range(1, 10) },
+    { id: "x1", name: "ترتيل سعيد", gender: "أنثى", seat: "001", serialNumber: "ث/2026/1", stage: 2, parts: [], usedJuz: range(1, 10) },
     { id: "x2", name: "هبة علي", gender: "أنثى", seat: "002", serialNumber: "", stage: 1, parts: [], usedJuz: [] },
-    { id: "x3", name: "مكررة", gender: "أنثى", seat: "003", serialNumber: "ث/7/2026", stage: 1, parts: [], usedJuz: [] },
-    { id: "x4", name: "مكررة", gender: "أنثى", seat: "004", serialNumber: "ث/8/2026", stage: 1, parts: [], usedJuz: [] },
+    { id: "x3", name: "مكررة", gender: "أنثى", seat: "003", serialNumber: "ث/2026/3", stage: 1, parts: [], usedJuz: [] },
+    { id: "x4", name: "مكررة", gender: "أنثى", seat: "004", serialNumber: "ث/2026/4", stage: 1, parts: [], usedJuz: [] },
   ]);
   const row = (name, extra = {}) => ({ name, gender: "أنثى", center: "", seat: "", serial: "", stageRaw: "", stage: null, rawParts: "", parts: null, partsCountRaw: "", ...extra });
   const rows = sandbox.planDiwanImportRows([
@@ -186,13 +186,13 @@ async function run() {
   assert.ok(/بالاسم/.test(by["ترتيل سعيد"].warning), "تنبيه التعرّف بالاسم");
   assert.ok(/اختبار خمسة أجزاء — إعادة/.test(by["ترتيل سعيد"].action), "وصف نوع الاختبار");
   assert.strictEqual(by["هبة علي"].existing.id, "x2");
-  assert.strictEqual(by["هبة علي"].assignedSerial, "ث/9/2026", "رقم تسلسلي بعد أكبر رقم موجود");
+  assert.strictEqual(by["هبة علي"].assignedSerial, "ث/2026/2", "الرقم التسلسلي = ث/2026/رقم الجلوس");
   assert.ok(/كلها جديدة/.test(by["هبة علي"].action));
   assert.strictEqual(by["جديدة أولى"].existing, null);
   assert.strictEqual(by["جديدة أولى"].assignedSeat, "011", "رقم الجلوس بعد أكبر رقم (ومنه رقم الملف 010) وبنفس العرض");
-  assert.strictEqual(by["جديدة أولى"].assignedSerial, "ث/10/2026");
+  assert.strictEqual(by["جديدة أولى"].assignedSerial, "ث/2026/11");
   assert.strictEqual(by["جديدة ثانية"].assignedSeat, undefined, "رقم الملف يبقى كما هو");
-  assert.strictEqual(by["جديدة ثانية"].assignedSerial, "ث/11/2026");
+  assert.strictEqual(by["جديدة ثانية"].assignedSerial, "ث/2026/10");
   assert.strictEqual(by["جديدة ثالثة"].assignedSeat, "012");
   assert.strictEqual(by["مكررة"].status, "rejected", "الاسم المكرر بالموقع يُرفض");
   assert.strictEqual(by["خمسة بالأولى"].status, "rejected");
@@ -203,14 +203,14 @@ async function run() {
   const all = sandbox.__diwan.participants;
   const added = all.find(p => p.name === "جديدة أولى");
   assert.strictEqual(added.seat, "011");
-  assert.strictEqual(added.serialNumber, "ث/10/2026");
-  assert.strictEqual(all.find(p => p.id === "x2").serialNumber, "ث/9/2026", "الموجودة بلا رقم تسلسلي أُعطيت رقماً");
-  assert.strictEqual(all.find(p => p.id === "x1").serialNumber, "ث/1/2026", "الرقم الموجود لا يتغير");
+  assert.strictEqual(added.serialNumber, "ث/2026/11");
+  assert.strictEqual(all.find(p => p.id === "x2").serialNumber, "ث/2026/2", "الموجودة بلا رقم تسلسلي أُعطيت رقماً");
+  assert.strictEqual(all.find(p => p.id === "x1").serialNumber, "ث/2026/1", "الرقم الموجود لا يتغير");
   assert.strictEqual(all.filter(p => p.name === "ترتيل سعيد").length, 1, "لم تُكرَّر");
   assert.strictEqual(sandbox.parseDiwanSerial("2026/4/ث").num, 4, "يقرأ الصيغة بالاتجاهين");
 
   // ===== ٧) إعادة رفع ملف فيه أسماء موجودة (من النظام القديم): لا حذف، نفس السجل، تُعبّأ الأجزاء =====
-  const mk = (id, name, extra) => ({ id, name, gender: "أنثى", center: "النور", seat: id, serialNumber: `ث/${id}/2026`, stage: 1, parts: [], usedJuz: [], ...extra });
+  const mk = (id, name, extra) => ({ id, name, gender: "أنثى", center: "النور", seat: id, serialNumber: `ث/2026/${id}`, stage: 1, parts: [], usedJuz: [], ...extra });
   const passed = mk("1", "ناجحة سابقاً"), failed = mk("2", "راسبة سابقاً"), pending = mk("3", "بانتظار اللجنة"), removed = mk("4", "مُزالة"), absent = mk("5", "غير موجودة بالملف");
   setup([passed, failed, pending, removed, absent]);
   addAttempt(passed, range(1, 10), 92);
@@ -254,8 +254,8 @@ async function run() {
   const jana = mk("59", "جنى محمد مقابلة"), saja = mk("92", "سجى حاتم بني عبد الرحمن");
   setup([jana, saja]);
   const nameRows = sandbox.planDiwanImportRows([
-    row("جنى محمد عارف مقابلة", { seat: "059", serial: "ث/59/2026" }),
-    row("سجى حاتم عبد النبي بني عبد الرحمن", { serial: "ث/92/2026" }),
+    row("جنى محمد عارف مقابلة", { seat: "059", serial: "ث/2026/59" }),
+    row("سجى حاتم عبد النبي بني عبد الرحمن", { serial: "ث/2026/92" }),
   ].map((r, i) => ({ ...r, rowNo: i + 1 })));
   assert.strictEqual(nameRows[0].status, "ready", "رقم الجلوس (059 = 59) والتسلسلي يطابقانها");
   assert.ok(/سيُعدَّل الاسم/.test(nameRows[0].warning));
@@ -263,6 +263,28 @@ async function run() {
   sandbox.applyDiwanImport(nameRows);
   assert.strictEqual(jana.name, "جنى محمد عارف مقابلة", "حُدّث الاسم");
   assert.strictEqual(sandbox.__diwan.participants.length, 2, "لم تُضف طالبة جديدة");
+
+  // ===== ٩) ملف الإدارة الحقيقي: عمود «أجزاء الاختبار القادم ( مطلوب تعبئته )»، وتصحيح «ث/الرقم/2026» =====
+  const nh2 = sandbox.normalizeHeader;
+  assert.strictEqual(sandbox.diwanPrefixColumn({ [nh2("أجزاء الاختبار القادم ( مطلوب تعبئته )")]: "1، 2، 3" }, ["أجزاء الاختبار القادم"]), "1، 2، 3", "يُقرأ العمود بإضافته");
+  assert.strictEqual(sandbox.diwanPrefixColumn({ [nh2("أجزاء الاختبار السابق")]: "1-10" }, ["أجزاء الاختبار القادم"]), "", "ولا يُقرأ السابق");
+  assert.strictEqual(sandbox.parsePartSpec("1، 2، 3، 4، 5، 6، 7، 10، 29، 30").length, 10, "صيغة الأجزاء بالملف تُفهم");
+  assert.strictEqual(sandbox.parseDiwanSerial("ث/2026/10").num, 10);
+  assert.strictEqual(sandbox.parseDiwanSerial("ث/2026/10").order, "lyn");
+  const wrong = mk("097", "أنفال كامل صالح بني ياسين", { serialNumber: "ث/1/2026" }), ok97 = mk("10", "لين أحمد", { serialNumber: "ث/2026/10" }), junk = mk("093", "بشرى", { serialNumber: "23434" });
+  setup([wrong, ok97, junk]);
+  const fixRows = sandbox.planDiwanImportRows([row("أنفال كامل صالح بني ياسين", { rawParts: "1-10", parts: range(1, 10) }), row("لين أحمد"), row("بشرى")].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.strictEqual(fixRows[0].assignedSerial, "ث/2026/97", "الرقم الخاطئ يُصحَّح إلى ث/2026/رقم الجلوس");
+  assert.ok(/تصحيح الرقم التسلسلي/.test(fixRows[0].action));
+  assert.strictEqual(fixRows[1].assignedSerial, undefined, "الرقم الصحيح لا يُمس");
+  assert.strictEqual(fixRows[2].assignedSerial, undefined, "رقم بصيغة أخرى (غير الخاطئة) لا يُمس");
+  sandbox.applyDiwanImport(fixRows);
+  assert.strictEqual(wrong.serialNumber, "ث/2026/97");
+  assert.strictEqual(sorted(wrong.parts), sorted(range(1, 10)), "وتُعبّأ أجزاؤها");
+  assert.strictEqual(ok97.serialNumber, "ث/2026/10");
+  assert.strictEqual(junk.serialNumber, "23434");
+  assert.strictEqual(sandbox.diwanSerialForSeat("098"), "ث/2026/98");
+  assert.strictEqual(sandbox.diwanSerialForSeat("10"), "ث/2026/98", "إن أُخذ رقم الجلوس فبعد أكبر رقم مستخدم (97)");
 
   console.log("diwan-juz-counting-rule.test.js: نجح — قاعدة العدّ، اختبار الخمسة أجزاء (90، المرحلتان ٢–٣)، التعديل/الانسحاب، والاستيراد بالاسم والترقيم التلقائي");
 }

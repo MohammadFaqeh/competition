@@ -1693,24 +1693,30 @@ function diwanSeatAllocator(extraSeats=[]){
   return ()=>String(next++).padStart(width,"0");
 }
 function nextDiwanSeat(){return diwanSeatAllocator()()}
-// الرقم التسلسلي «ث/الرقم/السنة»: الرقم بعد أكبر رقم مستخدم لنفس الحرف والسنة، وبنفس اتجاه الكتابة الغالب بالبيانات.
+// الرقم التسلسلي المعتمد «ث/2026/رقم الجلوس» (كل بيانات الديوان هكذا: الرقم = رقم الجلوس). order: "lyn" = الصيغة المعتمدة،
+// "lny" = «ث/الرقم/2026» (صيغة خاطئة أعطاها الترقيم التلقائي بنسخة 2026-11-18 الأولى — تُصحَّح عند الاستيراد)، "ynl" = معكوسة.
 function parseDiwanSerial(value){
   const t=normalizeDigits(String(value??"")).trim();
-  let m=t.match(/^([^\d\s\/]+)\s*\/\s*(\d+)\s*\/\s*(\d{4})$/);if(m)return {letter:m[1],num:Number(m[2]),year:Number(m[3]),reversed:false};
-  m=t.match(/^(\d{4})\s*\/\s*(\d+)\s*\/\s*([^\d\s\/]+)$/);if(m)return {letter:m[3],num:Number(m[2]),year:Number(m[1]),reversed:true};
+  let m=t.match(/^([^\d\s\/]+)\s*\/\s*(\d{4})\s*\/\s*(\d+)$/);if(m)return {letter:m[1],year:Number(m[2]),num:Number(m[3]),order:"lyn"};
+  m=t.match(/^([^\d\s\/]+)\s*\/\s*(\d+)\s*\/\s*(\d{4})$/);if(m)return {letter:m[1],num:Number(m[2]),year:Number(m[3]),order:"lny"};
+  m=t.match(/^(\d{4})\s*\/\s*(\d+)\s*\/\s*([^\d\s\/]+)$/);if(m)return {letter:m[3],num:Number(m[2]),year:Number(m[1]),order:"ynl"};
   return null;
 }
-function diwanSerialAllocator(extraSerials=[]){
-  const parsed=[...diwanState.participants.map(diwanSerialOf),...extraSerials].map(parseDiwanSerial).filter(Boolean);
-  const letter=DIWAN_SERIAL_FEMALE_LETTER,year=DIWAN_SERIAL_YEAR;
-  let next=Math.max(0,...parsed.filter(x=>x.letter===letter&&x.year===year).map(x=>x.num))+1;
-  const reversed=parsed.filter(x=>x.reversed).length>parsed.filter(x=>!x.reversed).length;
-  return ()=>{const n=next++;return reversed?`${year}/${n}/${letter}`:`${letter}/${n}/${year}`};
+// رقم تسلسلي لرقم جلوس: «ث/2026/رقم الجلوس»، وإن كان مأخوذاً (أو رقم الجلوس غير رقمي) فبعد أكبر رقم مستخدم.
+// exclude: المتسابق نفسه (رقمه الحالي لا يُعدّ مأخوذاً). extraSerials: أرقام محجوزة إضافية (ملف الاستيراد نفسه).
+function diwanSerialForSeat(seat,{exclude=null,extraSerials=[]}={}){
+  const norm=x=>normalizeDigits(String(x??"")).trim(),letter=DIWAN_SERIAL_FEMALE_LETTER,year=DIWAN_SERIAL_YEAR;
+  const taken=new Set([...diwanState.participants.filter(p=>p!==exclude).map(diwanSerialOf),...extraSerials].map(norm).filter(Boolean));
+  const make=n=>`${letter}/${year}/${n}`,seatNumber=Number(norm(seat));
+  if(/^\d+$/.test(norm(seat))&&seatNumber>0&&!taken.has(make(seatNumber)))return make(seatNumber);
+  let n=Math.max(0,...[...taken].map(parseDiwanSerial).filter(x=>x&&x.letter===letter&&x.year===year).map(x=>x.num))+1;
+  while(taken.has(make(n)))n++;
+  return make(n);
 }
-function nextDiwanSerial(){return diwanSerialAllocator()()}
+function nextDiwanSerial(seat){return diwanSerialForSeat(seat)}
 // كل مشارك حافظ كامل بالتعريف — لا اختيار مستوى هنا إطلاقاً، المرحلة (stage) تحدّد كل شيء لاحقاً.
 function openDiwanParticipantModal(participant=null){
-  openModal(`<form id="diwanParticipantForm"><div class="modal-head"><h2>${participant?"تعديل بيانات المتسابق":"إضافة متسابق"}</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid"><label>اسم المتسابق<input id="dpName" required value="${escapeAttr(participant?.name||"")}"></label><label>رقم الجلوس<input id="dpSeat" required value="${escapeAttr(participant?.seat||nextDiwanSeat())}"></label><label>الرقم التسلسلي<input id="dpSerial" required value="${escapeAttr(participant?participant.serialNumber||"":nextDiwanSerial())}" placeholder="يُدخل قبل بدء الاختبار"></label><label>الجنس<select id="dpGender" required><option value="">اختر</option><option value="ذكر" ${participant?.gender==="ذكر"?"selected":""}>ذكر</option><option value="أنثى" ${participant?.gender==="أنثى"?"selected":""}>أنثى</option></select></label><label>المركز<select id="dpCenter" required>${diwanCenterSelectOptions(participant?.center)}</select></label><label>العمر<input id="dpAge" type="number" min="4" max="100" value="${participant?.age||""}" placeholder="اختياري"></label>${participant?"":`<label>الاختبار<select id="dpStage">${DIWAN_STAGES.map(n=>`<option value="${n}">${escapeHtml(DIWAN_STAGE_LABELS[n])}</option>`).join("")}</select></label><label class="check-row"><input type="checkbox" id="dpStageOverride"> تجاوز شرط النجاح (نجح سابقاً خارج النظام)</label>`}</div></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button class="primary-btn" type="submit">حفظ المتسابق</button></div></form>`);
+  openModal(`<form id="diwanParticipantForm"><div class="modal-head"><h2>${participant?"تعديل بيانات المتسابق":"إضافة متسابق"}</h2><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid"><label>اسم المتسابق<input id="dpName" required value="${escapeAttr(participant?.name||"")}"></label><label>رقم الجلوس<input id="dpSeat" required value="${escapeAttr(participant?.seat||nextDiwanSeat())}"></label><label>الرقم التسلسلي<input id="dpSerial" required value="${escapeAttr(participant?participant.serialNumber||"":nextDiwanSerial(nextDiwanSeat()))}" placeholder="يُدخل قبل بدء الاختبار"></label><label>الجنس<select id="dpGender" required><option value="">اختر</option><option value="ذكر" ${participant?.gender==="ذكر"?"selected":""}>ذكر</option><option value="أنثى" ${participant?.gender==="أنثى"?"selected":""}>أنثى</option></select></label><label>المركز<select id="dpCenter" required>${diwanCenterSelectOptions(participant?.center)}</select></label><label>العمر<input id="dpAge" type="number" min="4" max="100" value="${participant?.age||""}" placeholder="اختياري"></label>${participant?"":`<label>الاختبار<select id="dpStage">${DIWAN_STAGES.map(n=>`<option value="${n}">${escapeHtml(DIWAN_STAGE_LABELS[n])}</option>`).join("")}</select></label><label class="check-row"><input type="checkbox" id="dpStageOverride"> تجاوز شرط النجاح (نجح سابقاً خارج النظام)</label>`}</div></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button class="primary-btn" type="submit">حفظ المتسابق</button></div></form>`);
   // المسؤول الفرعي: جنس المتسابق = جنس حسابه دائماً (الخادم يرفض غيره أصلاً).
   if(window.CloudCompetition?.context?.kind==="subAdmin"&&isDiwanCloudStaff()){$("#dpGender").value=window.CloudCompetition.context.subAdmin.gender;$("#dpGender").disabled=true}
   $("#diwanParticipantForm").addEventListener("submit",event=>{
@@ -2153,7 +2159,7 @@ async function importDiwanExcel(event){
       for(const row of parsed.rows){
         const name=String(pickColumn(row,["الاسم","اسمالمتسابق","اسمالطالب","اسمالطالبة","اسمالمشارك","الاسمالرباعي","اسمالحافظ","المتسابق","الطالب","الطالبة","المشارك","name"])||"").replace(/\s+/g," ").trim();
         if(!name){empty++;continue}
-        const rawParts=String(pickColumn(row,["اجزاءالاختبارالقادم","الاجزاءالمشاركة","الأجزاءالمشاركة","ارقامالاجزاء","أرقامالأجزاء","الاجزاء","الأجزاء","parts"])||"").trim();
+        const rawParts=String(pickColumn(row,["اجزاءالاختبارالقادم","الاجزاءالمشاركة","الأجزاءالمشاركة","ارقامالاجزاء","أرقامالأجزاء","الاجزاء","الأجزاء","parts"])||diwanPrefixColumn(row,["أجزاء الاختبار القادم"])||"").trim();
         const stageRaw=String(pickColumn(row,["الاختبار","نوعالاختبار","رقمالاختبار","نوعرقمالاختبار","الاختبارالمطلوب","المرحلة","المرحلةالمطلوبة","stage","exam"])||"").trim();
         rows.push({rowNo:rows.length+1,name,gender:normalizeGender(pickColumn(row,["الجنس","النوع","ذكرانثى","gender","sex"])),
           center:String(pickColumn(row,["المركز","اسمالمركز","المسجد","الدار","الجمعية","center"])||"").trim(),
@@ -2171,6 +2177,8 @@ async function importDiwanExcel(event){
   }catch(error){openModal(`<div class="modal-head"><h2>تعذر استيراد الملف</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>${escapeHtml(error.message||"تعذر قراءة ملف Excel")}</p><p class="form-error">يجب أن يحتوي الملف على عمود لاسم المتسابق.</p></div><div class="modal-actions"><button class="primary-btn" data-close>حسناً</button></div>`)}
   event.target.value="";
 }
+// عمود اسمه يبدأ بأحد الأسماء (بعد التطبيع) — لعناوين بإضافات مثل «أجزاء الاختبار القادم ( مطلوب تعبئته )».
+function diwanPrefixColumn(row,names){for(const name of names){const key=normalizeHeader(name),hit=Object.keys(row).find(k=>k.startsWith(key)&&row[k]!==""&&row[k]!=null);if(hit)return row[hit]}return ""}
 function diwanSameName(a,b){return String(a||"").replace(/\s+/g," ").trim()===String(b||"").replace(/\s+/g," ").trim()}
 function planDiwanImportRows(rows){
   const seen=new Set();
@@ -2213,14 +2221,21 @@ function planDiwanImportRows(rows){
     return out;
   });
   // ترقيم تلقائي لمن لا رقم له: رقم جلوس للجديد، ورقم تسلسلي «ث/…/2026» لمن خانته فارغة (الذكور يُتركون مع تنبيه).
-  const nextSeat=diwanSeatAllocator(planned.map(r=>r.seat)),nextSerial=diwanSerialAllocator(planned.map(r=>r.serial));
+  const nextSeat=diwanSeatAllocator(planned.map(r=>r.seat)),reservedSerials=planned.map(r=>r.serial).filter(Boolean);
   planned.forEach(r=>{
     if(r.status!=="ready")return;
     const notes=[];
     if(!r.existing&&!r.seat){r.assignedSeat=nextSeat();notes.push(`رقم جلوس جديد ${r.assignedSeat}`)}
-    if(!r.serial&&!(r.existing&&diwanSerialOf(r.existing))){
+    // رقم بالصيغة الخاطئة «ث/الرقم/2026» (من الترقيم التلقائي الأول) يُصحَّح إلى «ث/2026/رقم الجلوس».
+    const ownSerial=r.existing?diwanSerialOf(r.existing):"",ownParsed=parseDiwanSerial(ownSerial);
+    const wrongFormat=Boolean(ownParsed&&ownParsed.order==="lny"&&ownParsed.year===DIWAN_SERIAL_YEAR);
+    if(!r.serial&&(!ownSerial||wrongFormat)){
       if((r.gender||r.existing?.gender)==="ذكر")r.warning=[r.warning,"بلا رقم تسلسلي — أدخله يدوياً (الترقيم التلقائي للإناث فقط)"].filter(Boolean).join(" · ");
-      else{r.assignedSerial=nextSerial();notes.push(`رقم تسلسلي ${r.assignedSerial}`)}
+      else{
+        r.assignedSerial=diwanSerialForSeat(r.assignedSeat||r.seat||r.existing?.seat,{exclude:r.existing,extraSerials:reservedSerials});reservedSerials.push(r.assignedSerial);
+        if(wrongFormat)r.fixSerialFrom=ownSerial;
+        notes.push(wrongFormat?`تصحيح الرقم التسلسلي من ${ownSerial} إلى ${r.assignedSerial}`:`رقم تسلسلي ${r.assignedSerial}`);
+      }
     }
     if(notes.length)r.action=[r.action,notes.join("، ")].join(" · ");
   });
@@ -2260,10 +2275,14 @@ function applyDiwanImport(rows,{empty=0}={}){
     if(plan.kind==="error"){failed.push({...row,reason:plan.error});continue}
     let participant=participantBefore;
     // الأرقام المقترحة بالمعاينة؛ إن أُخذ أحدها منذ المعاينة يُعطى التالي المتاح.
-    const seatTaken=x=>diwanState.participants.some(p=>String(p.seat).trim()===x),serialTaken=x=>diwanState.participants.some(p=>normalizeDigits(diwanSerialOf(p))===normalizeDigits(x));
+    const seatTaken=x=>diwanState.participants.some(p=>String(p.seat).trim()===x),serialTaken=x=>diwanState.participants.some(p=>p!==participant&&normalizeDigits(diwanSerialOf(p))===normalizeDigits(x));
     const autoSeat=row.assignedSeat?(seatTaken(row.assignedSeat)?nextDiwanSeat():row.assignedSeat):"";
-    const autoSerial=row.assignedSerial?(serialTaken(row.assignedSerial)?nextDiwanSerial():row.assignedSerial):"";
-    if(participant&&autoSerial&&!diwanSerialOf(participant))participant.serialNumber=autoSerial;
+    const finalSeat=participant?participant.seat:(row.seat||autoSeat);
+    const autoSerial=row.assignedSerial?(serialTaken(row.assignedSerial)?diwanSerialForSeat(finalSeat,{exclude:participant}):row.assignedSerial):"";
+    if(participant&&autoSerial&&(!diwanSerialOf(participant)||(row.fixSerialFrom&&diwanSerialOf(participant)===row.fixSerialFrom))){
+      if(diwanSerialOf(participant))logDiwanEvent(participant,`صُحّح الرقم التسلسلي من ${diwanSerialOf(participant)} إلى ${autoSerial} (استيراد Excel)`);
+      participant.serialNumber=autoSerial;
+    }
     if(!participant){participant={id:uid("DP"),name:row.name,seat:row.seat||autoSeat||nextDiwanSeat(),serialNumber:row.serial||autoSerial,gender:row.gender,center:row.center,age:row.age,stage:plan.target,usedJuz:[],parts:[],level:10,createdAt:new Date().toISOString()};diwanState.participants.push(participant);added++}
     else{if(!diwanSameName(participant.name,row.name)){logDiwanEvent(participant,`عُدّل الاسم من «${participant.name}» (استيراد Excel)`)}participant.name=row.name;if(row.gender==="ذكر"||row.gender==="أنثى")participant.gender=row.gender;if(row.center)participant.center=row.center;if(row.age)participant.age=row.age;if(row.serial)participant.serialNumber=row.serial;updated++;if(plan.kind==="update")logDiwanEvent(participant,"حُدّثت بياناته (استيراد Excel)")}
     applyDiwanEnrollment(participant,plan,{source:"استيراد Excel"});
