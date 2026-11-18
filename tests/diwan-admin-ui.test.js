@@ -395,6 +395,12 @@ async function run() {
     vm.runInContext('diwanState.participants = __p; diwanState.draws = [{ id: "SSD", participantId: "SS", stage: 1, positions: [], createdAt: new Date().toISOString() }]; diwanAdminSessions = [{ draw_id: "SSD", status: "in_progress" }];', Object.assign(sandbox, { __p: people }));
     const list = sandbox.diwanDistributableParticipants();
     assert.strictEqual(list.length, 90, "الإناث ومن بلا جنس فقط، بلا الذكر والمنسحبة ومن بدأت اختبارها");
+    // إعادة بنفس المرحلة: محاولتها السابقة معتمدة وstageEnteredAt بعدها ولا سحب جديد → الخادم يرفض نقلها، فلا تدخل التوزيع
+    vm.runInContext('diwanState.participants.push({ id: "RT", name: "إعادة", seat: "503", gender: "أنثى", stage: 1, parts: [1,2,3,4,5,6,7,8,9,10], level: 10, stageEnteredAt: "2026-10-02T00:00:00Z" }); diwanState.draws.push({ id: "RTD", participantId: "RT", stage: 1, positions: [], createdAt: "2026-10-01T00:00:00Z" }); diwanAdminSessions.push({ draw_id: "RTD", status: "final" });', sandbox);
+    assert.ok(!Array.from(sandbox.diwanDistributableParticipants()).some(p => p.id === "RT"), "محاولة سابقة معتمدة بلا سحب جديد: لا توزيع (مطابقة الخادم)");
+    vm.runInContext('diwanState.draws.push({ id: "RTN", participantId: "RT", stage: 1, positions: [], createdAt: "2026-11-18T00:00:00Z" });', sandbox);
+    assert.ok(Array.from(sandbox.diwanDistributableParticipants()).some(p => p.id === "RT"), "بعد سحب جديد لها تدخل التوزيع");
+    vm.runInContext('diwanState.participants = diwanState.participants.filter(p => p.id !== "RT"); diwanState.draws = diwanState.draws.filter(d => d.participantId !== "RT"); diwanAdminSessions = diwanAdminSessions.filter(s => s.draw_id !== "RTD");', sandbox);
     const committees = Object.keys(expected).map(name => ({ name }));
     // توزيع ثابت: (١) طالبات كل مركز على كل اللجان (فرق ≤ ١)، (٢) مجموع المواضع متساوٍ قدر الإمكان.
     const loads = new Map(list.map((p, i) => [p.id, i % 3 === 0 ? 5 : 10]));

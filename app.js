@@ -1060,19 +1060,24 @@ async function enterCloudContext(context){try{operationMode="cloud";stopCommitte
     return;
   }
   resetSubAdminRestrictions();
-  if(!["admin","supervisor"].includes(context.profile.role)){setAdminTheme(context.committee?.responsibleGender==="أنثى"?"rose":"green");$("#app").classList.add("hidden");showScreen("committeeApp");setCommitteeTrack("annual");await renderCommitteeWorkspace();startCommitteeAutoRefresh();return}
+  if(!["admin","supervisor"].includes(context.profile.role)){setAdminTheme(context.committee?.responsibleGender==="أنثى"?"rose":"green");$("#app").classList.add("hidden");showScreen("committeeApp");setCommitteeTrack("annual");
+    // دخول فوري بعد التحقق: تُفتح شاشة اللجنة مباشرة وتُحمَّل قائمة المتسابقين بالخلفية (كانت شاشة «جارٍ تسجيل الدخول» تنتظر كل البيانات).
+    $("#committeeName").textContent=`لجنة: ${context.committee?.name||""}`;const list=$("#committeeStudents");if(list)list.innerHTML=`<div class="committee-empty"><b>جارٍ تحميل المتسابقين...</b><p>لحظات من فضلك</p></div>`;
+    renderCommitteeWorkspace().catch(error=>toast(`تعذر تحميل بيانات اللجنة: ${error.message}`));startCommitteeAutoRefresh();return}
   const isSupervisor=context.profile.role==="supervisor";
   setAdminTheme("green");
-  const [remote,sessions,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listFinalSessions(),window.CloudCompetition.listCommittees()]);
+  // النتائج المعتمدة (كل الجلسات بتقييمها الكامل، تكبر مع كل اختبار) تُحمَّل بالخلفية بعد فتح اللوحة، لا قبلها.
+  const sessionsPromise=window.CloudCompetition.listFinalSessions();sessionsPromise.catch(()=>{});
+  const [remote,committees]=await Promise.all([window.CloudCompetition.loadCompetitionState(),window.CloudCompetition.listCommittees()]);
   if(remote.payload?.config){state={...defaultState(),...remote.payload};if(!isSupervisor){safeSetItem(CLOUD_STORAGE_KEY,JSON.stringify(state));lastAdminStateUpdatedAt=remote.updated_at||null}}
   else if(!isSupervisor&&state.config){await window.CloudCompetition.saveCompetitionState(state)}
   if(!isSupervisor&&!state.config){showScreen("setupScreen");return}
   if(isSupervisor){window.CloudCompetition.markSupervisorKnownIds(state.participants,state.draws);applySupervisorRestrictions()}
   else window.CloudCompetition.markAdminKnownIds(state.participants,state.draws);
   cloudCommittees=committees;
-  mergeFinalSessionsIntoState(sessions,committees);
   const greeting=$("#topAdminGreeting");if(greeting)greeting.textContent=context.profile.display_name?`أهلاً، ${context.profile.display_name}`:"الدورة الحالية";
-  showApp()}catch(error){toast(`تعذر فتح البيانات المشتركة: ${error.message}`);showScreen("cloudLoginScreen")}}
+  showApp();
+  sessionsPromise.then(sessions=>{if(window.CloudCompetition.context?.kind!==context.kind)return;mergeFinalSessionsIntoState(sessions,cloudCommittees);renderAll()}).catch(error=>toast(`تعذر تحميل نتائج اللجان: ${error.message}`))}catch(error){toast(`تعذر فتح البيانات المشتركة: ${error.message}`);showScreen("cloudLoginScreen")}}
 // الانسحاب أقوى من أي علامة: المنسحب علامته صفر دائماً مهما كانت علامة جلسة لجنته المعتمدة
 // (كانت المزامنة الدورية ترجّع 100 فوق الصفر لمنسحبة سبق اعتماد اختبارها). تُصلح أيضاً السجلات
 // القديمة المتضررة. ترجع true إذا عدّلت شيئاً (المستدعي يقرر الحفظ).
@@ -1901,7 +1906,10 @@ async function runDiwanBulkDraw(participants){
 const diwanSeatNumber=p=>{const n=Number(normalizeDigits(p.seat).replace(/[^\d]/g,""));return Number.isFinite(n)&&String(p.seat||"").trim()?n:Infinity};
 const diwanCommitteeNumber=c=>{const m=normalizeDigits(c.name).match(/\d+/);return m?Number(m[0]):Infinity};
 function diwanDistributableParticipants(){
-  return diwanState.participants.filter(p=>p.gender!=="ذكر"&&!p.certified&&!p.withdrawn&&!p.unenrolled&&(()=>{const draw=currentDiwanDraw(p,diwanState.draws);return !draw||!diwanSessionForDraw(draw)})())
+  // مطابقة قاعدة الخادم (diwan_admin_transfer_participant) حرفياً: آخر سحب بمرحلتها الحالية — بلا اعتبار لـstageEnteredAt —
+  // إن كان له أي جلسة (معتمدة أو جارية) لا تُوزَّع: المعتمدة يرفضها الخادم، والجارية كان النقل سيحذفها.
+  const serverLatestDraw=p=>diwanState.draws.filter(d=>d.participantId===p.id&&Number(d.stage)===Number(p.stage||1)).reduce((best,d)=>!best||String(d.createdAt)>String(best.createdAt)?d:best,null);
+  return diwanState.participants.filter(p=>p.gender!=="ذكر"&&!p.certified&&!p.withdrawn&&!p.unenrolled&&(()=>{const draw=currentDiwanDraw(p,diwanState.draws),latest=serverLatestDraw(p);return (!draw||!diwanSessionForDraw(draw))&&(!latest||!diwanSessionForDraw(latest))})())
     .sort((a,b)=>(diwanSeatNumber(a)-diwanSeatNumber(b))||String(a.seat||"").localeCompare(String(b.seat||""),"ar"));
 }
 // وقت حضور كل مركز حسب جدول توزيع الديوان المعتمد: الأبكر يُختبَر أولاً، وأي مركز آخر 11:00.
@@ -1958,6 +1966,8 @@ async function openDiwanDistributeModal(){
   if(!isDiwanCloudStaff()&&!cloudCommittees.length)try{cloudCommittees=await window.CloudCompetition.listCommittees()}catch(error){return toast(error.message)}
   const committees=diwanCommitteesList().filter(c=>c.active!==false&&c.responsible_gender==="أنثى").sort((a,b)=>(diwanCommitteeNumber(a)-diwanCommitteeNumber(b))||String(a.name).localeCompare(String(b.name),"ar"));
   if(!committees.length)return toast("لا توجد لجان إناث مفعّلة");
+  // أحدث جلسات اللجان من الخادم قبل الحساب، فلا تُوزَّع متسابقة بدأت أو اعتُمدت للتو.
+  try{diwanAdminSessions=applyDiwanResultOverrides(await window.DiwanCompetition.listViewerSessions())}catch(error){return toast(`تعذر تحديث نتائج اللجان: ${error.message}`)}
   const people=diwanDistributableParticipants();
   if(!people.length)return toast("لا توجد متسابقات للتوزيع (الجميع بدأ اختباره أو منسحب أو معتمد)");
   const plan=diwanDistributionPlan(people,committees);

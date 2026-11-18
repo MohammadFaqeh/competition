@@ -103,6 +103,12 @@ async function run() {
 
   // ===== ٢) اختبار الخمسة أجزاء بالمرحلة الثانية: نجاحه 90 =====
   assert.strictEqual(sandbox.diwanPassScoreForDraw({ stage: 2, eligibleParts: range(21, 25) }), 90);
+  // حدود العلامة بالضبط: الخمسة 90، العشرة 85 — ومن الجلسة نفسها حتى لو السحب غير موجود على الجهاز (من عدد المواضع)
+  const fiveSession = score => ({ status: "final", stage: 3, draw_id: "NO-DRAW-HERE", score, assessment: { positions: [1, 2, 3, 4, 5].map(() => ({})) } });
+  const tenSession = score => ({ status: "final", stage: 2, draw_id: "NO-DRAW-HERE", score, assessment: { positions: range(1, 10).map(() => ({})) } });
+  assert.ok(!sandbox.diwanScorePasses(fiveSession(89.99), []) && sandbox.diwanScorePasses(fiveSession(90), []), "الخمسة: 89.99 رسوب و90 نجاح");
+  assert.ok(!sandbox.diwanScorePasses(tenSession(84.99), []) && sandbox.diwanScorePasses(tenSession(85), []), "العشرة: 84.99 رسوب و85 نجاح");
+  assert.strictEqual(sandbox.diwanPassScoreForDraw({ stage: 1, eligibleParts: range(1, 10) }), 85, "المرحلة الأولى (عشرة) 85");
   assert.strictEqual(sandbox.diwanPassScoreForDraw({ stage: 2, eligibleParts: range(21, 30) }), 85);
   addAttempt(a, range(21, 25), 88);
   assert.strictEqual(sandbox.diwanStageCreditOf(a), 6, "88 بالخمسة أجزاء رسوب (نجاحها 90)");
