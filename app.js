@@ -2678,31 +2678,28 @@ function diwanStageDocumentJobs(stage){
 }
 function openDiwanBulkPdfModal(){
   const stage=diwanOpenStage;if(stage==null)return;
-  // «الاختبار»: هذا الاختبار (افتراضي، كما كان) أو كل الاختبارات — مع «تاريخ الاختبار» يعطي كل وثائق من امتحن ذلك اليوم بملف واحد.
+  // «تاريخ الاختبار»: «كل التواريخ» = وثائق هذا الاختبار (كما كان)، ويوم معيّن = كل من امتحن ذلك اليوم من كل الاختبارات بملف واحد.
   const stageJobs=diwanStageDocumentJobs(stage);
   const allJobs=()=>{const seen=new Set();return DIWAN_STAGES.flatMap(s=>diwanStageDocumentJobs(s)).filter(j=>{const key=j.session?.id||`${j.participant.id}:${j.draw.id}`;if(seen.has(key))return false;seen.add(key);return true})};
   const everyJob=allJobs();
   if(!stageJobs.length&&!everyJob.length)return toast("لا يوجد من أكمل الاختبار بعد");
   const centers=[...new Set(everyJob.map(j=>j.participant.center||""))].sort((a,b)=>String(a).localeCompare(String(b),"ar"));
   openModal(`<div class="modal-head"><div><span class="eyebrow">حفظ PDF ·${escapeHtml(DIWAN_STAGE_LABELS[stage])}</span><h2>شهادات الناجحين وتوصيات الراسبين</h2><small>الناجح تُصدر له شهادة، والراسب وثيقة توصية — ملف PDF واحد</small></div><button class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body">
-    <label>الاختبار<select id="diwanBulkStageScope"><option value="stage">${escapeHtml(DIWAN_STAGE_LABELS[stage])} فقط</option><option value="all">كل الاختبارات</option></select></label>
-    <label>تاريخ الاختبار<select id="diwanBulkDay"></select></label>
+    <label>تاريخ الاختبار<select id="diwanBulkDay">${diwanExamDayOptionsHtml(everyJob.map(j=>j.session),`كل التواريخ — ${DIWAN_STAGE_LABELS[stage]}`)}</select></label>
     <label>المركز<select id="diwanBulkCenter"><option value="all">كل المراكز</option>${centers.map(c=>`<option value="${escapeAttr(c)}">${c?escapeHtml(c):"بلا مركز"}</option>`).join("")}</select></label>
     <label>النتيجة<select id="diwanBulkResult"><option value="all">الكل — شهادات وتوصيات</option><option value="certificate">الناجحون — شهادات</option><option value="recommendation">الراسبون — توصيات</option></select></label>
     <p id="diwanBulkSummary" class="field-help"></p>
   </div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button type="button" class="primary-btn" id="diwanStageDocsPdfBtn"><i data-lucide="download"></i> حفظ PDF</button></div>`);
   lucide.createIcons();
-  const scopeJobs=()=>$("#diwanBulkStageScope").value==="all"?everyJob:stageJobs;
-  // قائمة الأيام تتبع «الاختبار» المختار، ويبقى اليوم المختار إن وُجد فيها.
-  const fillDays=()=>{const select=$("#diwanBulkDay"),previous=select.value;select.innerHTML=diwanExamDayOptionsHtml(scopeJobs().map(j=>j.session));if([...select.options].some(o=>o.value===previous))select.value=previous};
+  const scopeJobs=()=>$("#diwanBulkDay").value==="all"?stageJobs:everyJob;
   const selected=()=>{const center=$("#diwanBulkCenter").value,result=$("#diwanBulkResult").value,day=$("#diwanBulkDay").value;return scopeJobs().filter(j=>(center==="all"||(j.participant.center||"")===center)&&(result==="all"||j.kind===result)&&(day==="all"||diwanSessionDay(j.session)===day))};
-  const refresh=()=>{const list=selected(),certs=list.filter(j=>j.kind==="certificate").length;$("#diwanBulkSummary").textContent=`${formatNumber(list.length)} وثيقة: ${formatNumber(certs)} شهادة و${formatNumber(list.length-certs)} توصية`;$("#diwanStageDocsPdfBtn").disabled=!list.length};
-  $("#diwanBulkStageScope").onchange=()=>{fillDays();refresh()};$("#diwanBulkDay").onchange=refresh;$("#diwanBulkCenter").onchange=refresh;$("#diwanBulkResult").onchange=refresh;
-  fillDays();refresh();
+  const refresh=()=>{const list=selected(),certs=list.filter(j=>j.kind==="certificate").length;$("#diwanBulkSummary").textContent=`${formatNumber(list.length)} وثيقة: ${formatNumber(certs)} شهادة و${formatNumber(list.length-certs)} توصية${$("#diwanBulkDay").value==="all"?"":" — من كل الاختبارات بهذا اليوم"}`;$("#diwanStageDocsPdfBtn").disabled=!list.length};
+  $("#diwanBulkDay").onchange=refresh;$("#diwanBulkCenter").onchange=refresh;$("#diwanBulkResult").onchange=refresh;
+  refresh();
   $("#diwanStageDocsPdfBtn").onclick=async()=>{
     const list=selected(),center=$("#diwanBulkCenter").value,result=$("#diwanBulkResult").value,day=$("#diwanBulkDay").value;if(!list.length)return;
     const btn=$("#diwanStageDocsPdfBtn");btn.disabled=true;
-    const prefix=["وثائق",$("#diwanBulkStageScope").value==="all"?"كل-الاختبارات":DIWAN_STAGE_LABELS[stage],day==="all"?"":day,center==="all"?"كل-المراكز":(center||"بلا-مركز"),result==="certificate"?"شهادات":result==="recommendation"?"توصيات":""].filter(Boolean).join("-").replace(/[\\/:*?"<>|\s]+/g,"-");
+    const prefix=["وثائق",day==="all"?DIWAN_STAGE_LABELS[stage]:`كل-الاختبارات-${day}`,center==="all"?"كل-المراكز":(center||"بلا-مركز"),result==="certificate"?"شهادات":result==="recommendation"?"توصيات":""].filter(Boolean).join("-").replace(/[\\/:*?"<>|\s]+/g,"-");
     try{
       await ensurePdfLibraries();
       const [association,diwan]=await Promise.all([preloadImageAsDataUrl("assets/association-logo.png"),preloadImageAsDataUrl("assets/diwan-logo.jpg").then(whiteToTransparentDataUrl)]);
