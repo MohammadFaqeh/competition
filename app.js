@@ -2227,7 +2227,7 @@ function planDiwanImportRows(rows){
     if(plan.kind==="error")return reject(plan.error);
     out.stage=rowStage;
     const note=diwanPartsPlanNote(existing,plan.parts,plan.target??diwanStageOf(existing));
-    Object.assign(out,{existing,byName,plan,action:[!existing?plan.label:plan.kind==="update"?"تحديث بيانات فقط":plan.label,note].filter(Boolean).join(" · "),warning:[plan.warning,existing?.withdrawn?(plan.kind==="update"?"منسحبة — بقيت منسحبة (لا أجزاء معتمدة لها بالملف)":"كانت منسحبة — يُلغى انسحابها وتُسجَّل أجزاؤها من الملف"):"",renameFrom?`سيُعدَّل الاسم من «${renameFrom}» إلى «${out.name}» (رقم الجلوس والرقم التسلسلي يطابقانه)`:"",byName?`تم التعرّف عليه بالاسم (رقم الجلوس ${existing.seat}) — تأكد أنه الشخص نفسه`:"",existing&&out.seat&&String(existing.seat).trim()!==out.seat?`رقم الجلوس بالملف (${out.seat}) يختلف عن المسجَّل (${existing.seat}) — بقي المسجَّل`:""].filter(Boolean).join(" · ")});
+    Object.assign(out,{existing,byName,plan,action:[!existing?plan.label:plan.kind==="update"?"تحديث بيانات فقط":plan.label,note].filter(Boolean).join(" · "),warning:[plan.warning,existing?.withdrawn?(plan.kind==="update"?"منسحبة — بقيت منسحبة (لا أجزاء معتمدة لها بالملف)":"كانت منسحبة — يُلغى انسحابها وتُسجَّل أجزاؤها من الملف"):existing&&plan.kind==="retake"&&diwanParticipantStatusOf(existing)==="failed"?"راسبة — تُسجَّل لها إعادة اختبار بأجزاء الملف (ويبقى رسوبها السابق بسجلها)":"",renameFrom?`سيُعدَّل الاسم من «${renameFrom}» إلى «${out.name}» (رقم الجلوس والرقم التسلسلي يطابقانه)`:"",byName?`تم التعرّف عليه بالاسم (رقم الجلوس ${existing.seat}) — تأكد أنه الشخص نفسه`:"",existing&&out.seat&&String(existing.seat).trim()!==out.seat?`رقم الجلوس بالملف (${out.seat}) يختلف عن المسجَّل (${existing.seat}) — بقي المسجَّل`:""].filter(Boolean).join(" · ")});
     return out;
   });
   // ترقيم تلقائي لمن لا رقم له: رقم جلوس للجديد، ورقم تسلسلي «ث/…/2026» لمن خانته فارغة (الذكور يُتركون مع تنبيه).
@@ -2926,8 +2926,10 @@ function planDiwanEnrollment(participant,{stage=null,parts=null,override=false,g
   const current=diwanStageOf(participant),draw=currentDiwanDraw(participant,diwanState.draws),session=draw?diwanSessionForDraw(draw):null;
   const partsChanged=Boolean(parts)&&parts.join()!==(participant.parts||[]).map(Number).sort((a,b)=>a-b).join();
   const moving=target!=null&&(Boolean(participant.unenrolled)||target!==current);
-  // المنسحب بأجزاء = عودة للاختبار حتى لو كانت نفس أجزائه السابقة.
-  if(!moving&&!partsChanged&&!(participant.withdrawn&&parts))return {kind:"update",label:"تحديث البيانات فقط",warning,target};
+  // المنسحب بأجزاء = عودة للاختبار حتى لو كانت نفس أجزائه السابقة. وكذلك الراسب (آخر محاولته اعتُمدت ولم ترفعه):
+  // أجزاء بالملف = إعادة اختبار ولو بنفس أجزاء رسوبه (الحالة الشائعة) — وإلا بقي «راسب» ولا يدخل «سحب للجميع».
+  const failedNow=Boolean(parts)&&session?.status==="final"&&diwanParticipantStatusOf(participant)==="failed";
+  if(!moving&&!partsChanged&&!(participant.withdrawn&&parts)&&!failedNow)return {kind:"update",label:"تحديث البيانات فقط",warning,target};
   if(participant.certified)return {kind:"error",error:"حافظ معتمد — أتمّ كل الاختبارات فلا يُعاد تسجيله (صحّح نتيجته من «السجل» إن لزم)"};
   if(session?.status==="in_progress")return {kind:"error",error:"اختباره جارٍ الآن عند إحدى اللجان — أنهوه أو ألغوه أولاً"};
   if(!moving){

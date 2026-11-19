@@ -349,6 +349,29 @@ async function run() {
   assert.deepStrictEqual([...wp.parts].map(Number), range(1, 10), "إلغاء الانسحاب أعاد أجزاءها");
   assert.strictEqual(sandbox.currentDiwanDraw(wp, sandbox.__diwan.draws)?.id, "DRW-P", "وأعاد سحبها");
 
+  // ===== ١٣) الراسبة بنفس أجزائها بالملف ← إعادة اختبار (لا «تحديث بيانات فقط»)، ورسوبها يبقى بسجلها =====
+  const fl = mk("501", "راسبة", { stage: 1, parts: [] });
+  const fk = mk("502", "راسبة بلا أجزاء", { stage: 1, parts: [] });
+  setup([fl, fk]);
+  const failDraw = addAttempt(fl, range(1, 10), 84.6);
+  addAttempt(fk, range(1, 10), 80);
+  assert.strictEqual(sandbox.diwanParticipantStatusOf(fl), "failed");
+  const flRows = sandbox.planDiwanImportRows([
+    row("راسبة", { rawParts: "1-10", parts: range(1, 10) }),
+    row("راسبة بلا أجزاء", {})
+  ].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.strictEqual(flRows[0].plan.kind, "retake", "نفس أجزاء الرسوب = إعادة اختبار");
+  assert.ok(/إعادة اختبار/.test(flRows[0].warning), "تنبيه بالمعاينة: " + flRows[0].warning);
+  assert.strictEqual(flRows[1].plan.kind, "update", "بلا أجزاء بالملف تبقى كما هي");
+  sandbox.applyDiwanImport(flRows);
+  assert.strictEqual(sandbox.diwanParticipantStatusOf(fl), "no_draw", "صارت بانتظار السحب فيشملها «سحب للجميع»");
+  assert.deepStrictEqual([...fl.parts].map(Number), range(1, 10));
+  assert.ok(sandbox.__diwan.draws.some(d => d.id === failDraw.id), "محاولة الرسوب باقية بالسجل");
+  assert.ok(sandbox.diwanFailedStageSession(fl, 1), "ونتيجة رسوبها ظاهرة");
+  assert.strictEqual(sandbox.diwanParticipantStatusOf(fk), "failed", "الراسبة بلا أجزاء لم تتغير");
+  const again = sandbox.planDiwanImportRows([row("راسبة", { rawParts: "1-10", parts: range(1, 10) })].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.strictEqual(again[0].plan.kind, "update", "استيراد نفس الملف مرة ثانية لا يكرر الإعادة");
+
   console.log("diwan-juz-counting-rule.test.js: نجح — قاعدة العدّ، اختبار الخمسة أجزاء (90، المرحلتان ٢–٣)، التعديل/الانسحاب، والاستيراد بالاسم والترقيم التلقائي");
 }
 run().catch(error => { console.error("diwan-juz-counting-rule.test.js FAILED:", error.stack || error.message); process.exit(1); });
