@@ -2008,7 +2008,7 @@ async function toggleDiwanParticipantWithdrawn(participant){
     const promoDraw=participant.lastGradedDrawId?diwanState.draws.find(d=>d.id===participant.lastGradedDrawId):null;
     const promoPassed=promoDraw&&Number(participant.score)>=diwanPassScoreForDraw(promoDraw)&&!participant.assessment?.incomplete&&session?.status!=="final";
     const rollback=promoPassed&&(promoDraw.noPromotion?Number(promoDraw.stage)===participant.stage&&Number(promoDraw.stage)<4&&!draw:participant.stage>1&&Number(promoDraw.stage)===participant.stage-1)?promoDraw:null;
-    if(!confirm(`تسجيل ${participant.name} منسحبًا؟ ستصبح علامته صفرًا ويظهر منسحبًا عند اللجان.${rollback?(rollback.noPromotion?`
+    if(!confirm(`تسجيل ${participant.name} منسحبًا؟ ستصبح علامته صفرًا ويظهر منسحبًا عند اللجان، وتُلغى أجزاؤه الحالية${draw&&session?.status!=="final"?" وسحبه":""}.${rollback?(rollback.noPromotion?`
 وستُلغى الأجزاء التي حُسبت له بآخر نجاح.`:`
 وسيُلغى انتقاله إلى ${DIWAN_STAGE_LABELS[participant.stage]} ويعود إلى ${DIWAN_STAGE_LABELS[rollback.stage]} منسحبًا.`):""}`))return;
     // نجاح أُلغي بالانسحاب، أو اختبار معتمد بمرحلته الحالية: يُسجَّل الانسحاب على ذلك الاختبار نفسه فتصبح علامته صفراً بالسجل أيضاً.
@@ -2017,10 +2017,14 @@ async function toggleDiwanParticipantWithdrawn(participant){
       if(await setDiwanAttemptResult(participant,gradedTarget,{withdrawn:true}))toast(`تم تسجيل ${participant.name} منسحبًا`);
       return;
     }
-    participant.preWithdrawal={score:participant.score??null,gradedAt:participant.gradedAt??null,assessment:participant.assessment??null,...(rollback?{rolledBack:true,stage:participant.stage,stageCredit:diwanStageCreditOf(participant),parts:[...(participant.parts||[])],usedJuz:[...(participant.usedJuz||[])],stageEnteredAt:participant.stageEnteredAt??null}:{})};
+    // الانسحاب يلغي أجزاءه الحالية وسحبه غير المختبَر (طلب الإدارة 2026-11-19): stageEnteredAt الجديد يخرج السحب من الحالي
+    // (يبقى بالسجل) — فالعودة تحتاج أجزاءً وسحباً جديدين. تُحفظ القيم السابقة ليعيدها إلغاء الانسحاب.
+    participant.preWithdrawal={score:participant.score??null,gradedAt:participant.gradedAt??null,assessment:participant.assessment??null,cleared:true,parts:[...(participant.parts||[])],stageEnteredAt:participant.stageEnteredAt??null,...(rollback?{rolledBack:true,stage:participant.stage,stageCredit:diwanStageCreditOf(participant),parts:[...(participant.parts||[])],usedJuz:[...(participant.usedJuz||[])],stageEnteredAt:participant.stageEnteredAt??null}:{})};
     if(rollback){const promoParts=(rollback.eligibleParts||[]).map(Number),credit=rollback.credit;participant.stage=Number(rollback.stage);participant.parts=[...promoParts];participant.usedJuz=(participant.usedJuz||[]).filter(j=>!(credit?credit.credited:promoParts).map(Number).includes(Number(j)));participant.stageCredit=credit?credit.before.stageCredit:0;participant.stageEnteredAt=rollback.createdAt}
+    const staleDraw=!rollback&&draw&&session?.status!=="final";
     participant.withdrawn=true;participant.score=0;participant.gradedAt=new Date().toISOString();participant.scoreSource="withdrawn";participant.manualEntryBy=currentActorLabel();participant.assessment=null;
-    logDiwanEvent(participant,`سُجّل منسحباً من ${DIWAN_STAGE_LABELS[diwanStageOf(participant)]} (علامة 0)`);
+    participant.parts=[];if(staleDraw)participant.stageEnteredAt=participant.gradedAt;
+    logDiwanEvent(participant,`سُجّل منسحباً من ${DIWAN_STAGE_LABELS[diwanStageOf(participant)]} (علامة 0) — أُلغيت أجزاؤه${staleDraw?" وسحبه":""}`);
     saveDiwanState();
     let sessionCloseError=null;
     if(session&&session.status!=="final"){
@@ -2038,6 +2042,7 @@ async function toggleDiwanParticipantWithdrawn(participant){
     if(Number.isFinite(before.score)){participant.score=before.score;participant.gradedAt=before.gradedAt;participant.assessment=before.assessment}else{delete participant.score;delete participant.gradedAt;participant.assessment=null}
     logDiwanEvent(participant,"أُلغي انسحابه");
     if(before.rolledBack){participant.stage=before.stage;participant.parts=before.parts||[];participant.usedJuz=before.usedJuz||[];participant.stageCredit=before.stageCredit||0;if(before.stageEnteredAt)participant.stageEnteredAt=before.stageEnteredAt;else delete participant.stageEnteredAt}
+    else if(before.cleared){participant.parts=before.parts||[];if(before.stageEnteredAt)participant.stageEnteredAt=before.stageEnteredAt;else delete participant.stageEnteredAt}
     saveDiwanState();renderDiwanParticipants();toast(`تم إلغاء انسحاب ${participant.name}`);
   }
 }

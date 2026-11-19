@@ -334,6 +334,21 @@ async function run() {
   assert.strictEqual(wk.stage, 1, "ولم تُنقل بخانة الاختبار وحدها");
   assert.strictEqual(wk.center, "جديد2", "وبياناتها حُدّثت");
 
+  // ===== ١٢) الانسحاب يلغي الأجزاء الحالية والسحب غير المختبَر، وإلغاء الانسحاب يعيدهما =====
+  const wp = mk("401", "تنسحب", { stage: 1, parts: range(1, 10) });
+  setup([wp]);
+  sandbox.__diwan.draws.push({ id: "DRW-P", participantId: wp.id, stage: 1, createdAt: "2026-01-02T00:00:00.000Z", positions: [] });
+  assert.ok(sandbox.currentDiwanDraw(wp, sandbox.__diwan.draws), "لها سحب قبل الانسحاب");
+  await sandbox.toggleDiwanParticipantWithdrawn(wp);
+  assert.strictEqual(wp.withdrawn, true);
+  assert.strictEqual((wp.parts || []).length, 0, "أُلغيت أجزاؤها");
+  assert.strictEqual(sandbox.currentDiwanDraw(wp, sandbox.__diwan.draws), null, "وسحبها لم يعد حالياً");
+  assert.ok(sandbox.__diwan.draws.some(d => d.id === "DRW-P"), "والسحب باقٍ بالسجل");
+  await sandbox.toggleDiwanParticipantWithdrawn(wp);
+  assert.strictEqual(wp.withdrawn, false);
+  assert.deepStrictEqual([...wp.parts].map(Number), range(1, 10), "إلغاء الانسحاب أعاد أجزاءها");
+  assert.strictEqual(sandbox.currentDiwanDraw(wp, sandbox.__diwan.draws)?.id, "DRW-P", "وأعاد سحبها");
+
   console.log("diwan-juz-counting-rule.test.js: نجح — قاعدة العدّ، اختبار الخمسة أجزاء (90، المرحلتان ٢–٣)، التعديل/الانسحاب، والاستيراد بالاسم والترقيم التلقائي");
 }
 run().catch(error => { console.error("diwan-juz-counting-rule.test.js FAILED:", error.stack || error.message); process.exit(1); });
