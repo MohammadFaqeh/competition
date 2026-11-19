@@ -2911,6 +2911,8 @@ function planDiwanEnrollment(participant,{stage=null,parts=null,override=false,g
   if(participant.certified)return {kind:"error",error:"حافظ معتمد — أتمّ كل الاختبارات فلا يُعاد تسجيله (صحّح نتيجته من «السجل» إن لزم)"};
   if(session?.status==="in_progress")return {kind:"error",error:"اختباره جارٍ الآن عند إحدى اللجان — أنهوه أو ألغوه أولاً"};
   if(!moving){
+    // المنسحب العائد بأجزاء: محاولة جديدة حتى لو بقي له سحب قديم بلا جلسة — stageEnteredAt الجديد يخرجه من الحالي فلا يظهر عند اللجان.
+    if(participant.withdrawn)return {kind:"retake",label:`محاولة جديدة في ${labels[target]} بأجزاء جديدة`,warning,target,parts};
     if(draw&&!session)return {kind:"update",label:"تحديث البيانات فقط",warning:[warning,"له سحب بانتظار اللجنة فبقيت أجزاؤه كما هي (غيّرها يدوياً بزر «تغيير الأجزاء»)"].filter(Boolean).join(" · "),target};
     if(session?.status==="final"||participant.withdrawn)return {kind:"retake",label:`محاولة جديدة في ${labels[target]} بأجزاء جديدة`,warning,target,parts};
     return {kind:"parts",label:`تسجيل أجزاء ${labels[target]}`,warning,target,parts};

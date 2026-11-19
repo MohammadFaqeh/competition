@@ -310,7 +310,14 @@ async function run() {
   // ===== ١١) المنسحبة: أجزاء بالملف ← يُلغى انسحابها وتُسجَّل أجزاؤها؛ بلا أجزاء ← تبقى منسحبة =====
   const wd = mk("301", "منسحبة", { stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", center: "قديم", parts: range(1, 10) });
   const wk = mk("302", "باقية", { stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", center: "قديم" });
-  setup([wd, wk]);
+  const wdDraw = mk("303", "منسحبة بسحب", { stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", parts: range(1, 10) });
+  setup([wd, wk, wdDraw]);
+  sandbox.__diwan.draws.push({ id: "DRW-OLD", participantId: wdDraw.id, stage: 1, createdAt: "2026-01-01T00:00:00.000Z", positions: [] });
+  const drawRows = sandbox.planDiwanImportRows([row("منسحبة بسحب", { rawParts: "1-10", parts: range(1, 10) })].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.ok(/يُلغى انسحابها/.test(drawRows[0].warning), "سحب قديم بلا جلسة لا يمنع إلغاء الانسحاب: " + drawRows[0].warning);
+  sandbox.applyDiwanImport(drawRows);
+  assert.strictEqual(wdDraw.withdrawn, false, "أُلغي انسحاب صاحبة السحب القديم");
+  assert.strictEqual(sandbox.currentDiwanDraw(wdDraw, sandbox.__diwan.draws), null, "والسحب القديم لم يعد حالياً (تحتاج سحباً جديداً)");
   const wdRows = sandbox.planDiwanImportRows([
     row("منسحبة", { center: "جديد", rawParts: "1-10", parts: range(1, 10) }),
     row("باقية", { center: "جديد2", stageRaw: "الاختبار الثاني", stage: 2 })
