@@ -534,7 +534,7 @@ function bindEvents(){
   $("#diwanStudentsImportInput")?.addEventListener("change",importDiwanExcel);
   $("#diwanStudentsTemplateBtn")?.addEventListener("click",downloadDiwanImportTemplate);
   $("#diwanStudentsAddBtn")?.addEventListener("click",()=>openDiwanParticipantModal());
-  $("#diwanExportBtn").addEventListener("click",exportDiwanParticipants);
+  $("#diwanExportBtn").addEventListener("click",openDiwanExportModal);
   $("#diwanCentersExportBtn")?.addEventListener("click",exportDiwanCentersFile);
   $("#diwanBulkPdfBtn")?.addEventListener("click",openDiwanBulkPdfDialog);
   $("#diwanSyncCommitteesBtn").addEventListener("click",refreshDiwanCommitteeResults);
@@ -2134,6 +2134,62 @@ async function exportDiwanCentersFile(){
   XLSX.utils.book_append_sheet(workbook,notes,"تعليمات");
   XLSX.writeFile(workbook,`ديوان-الحفاظ-ملف-المراكز-${dateStamp()}.xlsx`);toast("تم تنزيل ملف المراكز");
 }
+// زر «تصدير Excel»: إن وُجدت نتائج معتمدة يُسأل أولاً: الملف الكامل (كما كان) أو من امتحن بيوم معيّن.
+async function openDiwanExportModal(){
+  if(!diwanState.participants.length)return toast("لا يوجد متسابقون لتصديرهم");
+  if(isDiwanCloudWriter())try{diwanAdminSessions=applyDiwanResultOverrides(await window.DiwanCompetition.listViewerSessions())}catch(error){console.warn("Diwan export: sessions refresh failed",error)}
+  const sessions=diwanExamDaySessions();
+  if(!sessions.length)return exportDiwanParticipants();
+  openModal(`<div class="modal-head"><div><span class="eyebrow">تصدير Excel</span><h2>تنزيل بيانات ديوان الحفاظ</h2></div><button class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body">
+    <label>تاريخ الاختبار<select id="diwanExportDay">${diwanExamDayOptionsHtml(sessions,"الملف الكامل — كل المتسابقين")}</select></label>
+    <p id="diwanExportHelp" class="field-help"></p>
+  </div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button type="button" class="primary-btn" id="diwanExportConfirm"><i data-lucide="download"></i> تنزيل</button></div>`);
+  lucide.createIcons();
+  const select=$("#diwanExportDay");
+  if([...select.options].some(o=>o.value===diwanLocalDay(new Date())))select.value=diwanLocalDay(new Date());
+  const help=()=>{$("#diwanExportHelp").textContent=select.value==="all"?"كل المتسابقين بحالتهم الحالية، وشيت توزيع اللجان.":"كل اختبار اعتُمدت نتيجته بهذا اليوم (من كل الاختبارات): الاسم والمركز واللجنة والأجزاء والعلامة والنتيجة، وشيت ملخص لكل مركز."};
+  select.onchange=help;help();
+  $("#diwanExportConfirm").onclick=()=>{const day=select.value;closeModal();day==="all"?exportDiwanParticipants():exportDiwanDayResults(day)};
+}
+// الجلسات المعتمدة لمتسابقين موجودين (أساس قائمة الأيام وتصدير اليوم).
+function diwanExamDaySessions(){
+  const ids=new Set(diwanState.participants.map(p=>p.id));
+  return diwanAdminSessions.filter(s=>s.status==="final"&&ids.has(s.participant_id)&&diwanSessionDay(s));
+}
+function diwanSessionResultText(session,draw){
+  if(session.assessment?.withdrawn)return "منسحب";
+  if(session.assessment?.incomplete)return "غير مكتمل";
+  if(!diwanScorePasses(session))return "راسب";
+  const note=draw?diwanPassCreditNote(draw):"";
+  return note?`ناجح — ${note}`:"ناجح";
+}
+// صفوف «من امتحن بيوم معيّن»: صف لكل اختبار اعتُمد بذلك اليوم، مرتبة بالمركز ثم رقم الجلوس.
+function diwanDayResultRows(day){
+  const committees=diwanCommitteesList();
+  return diwanExamDaySessions().filter(s=>diwanSessionDay(s)===day).map(session=>{
+    const p=diwanState.participants.find(x=>x.id===session.participant_id),draw=diwanState.draws.find(d=>d.id===session.draw_id);
+    const parts=(draw?.eligibleParts||[]).map(Number).sort((a,b)=>a-b);
+    const committee=committees.find(c=>c.id===session.committee_id);
+    return {p,session,row:{"رقم الجلوس":p.seat||"","الرقم التسلسلي":diwanSerialOf(p),"اسم المتسابق":p.name,"الجنس":p.gender||"","المركز":p.center||"","اللجنة":committee?.name||"",
+      "الاختبار":DIWAN_STAGE_LABELS[session.stage]||"","عدد الأجزاء":Number(session.stage)<DIWAN_FINAL_STAGE?parts.length||"":"القرآن كاملاً","الأجزاء":Number(session.stage)<DIWAN_FINAL_STAGE?parts.join("، "):"",
+      "العلامة":session.assessment?.withdrawn?0:session.assessment?.incomplete?"غير مكتمل":Number.isFinite(Number(session.score))?Number(session.score):"",
+      "النتيجة":diwanSessionResultText(session,draw),"وقت الاعتماد":new Intl.DateTimeFormat("ar-JO",{timeStyle:"short",numberingSystem:"latn"}).format(new Date(session.finalized_at||session.updated_at))}};
+  }).sort((a,b)=>String(a.p.center||"").localeCompare(String(b.p.center||""),"ar")||(diwanSeatNumber(a.p)-diwanSeatNumber(b.p)));
+}
+async function exportDiwanDayResults(day){
+  const list=diwanDayResultRows(day);
+  if(!list.length)return toast("لا توجد نتائج معتمدة بهذا اليوم");
+  try{await ensureXlsx()}catch(error){return toast(error.message)}
+  const workbook=XLSX.utils.book_new(),sheet=XLSX.utils.json_to_sheet(list.map(x=>x.row));
+  sheet["!cols"]=[{wch:12},{wch:14},{wch:32},{wch:10},{wch:26},{wch:16},{wch:18},{wch:12},{wch:30},{wch:12},{wch:30},{wch:12}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
+  XLSX.utils.book_append_sheet(workbook,sheet,"من امتحن");
+  const byCenter=new Map();list.forEach(({p,row})=>{const key=p.center||"بلا مركز",entry=byCenter.get(key)||{"المركز":key,"امتحن":0,"ناجح":0,"راسب":0,"غير مكتمل":0,"منسحب":0};entry["امتحن"]++;const r=row["النتيجة"];entry[r.startsWith("ناجح")?"ناجح":r]++;byCenter.set(key,entry)});
+  const summaryRows=[...byCenter.values()].sort((a,b)=>a["المركز"].localeCompare(b["المركز"],"ar"));
+  summaryRows.push(summaryRows.reduce((total,r)=>{["امتحن","ناجح","راسب","غير مكتمل","منسحب"].forEach(k=>total[k]+=r[k]);return total},{"المركز":"المجموع","امتحن":0,"ناجح":0,"راسب":0,"غير مكتمل":0,"منسحب":0}));
+  const summary=XLSX.utils.json_to_sheet(summaryRows);summary["!cols"]=[{wch:30},{wch:10},{wch:10},{wch:10},{wch:12},{wch:10}];summary["!views"]=[{rightToLeft:true}];
+  XLSX.utils.book_append_sheet(workbook,summary,"ملخص المراكز");
+  XLSX.writeFile(workbook,`ديوان-الحفاظ-من-امتحن-${day}.xlsx`);toast(`تم تنزيل ${formatNumber(list.length)} نتيجة`);
+}
 async function exportDiwanParticipants(){
   if(!diwanState.participants.length)return toast("لا يوجد متسابقون لتصديرهم");
   try{await ensureXlsx()}catch(error){return toast(error.message)}
@@ -2436,6 +2492,19 @@ const DIWAN_PARTICIPANT_LIST_UI_KEY="competition-diwan-participant-list-ui";
 function saveDiwanPersistedParticipantFilters(){safeSetItem(DIWAN_PARTICIPANT_LIST_UI_KEY,JSON.stringify({diwanStatusSelection,diwanTypeFilter:$("#diwanTypeFilter")?.value||"all",diwanGenderFilter:$("#diwanGenderFilter")?.value||"all",diwanCenterFilter:$("#diwanCenterFilter")?.value||"all",diwanCommitteeFilter:$("#diwanCommitteeFilter")?.value||"all"}))}
 function loadDiwanPersistedParticipantFilters(){try{return JSON.parse(localStorage.getItem(DIWAN_PARTICIPANT_LIST_UI_KEY)||"null")||{}}catch{return {}}}
 function diwanSessionForDraw(draw){return draw?diwanAdminSessions.find(s=>s.draw_id===draw.id):null}
+// «تاريخ الاختبار» (طلب الإدارة 2026-11-19 — تنزيل كل ما يخص من امتحن يوماً معيّناً): يوم اعتماد النتيجة بالتوقيت المحلي
+// (لا يوم السحب)، والخيارات = الأيام التي فيها نتائج معتمدة فعلاً، الأحدث أولاً واليوم باسمه — بلا تقويم ولا كتابة تاريخ.
+function diwanLocalDay(value){const d=value instanceof Date?value:new Date(value);return Number.isNaN(d.getTime())?"":`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function diwanSessionDay(session){return session?.status==="final"?diwanLocalDay(session.finalized_at||session.updated_at||""):""}
+function diwanExamDayLabel(day){
+  const [y,m,d]=day.split("-").map(Number),text=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"numeric",year:"numeric",numberingSystem:"latn"}).format(new Date(y,m-1,d));
+  return day===diwanLocalDay(new Date())?`اليوم — ${text}`:text;
+}
+// sessions: الجلسات المعنية؛ allLabel: نص خيار «الكل». العدد بجانب كل يوم = عدد من اعتُمدت نتيجته فيه.
+function diwanExamDayOptionsHtml(sessions,allLabel="كل التواريخ"){
+  const counts=new Map();sessions.forEach(s=>{const day=diwanSessionDay(s);if(day)counts.set(day,(counts.get(day)||0)+1)});
+  return `<option value="all">${escapeHtml(allLabel)}</option>`+[...counts.keys()].sort().reverse().map(day=>`<option value="${day}">${escapeHtml(diwanExamDayLabel(day))} (${formatNumber(counts.get(day))})</option>`).join("");
+}
 function diwanGenderWord(participant,male,female){return participant?.gender==="أنثى"?female:male}
 function formatDiwanCertDate(value){const date=value?new Date(value):new Date();return `${String(date.getDate()).padStart(2,"0")}/${String(date.getMonth()+1).padStart(2,"0")}/${date.getFullYear()}`}
 // شبكة الـ30 جزءاً المُظلَّلة — نفس نمط assoc-parts-grid/marked المستخدم أصلاً ببطاقة اختبار
@@ -2609,22 +2678,31 @@ function diwanStageDocumentJobs(stage){
 }
 function openDiwanBulkPdfModal(){
   const stage=diwanOpenStage;if(stage==null)return;
-  const jobs=diwanStageDocumentJobs(stage);
-  if(!jobs.length)return toast("لا يوجد بهذه المرحلة من أكمل الاختبار بعد");
-  const centers=[...new Set(jobs.map(j=>j.participant.center||""))].sort((a,b)=>String(a).localeCompare(String(b),"ar"));
-  openModal(`<div class="modal-head"><div><span class="eyebrow">حفظ PDF · ${escapeHtml(DIWAN_STAGE_LABELS[stage])}</span><h2>شهادات الناجحين وتوصيات الراسبين</h2><small>الناجح تُصدر له شهادة، والراسب وثيقة توصية — ملف PDF واحد</small></div><button class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body">
+  // «الاختبار»: هذا الاختبار (افتراضي، كما كان) أو كل الاختبارات — مع «تاريخ الاختبار» يعطي كل وثائق من امتحن ذلك اليوم بملف واحد.
+  const stageJobs=diwanStageDocumentJobs(stage);
+  const allJobs=()=>{const seen=new Set();return DIWAN_STAGES.flatMap(s=>diwanStageDocumentJobs(s)).filter(j=>{const key=j.session?.id||`${j.participant.id}:${j.draw.id}`;if(seen.has(key))return false;seen.add(key);return true})};
+  const everyJob=allJobs();
+  if(!stageJobs.length&&!everyJob.length)return toast("لا يوجد من أكمل الاختبار بعد");
+  const centers=[...new Set(everyJob.map(j=>j.participant.center||""))].sort((a,b)=>String(a).localeCompare(String(b),"ar"));
+  openModal(`<div class="modal-head"><div><span class="eyebrow">حفظ PDF ·${escapeHtml(DIWAN_STAGE_LABELS[stage])}</span><h2>شهادات الناجحين وتوصيات الراسبين</h2><small>الناجح تُصدر له شهادة، والراسب وثيقة توصية — ملف PDF واحد</small></div><button class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body">
+    <label>الاختبار<select id="diwanBulkStageScope"><option value="stage">${escapeHtml(DIWAN_STAGE_LABELS[stage])} فقط</option><option value="all">كل الاختبارات</option></select></label>
+    <label>تاريخ الاختبار<select id="diwanBulkDay"></select></label>
     <label>المركز<select id="diwanBulkCenter"><option value="all">كل المراكز</option>${centers.map(c=>`<option value="${escapeAttr(c)}">${c?escapeHtml(c):"بلا مركز"}</option>`).join("")}</select></label>
     <label>النتيجة<select id="diwanBulkResult"><option value="all">الكل — شهادات وتوصيات</option><option value="certificate">الناجحون — شهادات</option><option value="recommendation">الراسبون — توصيات</option></select></label>
     <p id="diwanBulkSummary" class="field-help"></p>
   </div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button type="button" class="primary-btn" id="diwanStageDocsPdfBtn"><i data-lucide="download"></i> حفظ PDF</button></div>`);
   lucide.createIcons();
-  const selected=()=>{const center=$("#diwanBulkCenter").value,result=$("#diwanBulkResult").value;return jobs.filter(j=>(center==="all"||(j.participant.center||"")===center)&&(result==="all"||j.kind===result))};
+  const scopeJobs=()=>$("#diwanBulkStageScope").value==="all"?everyJob:stageJobs;
+  // قائمة الأيام تتبع «الاختبار» المختار، ويبقى اليوم المختار إن وُجد فيها.
+  const fillDays=()=>{const select=$("#diwanBulkDay"),previous=select.value;select.innerHTML=diwanExamDayOptionsHtml(scopeJobs().map(j=>j.session));if([...select.options].some(o=>o.value===previous))select.value=previous};
+  const selected=()=>{const center=$("#diwanBulkCenter").value,result=$("#diwanBulkResult").value,day=$("#diwanBulkDay").value;return scopeJobs().filter(j=>(center==="all"||(j.participant.center||"")===center)&&(result==="all"||j.kind===result)&&(day==="all"||diwanSessionDay(j.session)===day))};
   const refresh=()=>{const list=selected(),certs=list.filter(j=>j.kind==="certificate").length;$("#diwanBulkSummary").textContent=`${formatNumber(list.length)} وثيقة: ${formatNumber(certs)} شهادة و${formatNumber(list.length-certs)} توصية`;$("#diwanStageDocsPdfBtn").disabled=!list.length};
-  $("#diwanBulkCenter").onchange=refresh;$("#diwanBulkResult").onchange=refresh;refresh();
+  $("#diwanBulkStageScope").onchange=()=>{fillDays();refresh()};$("#diwanBulkDay").onchange=refresh;$("#diwanBulkCenter").onchange=refresh;$("#diwanBulkResult").onchange=refresh;
+  fillDays();refresh();
   $("#diwanStageDocsPdfBtn").onclick=async()=>{
-    const list=selected(),center=$("#diwanBulkCenter").value,result=$("#diwanBulkResult").value;if(!list.length)return;
+    const list=selected(),center=$("#diwanBulkCenter").value,result=$("#diwanBulkResult").value,day=$("#diwanBulkDay").value;if(!list.length)return;
     const btn=$("#diwanStageDocsPdfBtn");btn.disabled=true;
-    const prefix=["وثائق",DIWAN_STAGE_LABELS[stage],center==="all"?"كل-المراكز":(center||"بلا-مركز"),result==="certificate"?"شهادات":result==="recommendation"?"توصيات":""].filter(Boolean).join("-").replace(/[\\/:*?"<>|\s]+/g,"-");
+    const prefix=["وثائق",$("#diwanBulkStageScope").value==="all"?"كل-الاختبارات":DIWAN_STAGE_LABELS[stage],day==="all"?"":day,center==="all"?"كل-المراكز":(center||"بلا-مركز"),result==="certificate"?"شهادات":result==="recommendation"?"توصيات":""].filter(Boolean).join("-").replace(/[\\/:*?"<>|\s]+/g,"-");
     try{
       await ensurePdfLibraries();
       const [association,diwan]=await Promise.all([preloadImageAsDataUrl("assets/association-logo.png"),preloadImageAsDataUrl("assets/diwan-logo.jpg").then(whiteToTransparentDataUrl)]);
@@ -3255,8 +3333,8 @@ function diwanStageCompletionCheckboxesHtml(name){
 }
 function openDiwanBulkPdfDialog(){
   const centers=[...new Set(diwanState.participants.map(p=>p.center).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ar"));
-  openModal(`<div class="modal-head"><div><span class="eyebrow">ملف واحد للطباعة</span><h2>تجميع ملفات ديوان الحفاظ PDF</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid">${genderFieldHtml("diwanBulkPdf")}</div><fieldset><legend>المركز (اختياري، يمكن اختيار أكثر من مركز)</legend><div class="committee-level-options">${centerCheckboxesHtml("diwanBulkPdfCenter",centers)}</div></fieldset><fieldset><legend>الاختبار والحالة (اختياري، يمكن اختيار أكثر من خيار — اتركه فارغاً ليشمل الكل)</legend><div class="committee-level-options">${diwanStageCompletionCheckboxesHtml("diwanBulkPdfStage")}</div></fieldset><p>لكل سحب صفحة واحدة (ورقة مواضع الاختبار).</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="createDiwanBulkPdf" class="primary-btn"><i data-lucide="files"></i> إنشاء الملف</button></div>`,"bulk-pdf-modal");
-  $("#createDiwanBulkPdf").onclick=()=>createDiwanBulkResultsPdf({gender:$("#diwanBulkPdfGender").value,centers:checkedValuesOf("diwanBulkPdfCenter"),stageCompletion:checkedValuesOf("diwanBulkPdfStage")},{buttonId:"createDiwanBulkPdf",filenamePrefix:"ملفات-ديوان-الحفاظ"});
+  openModal(`<div class="modal-head"><div><span class="eyebrow">ملف واحد للطباعة</span><h2>تجميع ملفات ديوان الحفاظ PDF</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><div class="form-grid">${genderFieldHtml("diwanBulkPdf")}<label>تاريخ الاختبار<select id="diwanBulkPdfDay">${diwanExamDayOptionsHtml(diwanExamDaySessions())}</select></label></div><fieldset><legend>المركز (اختياري، يمكن اختيار أكثر من مركز)</legend><div class="committee-level-options">${centerCheckboxesHtml("diwanBulkPdfCenter",centers)}</div></fieldset><fieldset><legend>الاختبار والحالة (اختياري، يمكن اختيار أكثر من خيار — اتركه فارغاً ليشمل الكل)</legend><div class="committee-level-options">${diwanStageCompletionCheckboxesHtml("diwanBulkPdfStage")}</div></fieldset><p>لكل سحب صفحة واحدة (ورقة مواضع الاختبار).</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="createDiwanBulkPdf" class="primary-btn"><i data-lucide="files"></i> إنشاء الملف</button></div>`,"bulk-pdf-modal");
+  $("#createDiwanBulkPdf").onclick=()=>createDiwanBulkResultsPdf({gender:$("#diwanBulkPdfGender").value,day:$("#diwanBulkPdfDay").value,centers:checkedValuesOf("diwanBulkPdfCenter"),stageCompletion:checkedValuesOf("diwanBulkPdfStage")},{buttonId:"createDiwanBulkPdf",filenamePrefix:"ملفات-ديوان-الحفاظ"});
   wireLevelSelectAll("diwanBulkPdfCenter");wireLevelSelectAll("diwanBulkPdfStage");
   lucide.createIcons();
 }
@@ -3268,6 +3346,7 @@ async function createDiwanBulkResultsPdf(filters,options){
     if(!participant)return false;
     if(filters.gender&&filters.gender!=="all"&&participant.gender!==filters.gender)return false;
     if(filters.centers?.length&&!filters.centers.includes(participant.center))return false;
+    if(filters.day&&filters.day!=="all"&&diwanSessionDay(diwanSessionForDraw(draw))!==filters.day)return false;
     if(stageCompletionSet){
       const session=diwanSessionForDraw(draw),complete=Boolean(session&&session.status==="final");
       if(!stageCompletionSet.has(`${draw.stage}:${complete?"complete":"incomplete"}`))return false;
