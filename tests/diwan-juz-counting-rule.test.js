@@ -307,16 +307,25 @@ async function run() {
   assert.strictEqual(pick({ status: ["ready"], type: "10" }), "202", "الفلاتر مترابطة");
   vm.runInContext("diwanOpenStage=null", sandbox);
 
-  // ===== ١١) المنسحبة تبقى منسحبة: الاستيراد لا يسجّل لها أجزاء ولا يلغي انسحابها =====
-  const wd = mk("301", "منسحبة", { stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", center: "قديم" });
-  setup([wd]);
-  const wdRows = sandbox.planDiwanImportRows([row("منسحبة", { center: "جديد", rawParts: "1-10", parts: range(1, 10) }), row("منسحبة", { rawParts: "1-5", parts: range(1, 5), partsCountRaw: "5" })].map((r, i) => ({ ...r, rowNo: i + 1 })));
-  assert.strictEqual(wdRows[0].status, "ready", "تُحدَّث بياناتها");
-  assert.ok(/بقيت منسحبة/.test(wdRows[0].warning), "مع تنبيه");
+  // ===== ١١) المنسحبة: أجزاء بالملف ← يُلغى انسحابها وتُسجَّل أجزاؤها؛ بلا أجزاء ← تبقى منسحبة =====
+  const wd = mk("301", "منسحبة", { stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", center: "قديم", parts: range(1, 10) });
+  const wk = mk("302", "باقية", { stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", center: "قديم" });
+  setup([wd, wk]);
+  const wdRows = sandbox.planDiwanImportRows([
+    row("منسحبة", { center: "جديد", rawParts: "1-10", parts: range(1, 10) }),
+    row("باقية", { center: "جديد2", stageRaw: "الاختبار الثاني", stage: 2 })
+  ].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.strictEqual(wdRows[0].status, "ready");
+  assert.ok(/يُلغى انسحابها/.test(wdRows[0].warning), "تنبيه إلغاء الانسحاب");
+  assert.strictEqual(wdRows[1].status, "ready");
+  assert.ok(/بقيت منسحبة/.test(wdRows[1].warning), "بلا أجزاء تبقى منسحبة");
   sandbox.applyDiwanImport(wdRows);
-  assert.strictEqual(wd.withdrawn, true, "لم يُلغَ انسحابها");
-  assert.strictEqual((wd.parts || []).length, 0, "ولا أجزاء لها");
+  assert.strictEqual(wd.withdrawn, false, "أُلغي انسحابها (حتى بنفس أجزائها السابقة)");
+  assert.deepStrictEqual([...wd.parts].map(Number), range(1, 10), "وسُجّلت أجزاؤها");
   assert.strictEqual(wd.center, "جديد", "وبياناتها حُدّثت");
+  assert.strictEqual(wk.withdrawn, true, "الباقية لم يُلغَ انسحابها");
+  assert.strictEqual(wk.stage, 1, "ولم تُنقل بخانة الاختبار وحدها");
+  assert.strictEqual(wk.center, "جديد2", "وبياناتها حُدّثت");
 
   console.log("diwan-juz-counting-rule.test.js: نجح — قاعدة العدّ، اختبار الخمسة أجزاء (90، المرحلتان ٢–٣)، التعديل/الانسحاب، والاستيراد بالاسم والترقيم التلقائي");
 }
