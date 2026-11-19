@@ -1928,12 +1928,15 @@ function diwanPositionsLoad(participant,draws=diwanState.draws){
 // توزيع ثابت بلا خيارات (طلب الإدارة 2026-11-18) على قاعدتين بالترتيب:
 // ١) طالبات كل مركز يتوزعن على كل اللجان (فرق عدد طالبات المركز بين أي لجنتين ≤ ١).
 // ٢) ضمن ذلك: مجموع المواضع لكل لجنة أقرب ما يمكن للتساوي (الأثقل أولاً للّجنة الأخف، ثم تبديل طالبتين من نفس المركز بين لجنتين متى قرّب الأحمال).
-function diwanDistributionPlan(participants,committees,loadOf=diwanPositionsLoad){
+// fixed: متسابقات يبقين بلجانهن (transferCommitteeId) — «توزيع الجدد فقط» — يُحسبن بالحِمل وتوزيع المراكز ولا يُنقلن ولا يُبدَّلن.
+function diwanDistributionPlan(participants,committees,loadOf=diwanPositionsLoad,{fixed=[]}={}){
   const plan=committees.map(committee=>({committee,members:[],load:0,byCenter:new Map()}));
   if(!plan.length)return plan;
   const centerKey=p=>p.center||"";
   const groups=new Map();participants.forEach(p=>{const key=centerKey(p);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(p)});
   const add=(entry,p)=>{entry.members.push(p);entry.load+=loadOf(p);entry.byCenter.set(centerKey(p),(entry.byCenter.get(centerKey(p))||0)+1)};
+  const pinned=new Set();
+  fixed.forEach(p=>{const entry=plan.find(e=>e.committee.id===p.transferCommitteeId);if(entry){add(entry,p);pinned.add(p)}});
   // المراكز الأكبر أولاً، وداخل المركز الأثقل حِملاً أولاً (ثم رقم الجلوس للثبات).
   [...groups.entries()].sort((a,b)=>(b[1].length-a[1].length)||a[0].localeCompare(b[0],"ar")).forEach(([key,members])=>{
     members.sort((a,b)=>(loadOf(b)-loadOf(a))||(diwanSeatNumber(a)-diwanSeatNumber(b))).forEach(p=>{
@@ -1949,7 +1952,7 @@ function diwanDistributionPlan(participants,committees,loadOf=diwanPositionsLoad
     if(gap<=0)break;
     let best=null;
     heavy.members.forEach(h=>light.members.forEach(l=>{
-      const diff=loadOf(h)-loadOf(l);if(centerKey(h)!==centerKey(l)||diff<=0||diff>=gap)return;
+      const diff=loadOf(h)-loadOf(l);if(pinned.has(h)||pinned.has(l)||centerKey(h)!==centerKey(l)||diff<=0||diff>=gap)return;
       const after=Math.abs(gap-2*diff);if(!best||after<best.after)best={h,l,diff,after};
     }));
     if(!best)break;
@@ -1970,11 +1973,23 @@ async function openDiwanDistributeModal(){
   try{diwanAdminSessions=applyDiwanResultOverrides(await window.DiwanCompetition.listViewerSessions())}catch(error){return toast(`تعذر تحديث نتائج اللجان: ${error.message}`)}
   const people=diwanDistributableParticipants();
   if(!people.length)return toast("لا توجد متسابقات للتوزيع (الجميع بدأ اختباره أو منسحب أو معتمد)");
-  const plan=diwanDistributionPlan(people,committees);
+  // «توزيع الجدد فقط»: من لا لجنة لها (أو لجنتها غير مفعّلة) تُوزَّع، والموزَّعات يبقين بلجانهن ويُحسب حِملهن — لا يتحرك أحد أثناء الاختبار.
+  const committeeIds=new Set(committees.map(c=>c.id)),fresh=people.filter(p=>!committeeIds.has(p.transferCommitteeId)),kept=people.filter(p=>committeeIds.has(p.transferCommitteeId));
+  if(fresh.length&&kept.length){
+    openModal(`<div class="modal-head"><h2>توزيع على اللجان</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p><b>${fresh.length}</b> متسابقة بلا لجنة، و<b>${kept.length}</b> موزَّعة على لجانها ولم تبدأ بعد.</p><p class="field-help"><b>توزيع الجدد فقط</b>: الموزَّعات يبقين بلجانهن كما هن، والجديدات يُضفن للّجان الأخف (بتوزيع المراكز). مناسب أثناء الاختبار.<br><b>إعادة توزيع الكل</b>: يعيد توزيع كل من لم تبدأ — قد تنتقل منتظرة من لجنة لأخرى.</p></div><div class="modal-actions"><button id="diwanDistributeAll" class="secondary-btn" type="button">إعادة توزيع الكل (${people.length})</button><button id="diwanDistributeFresh" class="primary-btn" type="button">توزيع الجدد فقط (${fresh.length})</button></div>`);
+    lucide.createIcons();
+    $("#diwanDistributeFresh").onclick=()=>{closeModal();runDiwanDistribution(fresh,committees,{fixed:kept})};
+    $("#diwanDistributeAll").onclick=()=>{closeModal();runDiwanDistribution(people,committees)};
+    return;
+  }
+  return runDiwanDistribution(people,committees);
+}
+async function runDiwanDistribution(people,committees,{fixed=[]}={}){
+  const plan=diwanDistributionPlan(people,committees,diwanPositionsLoad,{fixed});
   const assignments=plan.flatMap(({committee,members})=>members.map(participant=>({participant,committeeId:committee.id}))).filter(({participant,committeeId})=>participant.transferCommitteeId!==committeeId);
   const summary=plan.map(({committee,members,load})=>`${committee.name}: ${members.length} متسابقة · ${load} موضعاً`).join("\n");
   if(!assignments.length)return toast("التوزيع مطبَّق بالفعل");
-  if(!confirm(`توزيع ${people.length} متسابقة على ${committees.length} لجان إناث:\n\n${summary}\n\nطالبات كل مركز موزّعات على كل اللجان، والمواضع متساوية قدر الإمكان. سيتغيّر ${assignments.length} متسابقة. تنفيذ؟`))return;
+  if(!confirm(`${fixed.length?`توزيع ${people.length} متسابقة جديدة (الموزَّعات يبقين بلجانهن) — المجموع بعد التوزيع`:`توزيع ${people.length} متسابقة`} على ${committees.length} لجان إناث:\n\n${summary}\n\nطالبات كل مركز موزّعات على كل اللجان، والمواضع متساوية قدر الإمكان. سيتغيّر ${assignments.length} متسابقة. تنفيذ؟`))return;
   const button=$("#diwanDistributeBtn"),label=button?.innerHTML;if(button)button.disabled=true;
   let done=0;const failed=[];
   for(const {participant,committeeId} of assignments){

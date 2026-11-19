@@ -416,6 +416,15 @@ async function run() {
     assert.ok(Math.max(...planLoads) - Math.min(...planLoads) <= 5, `المواضع متقاربة: ${planLoads}`);
     const plan4 = sandbox.diwanDistributionPlan(list, [{}, {}, {}, {}], () => 10);
     assert.deepStrictEqual(Array.from(plan4, x => x.members.length).sort(), [22, 22, 23, 23], "90 على 4 لجان بحِمل متساوٍ: 23،23،22،22");
+    // «توزيع الجدد فقط»: الموزَّعات يبقين بلجانهن ويُحسب حِملهن، والجديدات يذهبن للأخف.
+    const fc = [{ id: "C1" }, { id: "C2" }, { id: "C3" }];
+    const keptOnes = [1, 2, 3, 4, 5, 6].map(i => ({ id: "K" + i, center: "أ", transferCommitteeId: i <= 4 ? "C1" : "C2" }));
+    const freshOnes = [1, 2, 3, 4, 5, 6].map(i => ({ id: "N" + i, center: "ب" })).concat([1, 2, 3].map(i => ({ id: "A" + i, center: "أ" })));
+    const fplan = sandbox.diwanDistributionPlan(freshOnes, fc, () => 10, { fixed: keptOnes });
+    keptOnes.forEach(k => assert.ok(fplan.find(e => e.committee.id === k.transferCommitteeId).members.includes(k), `${k.id} بقيت بلجنتها`));
+    assert.deepStrictEqual(Array.from(fplan, e => e.members.filter(p => p.id.startsWith("N")).length), [2, 2, 2], "مركز جديد على كل اللجان");
+    assert.deepStrictEqual(Array.from(fplan, e => e.members.filter(p => p.center === "أ").length), [4, 3, 2], "مركز الموزَّعات: الجديدات للّجان الأقل منه ولا يُنقل أحد");
+    assert.strictEqual(fplan.reduce((n, e) => n + e.members.length, 0), 15, "الكل محسوب");
     assert.strictEqual(sandbox.diwanCenterArrival("مركز جديد"), "11:00", "المركز غير المعروف آخر وقت افتراضياً");
     assert.strictEqual(sandbox.diwanPositionsLoad({ id: "X", stage: 2, parts: [1, 2, 3, 4, 5] }, []), 5, "اختبار الخمسة = 5 مواضع");
     assert.strictEqual(sandbox.diwanPositionsLoad({ id: "X", stage: 4, parts: [] }, []), 18, "النهائي = 18 موضعاً");
