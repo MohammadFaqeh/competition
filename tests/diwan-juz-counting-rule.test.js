@@ -283,14 +283,29 @@ async function run() {
   assert.strictEqual(fixRows[0].assignedSerial, "ث/2026/97", "الرقم الخاطئ يُصحَّح إلى ث/2026/رقم الجلوس");
   assert.ok(/تصحيح الرقم التسلسلي/.test(fixRows[0].action));
   assert.strictEqual(fixRows[1].assignedSerial, undefined, "الرقم الصحيح لا يُمس");
-  assert.strictEqual(fixRows[2].assignedSerial, undefined, "رقم بصيغة أخرى (غير الخاطئة) لا يُمس");
+  // توحيد الأرقام (طلب الإدارة 2026-11-23): أي رقم مسجَّل بغير الصيغة المعتمدة (مثل 23434) يُصحَّح أيضاً.
+  assert.strictEqual(fixRows[2].assignedSerial, "ث/2026/93", "رقم عشوائي مسجَّل يُصحَّح إلى ث/2026/رقم الجلوس");
   sandbox.applyDiwanImport(fixRows);
   assert.strictEqual(wrong.serialNumber, "ث/2026/97");
   assert.strictEqual(sorted(wrong.parts), sorted(range(1, 10)), "وتُعبّأ أجزاؤها");
   assert.strictEqual(ok97.serialNumber, "ث/2026/10");
-  assert.strictEqual(junk.serialNumber, "23434");
+  assert.strictEqual(junk.serialNumber, "ث/2026/93");
   assert.strictEqual(sandbox.diwanSerialForSeat("098"), "ث/2026/98");
   assert.strictEqual(sandbox.diwanSerialForSeat("10"), "ث/2026/98", "إن أُخذ رقم الجلوس فبعد أكبر رقم مستخدم (97)");
+
+  // رقم عشوائي بالملف (مثل 6777 من ملف Excel قديم) يُتجاهل ولا يُكتب فوق الرقم الصحيح المسجَّل — كان يُرجع الأرقام الخاطئة مع كل استيراد.
+  const junkFile = sandbox.planDiwanImportRows([row("بشرى", { seat: "093", serial: "6777" })].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.strictEqual(junkFile[0].status, "ready", "الصف لا يُرفض بسببه");
+  assert.strictEqual(junkFile[0].serial, "", "الرقم العشوائي من الملف يُتجاهل");
+  assert.ok(/ليس بالصيغة المعتمدة/.test(junkFile[0].warning), "مع تنبيه بالمعاينة");
+  sandbox.applyDiwanImport(junkFile);
+  assert.strictEqual(junk.serialNumber, "ث/2026/93", "الرقم الصحيح المسجَّل يبقى");
+
+  // الجنس إلزامي للمتسابق الجديد بالاستيراد (طلب الإدارة 2026-11-23)؛ والمسجَّلة سابقاً لا تُرفض بخانة جنس فارغة (لا تمسح المحفوظ).
+  const noGender = sandbox.planDiwanImportRows([row("طالبة جديدة بلا جنس", { gender: "", stageRaw: "الاختبار الأول", stage: 1, rawParts: "1-10", parts: range(1, 10) }), row("لين أحمد", { gender: "" })].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.strictEqual(noGender[0].status, "rejected", "الجديدة بلا جنس تُرفض");
+  assert.ok(/الجنس مطلوب/.test(noGender[0].reason));
+  assert.strictEqual(noGender[1].status, "ready", "المسجَّلة بلا جنس بالملف لا تُرفض");
 
   // ===== ١٠) فلاتر صفحة المرحلة: «بانتظار السحب» و«نوع الاختبار» =====
   const f5 = mk("201", "خمسة", { stage: 2, usedJuz: range(1, 10), parts: range(11, 15) }), f10 = mk("202", "عشرة", { stage: 2, usedJuz: range(1, 10), parts: range(11, 20) }), f0 = mk("203", "بلا أجزاء", { stage: 2, usedJuz: range(1, 10) });

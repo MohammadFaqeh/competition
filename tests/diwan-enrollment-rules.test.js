@@ -51,7 +51,7 @@ vm.runInContext(appSrc, sandbox, { filename: "app.js" });
 
 const P = (o) => Object.assign({ gender: "أنثى", center: "مركز", usedJuz: [], parts: [], level: 10, createdAt: "2026-09-01T00:00:00.000Z" }, o);
 async function importRows(csvLines) {
-  const csv = ["الاسم,رقم الطالبة,الرقم التسلسلي,الأجزاء,الاختبار", ...csvLines].join("\n");
+  const csv = ["الاسم,رقم الطالبة,الرقم التسلسلي,الأجزاء,الاختبار,الجنس", ...csvLines].join("\n");
   await sandbox.importDiwanExcel({ target: { value: "x", files: [{ name: "f.csv", text: async () => csv }] } });
 }
 async function run() {
@@ -79,7 +79,7 @@ async function run() {
   await importRows([
     "سارة,155,0012,11-20,الاختبار الأول",
     "هدى,156,0013,11-20,الاختبار الثاني",
-    "ريم محمد,188,0099,1-10,الاختبار الأول",
+    "ريم محمد,188,0099,1-10,الاختبار الأول,أنثى",
     "دانة,189,0100,,الاختبار الثاني",
     "اسم آخر,157,,,الاختبار الأول",
     "سارة,155,0012,21-30,الاختبار الأول",

@@ -1751,6 +1751,7 @@ function openDiwanParticipantModal(participant=null){
     if(newSeat&&diwanState.participants.some(p=>p.id!==(participant?.id||null)&&String(p.seat).trim()===newSeat))return toast(`رقم الجلوس ${newSeat} مسجَّل مسبقًا لمتسابق آخر — استخدم رقمًا مختلفًا`);
     const newSerial=normalizeDigits($("#dpSerial").value).trim();
     if(!newSerial)return toast("الرقم التسلسلي مطلوب قبل بدء الاختبار");
+    if(parseDiwanSerial(newSerial)?.order!=="lyn")return toast(`الرقم التسلسلي بالصيغة المعتمدة فقط: ${DIWAN_SERIAL_FEMALE_LETTER}/${DIWAN_SERIAL_YEAR}/رقم الجلوس (مثل ${DIWAN_SERIAL_FEMALE_LETTER}/${DIWAN_SERIAL_YEAR}/15)`);
     if(diwanState.participants.some(p=>p.id!==(participant?.id||null)&&normalizeDigits(diwanSerialOf(p))===newSerial))return toast(`الرقم التسلسلي ${newSerial} مسجَّل مسبقًا لمتسابق آخر — استخدم رقمًا مختلفًا`);
     const item=participant?{...participant}:{id:uid("DP"),stage:1,usedJuz:[],parts:[],level:10,createdAt:new Date().toISOString()};
     item.name=$("#dpName").value.trim();item.seat=$("#dpSeat").value.trim();item.serialNumber=newSerial;item.gender=$("#dpGender").value;item.center=$("#dpCenter").value.trim();item.age=Number($("#dpAge").value)||null;
@@ -2272,6 +2273,9 @@ function planDiwanImportRows(rows){
     const reject=reason=>Object.assign(out,{status:"rejected",reason});
     if(out.gender!=="ذكر"&&out.gender!=="أنثى")out.gender="";
     if(importerGender){if(!out.gender)out.gender=importerGender;else if(out.gender!==importerGender)return reject(`${out.gender} — خارج صلاحية حسابك`)}
+    // توحيد الرقم التسلسلي (طلب الإدارة 2026-11-23): يُقبل من الملف بالصيغة المعتمدة «ث/2026/الرقم» فقط. غيرها (مثل 6777)
+    // يُتجاهل فلا يُطابَق به ولا يُكتب فوق الرقم المسجَّل — كانت أرقام 093–096 الخاطئة ترجع مع كل استيراد من ملف قديم.
+    if(out.serial&&parseDiwanSerial(out.serial)?.order!=="lyn"){out.ignoredSerial=out.serial;out.serial=""}
     const bySerial=out.serial?diwanState.participants.find(p=>normalizeDigits(diwanSerialOf(p))===out.serial):null;
     const seatKey=x=>normalizeDigits(String(x??"")).trim().replace(/^0+(?=\d)/,"");
     const bySeat=out.seat?diwanState.participants.find(p=>seatKey(p.seat)===seatKey(out.seat)):null;
@@ -2291,6 +2295,8 @@ function planDiwanImportRows(rows){
     // رقم واحد فقط يطابق ← يُرفض (قد يكون الرقم خطأ بالملف فيُكتب على متسابق آخر).
     const renameFrom=existing&&!diwanSameName(existing.name,out.name)&&bySerial&&bySeat&&bySerial===bySeat?existing.name:"";
     if(existing&&!renameFrom&&!diwanSameName(existing.name,out.name))return reject(`${bySerial?`الرقم التسلسلي ${out.serial}`:`رقم الجلوس ${out.seat}`} مسجَّل لمتسابق آخر باسم مختلف (${existing.name}) — إن كان هو نفسه اكتب رقم الجلوس والرقم التسلسلي معاً ليُحدَّث اسمه`);
+    // الجنس إلزامي للمتسابق الجديد (طلب الإدارة 2026-11-23): يدخل بتوزيع اللجان والرقم التسلسلي.
+    if(!existing&&!out.gender)return reject("الجنس مطلوب (ذكر أو أنثى) — أضفه بخانة الجنس بالملف");
     const key=existing?existing.id:out.serial?`serial:${out.serial}`:out.seat?`seat:${out.seat}`:`name:${String(out.name).replace(/\s+/g," ").trim()}`;
     if(key){if(seen.has(key))return reject("مكرر في الملف نفسه — اعتُمد أول صف له فقط");seen.add(key)}
     if(Number.isNaN(out.stage))return reject(`لم أفهم خانة الاختبار «${out.stageRaw}» — اكتب: الاختبار الأول / الثاني / الثالث / النهائي`);
@@ -2304,7 +2310,7 @@ function planDiwanImportRows(rows){
     if(plan.kind==="error")return reject(plan.error);
     out.stage=rowStage;
     const note=diwanPartsPlanNote(existing,plan.parts,plan.target??diwanStageOf(existing));
-    Object.assign(out,{existing,byName,plan,action:[!existing?plan.label:plan.kind==="update"?"تحديث بيانات فقط":plan.label,note].filter(Boolean).join(" · "),warning:[plan.warning,existing?.withdrawn?(plan.kind==="update"?"منسحبة — بقيت منسحبة (لا أجزاء معتمدة لها بالملف)":"كانت منسحبة — يُلغى انسحابها وتُسجَّل أجزاؤها من الملف"):existing&&plan.kind==="retake"&&diwanParticipantStatusOf(existing)==="failed"?"راسبة — تُسجَّل لها إعادة اختبار بأجزاء الملف (ويبقى رسوبها السابق بسجلها)":"",renameFrom?`سيُعدَّل الاسم من «${renameFrom}» إلى «${out.name}» (رقم الجلوس والرقم التسلسلي يطابقانه)`:"",byName?`تم التعرّف عليه بالاسم (رقم الجلوس ${existing.seat}) — تأكد أنه الشخص نفسه`:"",existing&&out.seat&&String(existing.seat).trim()!==out.seat?`رقم الجلوس بالملف (${out.seat}) يختلف عن المسجَّل (${existing.seat}) — بقي المسجَّل`:""].filter(Boolean).join(" · ")});
+    Object.assign(out,{existing,byName,plan,action:[!existing?plan.label:plan.kind==="update"?"تحديث بيانات فقط":plan.label,note].filter(Boolean).join(" · "),warning:[plan.warning,existing?.withdrawn?(plan.kind==="update"?"منسحبة — بقيت منسحبة (لا أجزاء معتمدة لها بالملف)":"كانت منسحبة — يُلغى انسحابها وتُسجَّل أجزاؤها من الملف"):existing&&plan.kind==="retake"&&diwanParticipantStatusOf(existing)==="failed"?"راسبة — تُسجَّل لها إعادة اختبار بأجزاء الملف (ويبقى رسوبها السابق بسجلها)":"",renameFrom?`سيُعدَّل الاسم من «${renameFrom}» إلى «${out.name}» (رقم الجلوس والرقم التسلسلي يطابقانه)`:"",byName?`تم التعرّف عليه بالاسم (رقم الجلوس ${existing.seat}) — تأكد أنه الشخص نفسه`:"",existing&&out.seat&&String(existing.seat).trim()!==out.seat?`رقم الجلوس بالملف (${out.seat}) يختلف عن المسجَّل (${existing.seat}) — بقي المسجَّل`:"",out.ignoredSerial?`الرقم التسلسلي بالملف «${out.ignoredSerial}» ليس بالصيغة المعتمدة (ث/2026/رقم الجلوس) — تم تجاهله`:"",existing&&!existing.gender&&!out.gender?"بلا جنس مسجَّل — أضفه بالملف أو من تعديل البيانات":""].filter(Boolean).join(" · ")});
     return out;
   });
   // ترقيم تلقائي لمن لا رقم له: رقم جلوس للجديد، ورقم تسلسلي «ث/…/2026» لمن خانته فارغة (الذكور يُتركون مع تنبيه).
@@ -2315,9 +2321,9 @@ function planDiwanImportRows(rows){
     if(!r.existing&&!r.seat){r.assignedSeat=nextSeat();notes.push(`رقم جلوس جديد ${r.assignedSeat}`)}
     // رقم بالصيغة الخاطئة «ث/الرقم/2026» (من الترقيم التلقائي الأول) يُصحَّح إلى «ث/2026/رقم الجلوس».
     const ownSerial=r.existing?diwanSerialOf(r.existing):"",ownParsed=parseDiwanSerial(ownSerial);
-    const wrongFormat=Boolean(ownParsed&&ownParsed.order==="lny"&&ownParsed.year===DIWAN_SERIAL_YEAR);
+    const wrongFormat=Boolean(ownSerial&&ownParsed?.order!=="lyn");
     if(!r.serial&&(!ownSerial||wrongFormat)){
-      if((r.gender||r.existing?.gender)==="ذكر")r.warning=[r.warning,"بلا رقم تسلسلي — أدخله يدوياً (الترقيم التلقائي للإناث فقط)"].filter(Boolean).join(" · ");
+      if((r.gender||r.existing?.gender)==="ذكر")r.warning=[r.warning,wrongFormat?`الرقم التسلسلي المسجَّل «${ownSerial}» بغير الصيغة المعتمدة — صحّحه يدوياً (الترقيم التلقائي للإناث فقط)`:"بلا رقم تسلسلي — أدخله يدوياً (الترقيم التلقائي للإناث فقط)"].filter(Boolean).join(" · ");
       else{
         r.assignedSerial=diwanSerialForSeat(r.assignedSeat||r.seat||r.existing?.seat,{exclude:r.existing,extraSerials:reservedSerials});reservedSerials.push(r.assignedSerial);
         if(wrongFormat)r.fixSerialFrom=ownSerial;
