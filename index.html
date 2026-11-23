@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261123-section-switch">
+  <link rel="stylesheet" href="styles.css?v=20261123-clean-login">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -129,7 +129,6 @@
       <button class="gateway-back-button" type="button" data-back-gateway><i data-lucide="arrow-right"></i><span>العودة لاختيار طريقة الاستخدام</span></button>
       <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
       <p id="cloudLoginBrandLine">جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
-      <nav class="section-switch" aria-label="اختيار القسم"><a href="index.html" data-section-link="annual"><i data-lucide="trophy"></i><span>المسابقة السنوية</span></a><a href="index.html?app=diwan" data-section-link="diwan"><i data-lucide="book-open-check"></i><span>ديوان الحفاظ</span></a></nav>
       <h1 id="cloudLoginTitle">دخول لجنة الاختبار</h1>
       <form id="committeeLoginForm">
         <label>رمز اللجنة<input id="committeeLoginCode" required autocomplete="username" inputmode="latin" placeholder="مثال: L01"></label>
@@ -162,7 +161,7 @@
 
   <section id="committeeApp" class="committee-app hidden">
     <header class="committee-topbar">
-      <div><span class="committee-section-badge" data-section="annual"><i data-lucide="trophy"></i> المسابقة السنوية</span><span class="committee-section-badge" data-section="diwan"><i data-lucide="book-open-check"></i> ديوان الحفاظ</span><span id="committeeRoleLabel">لجنة الاختبار</span><h1 id="committeeExaminerGreeting">--</h1><small id="committeeName">--</small><small id="committeeLevels">--</small></div>
+      <div><span id="committeeRoleLabel">لجنة الاختبار</span><h1 id="committeeExaminerGreeting">--</h1><small id="committeeName">--</small><small id="committeeLevels">--</small></div>
       <div class="committee-topbar-actions"><button id="showExamInstructionsBtn" class="secondary-btn" type="button"><i data-lucide="file-text"></i> تعليمات الاختبار</button><button id="committeeLogoutBtn" class="secondary-btn"><i data-lucide="log-out"></i> خروج</button></div>
     </header>
     <main class="committee-main">
@@ -477,7 +476,7 @@
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20261015-settings-polish"></script>
-  <script src="app.js?v=20261123-section-switch-2"></script>
+  <script src="app.js?v=20261123-clean-login"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>
