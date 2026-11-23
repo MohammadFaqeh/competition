@@ -301,6 +301,12 @@ async function run() {
   sandbox.applyDiwanImport(junkFile);
   assert.strictEqual(junk.serialNumber, "ث/2026/93", "الرقم الصحيح المسجَّل يبقى");
 
+  // توحيد أرقام الجلوس (2026-11-24): المسجَّل 93 والملف القديم يكتب 093 — نفس الرقم، بلا تنبيه «يختلف عن المسجَّل».
+  junk.seat = "93";
+  const zeroSeat = sandbox.planDiwanImportRows([row("بشرى", { seat: "093" })].map((r, i) => ({ ...r, rowNo: i + 1 })));
+  assert.strictEqual(zeroSeat[0].existing, junk, "093 بالملف = 93 المسجَّل");
+  assert.ok(!/يختلف عن المسجَّل/.test(zeroSeat[0].warning), "لا تنبيه لاختلاف الصفر البادئ فقط");
+
   // الجنس إلزامي للمتسابق الجديد بالاستيراد (طلب الإدارة 2026-11-23)؛ والمسجَّلة سابقاً لا تُرفض بخانة جنس فارغة (لا تمسح المحفوظ).
   const noGender = sandbox.planDiwanImportRows([row("طالبة جديدة بلا جنس", { gender: "", stageRaw: "الاختبار الأول", stage: 1, rawParts: "1-10", parts: range(1, 10) }), row("لين أحمد", { gender: "" })].map((r, i) => ({ ...r, rowNo: i + 1 })));
   assert.strictEqual(noGender[0].status, "rejected", "الجديدة بلا جنس تُرفض");
