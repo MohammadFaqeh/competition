@@ -1803,3 +1803,79 @@ body.settings-drawer-open{overflow:hidden}
 .diwan-jump:hover{background:var(--surface);transform:translateX(-2px)}
 .diwan-jump:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 @media(max-width:760px){.diwan-jump{top:10px;left:10px}}
+
+/* ===== صفحة الديوان حول «الجولة» (2026-11-24) ===== */
+.diwan-head{align-items:center}
+.diwan-head .page-actions{align-items:center}
+.diwan-more{position:relative}
+.diwan-more>summary{list-style:none;cursor:pointer;user-select:none}
+.diwan-more>summary::-webkit-details-marker{display:none}
+.diwan-more-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:240px;display:flex;flex-direction:column;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-md)}
+.diwan-more-menu button{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--ink);font:inherit;font-size:13px;font-weight:700;text-align:start;cursor:pointer}
+.diwan-more-menu button:hover{background:var(--green-50)}
+.diwan-more-menu button svg{width:16px;height:16px;color:var(--muted)}
+.diwan-more-menu button.is-danger,.diwan-more-menu button.is-danger svg{color:var(--red)}
+.diwan-round{margin-bottom:var(--sp-5);border-top:3px solid var(--gold)}
+.diwan-round-head{display:flex;justify-content:space-between;align-items:flex-end;gap:var(--sp-4);flex-wrap:wrap;margin-bottom:var(--sp-4)}
+.diwan-round-head h2{margin:2px 0;font-size:22px;color:var(--ink)}
+.diwan-round-head small{color:var(--caption);font-size:12px}
+.diwan-round-total{font-size:12px;font-weight:700;color:var(--muted)}
+.diwan-round-counters{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:var(--sp-4)}
+.diwan-round-counters button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer;transition:border-color var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
+.diwan-round-counters button b{font-size:30px;line-height:1.1}
+.diwan-round-counters button span{font-size:14px;font-weight:800}
+.diwan-round-counters button small{font-size:11px;color:var(--caption)}
+.diwan-round-counters button:hover{border-color:var(--control-border-hover);box-shadow:var(--shadow-sm)}
+.diwan-round-counters .is-todo b{color:var(--muted)}
+.diwan-round-counters .is-ready b{color:var(--gold-600)}
+.diwan-round-counters .is-done b{color:var(--green-700)}
+.diwan-round-counters button.is-active{border-color:var(--green-700);box-shadow:0 0 0 2px rgba(var(--accent-rgb),.18)}
+.diwan-round-counters button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.diwan-round-list{margin:0 0 var(--sp-4);border:1px solid var(--line);border-radius:var(--radius);background:var(--canvas)}
+.diwan-round-list-head{display:flex;align-items:center;gap:10px;padding:12px 16px 0}
+.diwan-round-list-head b{font-size:13px}
+.diwan-round-list-head span{font-size:12px;font-weight:800;color:var(--muted)}
+.diwan-round-list-head .text-btn{margin-inline-start:auto;font:inherit;font-size:12px;font-weight:800;border:0;cursor:pointer}
+.diwan-round-card{display:flex;flex-direction:column;gap:6px;min-width:0}
+.diwan-round-result{align-self:flex-start;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft)}
+.diwan-round-result.is-passed{background:var(--green-50);border-color:var(--green-100);color:var(--green-700)}
+.diwan-round-result.is-failed,.diwan-round-result.is-incomplete{background:var(--red-soft);border-color:transparent;color:var(--red)}
+.diwan-round-result.is-withdrawn{background:var(--canvas);color:var(--muted)}
+.diwan-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.diwan-step{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line-soft);border-radius:var(--radius);background:var(--canvas)}
+.diwan-step-num{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--green-900);color:#fff;font-weight:800;font-size:14px}
+.diwan-step.is-complete .diwan-step-num{background:var(--gold);font-size:0}
+.diwan-step.is-complete .diwan-step-num::after{content:"✓";font-size:16px}
+.diwan-step-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.diwan-step-body b{font-size:14px;color:var(--ink)}
+.diwan-step-body small{font-size:12px;color:var(--caption);line-height:1.6}
+.diwan-step-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.diwan-no-round{display:flex;align-items:center;gap:var(--sp-5);flex-wrap:wrap}
+.diwan-no-round>svg{width:40px;height:40px;color:var(--gold)}
+.diwan-no-round>div{flex:1 1 320px}
+.diwan-no-round h2{margin:0 0 4px;font-size:20px}
+.diwan-no-round p{margin:0;color:var(--muted);font-size:13px;line-height:1.8}
+.diwan-overview-head{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;padding:var(--sp-4) var(--sp-4) 0}
+.diwan-overview-head h3{margin:0;font-size:16px}
+.diwan-overview-head .search-box{flex:1 1 260px;max-width:420px;margin-inline-start:auto}
+.diwan-stage-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:var(--sp-4)}
+.diwan-strip-label{font-size:12px;font-weight:800;color:var(--muted);margin-inline-end:4px}
+.diwan-strip-item{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.diwan-strip-item b{font-size:15px;color:var(--green-700)}
+.diwan-strip-item svg{width:14px;height:14px;color:var(--muted)}
+.diwan-strip-item:hover{border-color:var(--control-border-hover);background:var(--green-50)}
+.diwan-strip-item.stage-4 b{color:var(--gold-600)}
+.diwan-strip-item.is-withdrawn{color:var(--muted)}
+.diwan-strip-item.is-withdrawn b{color:var(--red)}
+.diwan-archive{margin-top:var(--sp-5)}
+.diwan-archive-row{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;align-items:center;gap:var(--sp-4);padding:12px 0;border-top:1px solid var(--line-soft)}
+.diwan-archive-row:first-child{border-top:0}
+.diwan-archive-row>div:first-child{display:flex;flex-direction:column;gap:2px}
+.diwan-archive-row small{font-size:12px;color:var(--caption)}
+.diwan-archive-stats{display:flex;gap:6px;flex-wrap:wrap}
+.diwan-archive-stats span{padding:4px 10px;border-radius:999px;background:var(--canvas);border:1px solid var(--line-soft);font-size:12px;font-weight:700;color:var(--ink-soft)}
+.diwan-archive-stats .is-passed{color:var(--green-700)}
+.diwan-archive-stats .is-failed{color:var(--red)}
+.diwan-archive-actions{display:flex;gap:8px}
+@media(max-width:900px){.diwan-step{grid-template-columns:auto 1fr}.diwan-step-actions{grid-column:1/-1;justify-content:flex-start}.diwan-archive-row{grid-template-columns:1fr}.diwan-archive-actions{flex-wrap:wrap}}
+@media(max-width:600px){.diwan-round-counters{gap:8px}.diwan-round-counters button{padding:10px 10px}.diwan-round-counters button b{font-size:24px}.diwan-round-counters button small{display:none}.diwan-step-actions>*{flex:1 1 auto;justify-content:center}.diwan-more-menu{left:auto;right:0}.diwan-overview-head .search-box{max-width:none}}

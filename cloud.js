@@ -273,7 +273,13 @@ window.DiwanCompetition=(()=>{
     const deletedDrawIds=[...adminKnownDraws.keys()].filter(id=>!currentDrawIds.has(id));
     const changedParticipants=incomingParticipants.filter(p=>adminKnownParticipants.get(p.id)!==JSON.stringify(p));
     const changedDraws=incomingDraws.filter(d=>adminKnownDraws.get(d.id)!==JSON.stringify(d));
-    const {error}=await client().rpc(isAdmin()?"diwan_admin_save_state":"diwan_staff_save_state",{...(isAdmin()?{}:{p_token:staffToken()}),p_config:payload.config,p_participants:changedParticipants,p_draws:changedDraws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
+    // جولات الديوان داخل الإعدادات (config) التي يستبدلها حفظ الإدارة كاملة: تُدمج أولاً مع نسخة الخادم (اتحاد، والمغلقة تغلب)
+    // كي لا يمحو جهاز آخر بنفس الحساب، فُتح قبل بدء/إغلاق جولة، تلك الجولة عند أي حفظ. فشل القراءة لا يوقف الحفظ.
+    let config=payload.config;
+    if(isAdmin()&&typeof window.mergeDiwanRounds==="function"){
+      try{const {data}=await client().from("diwan_state").select("rounds:payload->config->rounds").eq("id",1).single();const remoteRounds=data?.rounds;if(Array.isArray(remoteRounds)&&remoteRounds.length)config={...config,rounds:window.mergeDiwanRounds(config?.rounds,remoteRounds)}}catch(error){console.warn("Diwan rounds merge skipped",error)}
+    }
+    const {error}=await client().rpc(isAdmin()?"diwan_admin_save_state":"diwan_staff_save_state",{...(isAdmin()?{}:{p_token:staffToken()}),p_config:config,p_participants:changedParticipants,p_draws:changedDraws,p_deleted_participant_ids:deletedParticipantIds,p_deleted_draw_ids:deletedDrawIds}).abortSignal(timeoutSignal(20000));
     if(error)throw rpcError(error);
     markAdminKnownIds(incomingParticipants,incomingDraws);
   }

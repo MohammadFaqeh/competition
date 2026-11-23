@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261124-diwan-jump">
+  <link rel="stylesheet" href="styles.css?v=20261124-rounds-2">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -306,17 +306,37 @@
         </section>
 
         <section id="diwanView" class="view">
-          <div class="page-head page-head-stacked"><div><span class="eyebrow">ديوان الحفاظ — فرع الكورة</span><h1>اختبارات ديوان الحفاظ</h1><p>تصديق حفظ القرآن الكريم كاملاً عبر أربع مراحل متتالية (١، ٢، ٣، النهائي) — كل مرحلة ١٠ أجزاء تختارها الإدارة عدا النهائي (القرآن كاملاً)، بعلامة نجاح ٨٥ (واختبار الخمسة أجزاء بالمرحلتين الثانية والثالثة بعلامة ٩٠). كل جزء جديد ينجح فيه يُحسب له، وعند اكتمال ١٠ أجزاء محسوبة ينتقل تلقائياً للمرحلة التالية، ويمكن للإدارة نقل أي متسابق إلى أي مرحلة يدوياً.</p></div><div class="page-actions"><button id="diwanSyncCommitteesBtn" class="secondary-btn hidden"><i data-lucide="refresh-cw"></i> تحديث نتائج اللجان</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استيراد Excel<input id="diwanImportInput" type="file" accept=".xlsx,.xls,.csv"></label><button id="diwanExportBtn" class="secondary-btn"><i data-lucide="file-spreadsheet"></i> تصدير Excel</button><button id="diwanCentersExportBtn" class="secondary-btn" title="ملف جاهز للمراكز لتعبئة أجزاء الاختبار القادم ثم استيراده"><i data-lucide="send"></i> ملف للمراكز</button><button id="diwanBulkPdfBtn" class="secondary-btn"><i data-lucide="files"></i> حفظ PDF</button><button id="diwanBulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><button id="diwanDistributeBtn" class="secondary-btn hidden"><i data-lucide="shuffle"></i> توزيع على اللجان</button><button id="diwanDeleteAllBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button><button id="addDiwanParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
-          <div class="stats-grid">
-            <article class="stat"><div class="stat-icon green"><i data-lucide="users"></i></div><div><span>إجمالي المتسابقين</span><b id="diwanStatTotal">0</b></div></article>
-            <article class="stat"><div class="stat-icon gold"><i data-lucide="clipboard-check"></i></div><div><span>امتُحن</span><b id="diwanStatExamined">0</b></div></article>
-            <article class="stat"><div class="stat-icon slate"><i data-lucide="award"></i></div><div><span>نسبة الحفّاظ المعتمدين</span><b id="diwanStatPassRate">0%</b></div></article>
+          <div class="page-head diwan-head"><div><span class="eyebrow">ديوان الحفاظ — فرع الكورة</span><h1>اختبارات ديوان الحفاظ</h1></div><div class="page-actions"><button id="addDiwanParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button><details class="diwan-more"><summary class="secondary-btn"><i data-lucide="ellipsis"></i> المزيد</summary><div class="diwan-more-menu"><button id="diwanExportBtn" type="button"><i data-lucide="file-spreadsheet"></i> تصدير Excel (الملف الكامل أو يوم)</button><button id="diwanBulkPdfBtn" type="button"><i data-lucide="files"></i> تجميع ملفات PDF</button><button id="diwanDeleteAllBtn" type="button" class="is-danger"><i data-lucide="users-round"></i> حذف الجميع</button></div></details></div></div>
+          <!-- الجولة (قرار الإدارة 2026-11-24): أساس الصفحة — خطوات كل جولة بالترتيب، وثلاث حالات للطالبة، وأرشيف الجولات. -->
+          <div id="diwanHome">
+            <section id="diwanRoundPanel" class="panel diwan-round">
+              <div class="diwan-round-head"><div><span class="eyebrow">الجولة الحالية</span><h2 id="diwanRoundName">—</h2><small id="diwanRoundSince"></small></div><span id="diwanRoundTotal" class="diwan-round-total"></span></div>
+              <div class="diwan-round-counters" role="group" aria-label="حالات الطالبات بالجولة">
+                <button type="button" data-round-filter="todo" class="is-todo"><b id="diwanRoundTodo">0</b><span>لم تجهز</span><small>بانتظار الأجزاء</small></button>
+                <button type="button" data-round-filter="ready" class="is-ready"><b id="diwanRoundReady">0</b><span>جاهزة</span><small>لها أجزاء أو سحب ولم تمتحن</small></button>
+                <button type="button" data-round-filter="done" class="is-done"><b id="diwanRoundDone">0</b><span>انتهت</span><small>اعتُمدت نتيجتها بهذه الجولة</small></button>
+              </div>
+              <div id="diwanRoundList" class="diwan-round-list hidden"></div>
+              <ol class="diwan-steps">
+                <li class="diwan-step" data-step="centers"><span class="diwan-step-num">1</span><div class="diwan-step-body"><b>ملف المراكز</b><small id="diwanStepCentersNote">يُرسَل للمراكز لتكتب أجزاء كل طالبة، ثم يُستورد كما هو</small></div><div class="diwan-step-actions"><button id="diwanCentersExportBtn" class="secondary-btn" type="button"><i data-lucide="send"></i> تنزيل ملف المراكز</button></div></li>
+                <li class="diwan-step" data-step="import"><span class="diwan-step-num">2</span><div class="diwan-step-body"><b>استيراد الأجزاء</b><small id="diwanStepImportNote"></small></div><div class="diwan-step-actions"><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استيراد ملف المراكز<input id="diwanImportInput" type="file" accept=".xlsx,.xls,.csv"></label></div></li>
+                <li class="diwan-step" data-step="draw"><span class="diwan-step-num">3</span><div class="diwan-step-body"><b>التوزيع والسحب</b><small id="diwanStepDrawNote"></small></div><div class="diwan-step-actions"><button id="diwanDistributeBtn" class="secondary-btn hidden" type="button"><i data-lucide="shuffle"></i> توزيع على اللجان</button><button id="diwanBulkDrawBtn" class="secondary-btn" type="button"><i data-lucide="layers"></i> سحب للجميع</button></div></li>
+                <li class="diwan-step" data-step="exam"><span class="diwan-step-num">4</span><div class="diwan-step-body"><b>يوم الاختبار</b><small id="diwanStepExamNote"></small></div><div class="diwan-step-actions"><button id="diwanSyncCommitteesBtn" class="secondary-btn hidden" type="button"><i data-lucide="refresh-cw"></i> تحديث نتائج اللجان</button></div></li>
+                <li class="diwan-step" data-step="close"><span class="diwan-step-num">5</span><div class="diwan-step-body"><b>النتائج والإغلاق</b><small id="diwanStepCloseNote">شهادات الناجحات وتوصيات الراسبات ونتائج الجولة، ثم إغلاقها لتنتقل للأرشيف</small></div><div class="diwan-step-actions"><button id="diwanRoundDocsBtn" class="secondary-btn" type="button"><i data-lucide="file-down"></i> الشهادات والتوصيات</button><button id="diwanRoundExcelBtn" class="secondary-btn" type="button"><i data-lucide="file-spreadsheet"></i> نتائج الجولة Excel</button><button id="diwanRoundCloseBtn" class="primary-btn" type="button"><i data-lucide="archive"></i> إغلاق الجولة</button></div></li>
+              </ol>
+            </section>
+            <section id="diwanNoRoundPanel" class="panel diwan-round diwan-no-round hidden">
+              <i data-lucide="calendar-plus"></i>
+              <div><h2>لا توجد جولة مفتوحة</h2><p>عند التحضير للاختبار القادم ابدأ جولة جديدة: الطالبات ينتقلن معك كما هنّ (من نجحت تنتظر أجزاء اختبارها التالي، ومن رسبت تنتظر أجزاء إعادتها).</p></div>
+              <button id="diwanRoundStartBtn" class="primary-btn" type="button"><i data-lucide="play"></i> بدء جولة جديدة</button>
+            </section>
+            <section id="diwanOverviewPanel" class="panel table-panel">
+              <div class="diwan-overview-head"><h3>الطالبات</h3><div class="search-box"><i data-lucide="search"></i><input id="diwanParticipantSearch" placeholder="ابحث بالاسم أو رقم الجلوس أو المركز"></div></div>
+              <div id="diwanStageBoard" class="diwan-stage-strip"></div>
+              <div id="diwanSearchResults" class="diwan-stage-participants hidden"></div>
+            </section>
+            <section id="diwanRoundsArchive" class="panel diwan-archive hidden"><div class="panel-head"><h3>الجولات السابقة</h3></div><div id="diwanRoundsArchiveList"></div></section>
           </div>
-          <section id="diwanOverviewPanel" class="panel table-panel">
-            <div class="table-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanParticipantSearch" placeholder="ابحث عن متسابق بالاسم أو رقم الجلوس أو المركز (في كل المراحل)"></div></div>
-            <div id="diwanStageBoard" class="diwan-stage-board"></div>
-            <div id="diwanSearchResults" class="diwan-stage-participants hidden"></div>
-          </section>
           <section id="diwanStagePanel" class="panel table-panel hidden">
             <div class="diwan-stage-page-head"><button id="diwanStageBackBtn" class="secondary-btn" type="button"><i data-lucide="arrow-right"></i> كل المراحل</button><div><h2 id="diwanStagePageTitle"></h2><small id="diwanStagePageSub"></small></div></div>
             <div class="table-tools diwan-stage-tools"><div class="search-box"><i data-lucide="search"></i><input id="diwanStageSearch" placeholder="ابحث بالاسم أو رقم الجلوس أو المركز"></div><span id="diwanParticipantCount" class="filter-result-count">0 متسابق</span><button id="diwanBulkPdfOpenBtn" class="secondary-btn" type="button" title="شهادات الناجحين وتوصيات الراسبين بملف واحد"><i data-lucide="file-down"></i> حفظ PDF</button></div>
@@ -471,8 +491,8 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20261015-settings-polish"></script>
-  <script src="app.js?v=20261124-seat-zero"></script>
+  <script src="cloud.js?v=20261124-rounds"></script>
+  <script src="app.js?v=20261124-rounds-2"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>
