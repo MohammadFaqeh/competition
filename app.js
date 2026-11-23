@@ -89,6 +89,9 @@ function inOtherSection(el){const section=el?.dataset?.section;return Boolean(se
 // هوية قسم الديوان (الشعار والعناوين) — الألوان بثيم theme-diwan في styles.css. لتغيير الشعار/الألوان مستقبلاً: هذه الدالة + الثيم + manifest-diwan.webmanifest + assets/diwan-app-icons فقط.
 const DIWAN_APP_LOGO="assets/diwan-app-logo.png";
 function applySectionBranding(){
+  // مبدّل القسم بشاشة الدخول: القسم الحالي معلَّم، والضغط عليه لا يعيد تحميل الصفحة.
+  // الانتقال للقسم الآخر يفتح دخوله السحابي مباشرة (أو يدخل فوراً إن كانت الجلسة قائمة) بدل بوابة اختيار طريقة الاستخدام.
+  $$("[data-section-link]").forEach(link=>{if(link.dataset.sectionLink===APP_SECTION){link.setAttribute("aria-current","page");link.addEventListener("click",event=>event.preventDefault())}else link.addEventListener("click",()=>{try{sessionStorage.setItem(ACTIVE_MODE_KEY,"cloud")}catch{}})});
   if(APP_SECTION!=="diwan")return;
   $$("img.auth-logo,img.sidebar-logo,img.trial-standalone-logo").forEach(img=>{if(img.getAttribute("src")!==DIWAN_APP_LOGO){img.src=DIWAN_APP_LOGO;img.alt="شعار ديوان الحفاظ"}});
   const loadingTitle=$("#loadingScreenTitle");if(loadingTitle)loadingTitle.textContent="ديوان الحفاظ";
