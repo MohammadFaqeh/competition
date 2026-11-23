@@ -1796,3 +1796,10 @@ body.settings-drawer-open{overflow:hidden}
 #committeeLevelOptions.level-chips label:has(input:focus-visible){outline:2px solid var(--green-700);outline-offset:2px}
 @media(max-width:600px){#committeeLevelOptions.level-chips{grid-template-columns:1fr}}
 @media(max-width:760px){html.section-diwan .gateway-intro .diwan-gateway-logo{width:118px;height:118px}}
+/* انتقال لقسم ديوان الحفاظ من شاشة دخول الكورة (السنوية فقط): زر صغير أعلى البطاقة مقابل زر الرجوع — بنفس الحساب. */
+.diwan-jump{position:absolute;top:16px;left:16px;display:inline-flex;align-items:center;gap:7px;padding:4px 12px 4px 5px;border:1px solid var(--gold);border-radius:999px;background:var(--gold-soft);color:var(--ink);font-size:12px;font-weight:800;line-height:1;text-decoration:none;box-shadow:var(--shadow-sm);transition:background var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease)}
+.diwan-jump img{width:26px;height:26px;border-radius:50%;background:#fff;object-fit:contain;flex:0 0 auto}
+.diwan-jump svg{width:14px;height:14px;color:var(--gold-600);flex:0 0 auto}
+.diwan-jump:hover{background:var(--surface);transform:translateX(-2px)}
+.diwan-jump:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media(max-width:760px){.diwan-jump{top:10px;left:10px}}
