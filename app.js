@@ -77,6 +77,24 @@ let idleLogoutTimer=null;
 let clockTimer=null;
 function updateClock(){const el=$("#todayTime");if(el)el.textContent=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true})}
 const LAST_ADMIN_VIEW_KEY="competition-last-admin-view";
+// قسمان على نفس الموقع ونفس الحسابات: «المسابقة السنوية» (index.html) و«ديوان الحفاظ» (index.html?app=diwan / diwan.html).
+// يُحدَّد بسكربت صغير برأس index.html قبل الرسم (window.APP_SECTION + صنف section-* على <html>). كل قسم يعرض صفحاته فقط:
+// العناصر المعلَّمة data-section="annual|diwan" تُخفى بالقسم الآخر عبر CSS، والتنقل المباشر لصفحة القسم الآخر يُحوَّل لصفحة القسم الافتراضية.
+const APP_SECTION=window.APP_SECTION==="diwan"?"diwan":"annual";
+const DIWAN_SECTION_VIEWS=new Set(["diwan","diwanStudents","settings"]);
+const DIWAN_ONLY_VIEWS=new Set(["diwan","diwanStudents"]);
+function sectionDefaultView(){return APP_SECTION==="diwan"?"diwan":"dashboard"}
+function viewAllowedInSection(view){return APP_SECTION==="diwan"?DIWAN_SECTION_VIEWS.has(view):!DIWAN_ONLY_VIEWS.has(view)}
+function inOtherSection(el){const section=el?.dataset?.section;return Boolean(section&&section!==APP_SECTION)}
+// هوية قسم الديوان (الشعار والعناوين) — الألوان بثيم theme-diwan في styles.css. لتغيير الشعار/الألوان مستقبلاً: هذه الدالة + الثيم + manifest-diwan.webmanifest + assets/diwan-app-icons فقط.
+const DIWAN_APP_LOGO="assets/diwan-app-logo.png";
+function applySectionBranding(){
+  if(APP_SECTION!=="diwan")return;
+  $$("img.auth-logo,img.sidebar-logo,img.trial-standalone-logo").forEach(img=>{if(img.getAttribute("src")!==DIWAN_APP_LOGO){img.src=DIWAN_APP_LOGO;img.alt="شعار ديوان الحفاظ"}});
+  const loadingTitle=$("#loadingScreenTitle");if(loadingTitle)loadingTitle.textContent="ديوان الحفاظ";
+  const loginBrand=$("#cloudLoginBrandLine");if(loginBrand)loginBrand.textContent="ديوان الحفاظ | فرع الكورة";
+  const backLabel=$("#cloudLoginScreen [data-back-gateway] span");if(backLabel)backLabel.textContent="رجوع";
+}
 const ACTIVE_MODE_KEY="competition-active-mode";
 const LOCAL_ACCESS_KEY="competition-local-access";
 const COMMITTEE_ALERTS_KEY="competition-committee-alerts";
@@ -185,10 +203,12 @@ async function init(){
     buildPartsGrid();
     initColorModeToggle();
     setupInstallAppButton();
+    applySectionBranding();
     lucide.createIcons();
     $("#setupPositions").textContent = "عند السحب";
     initializeBrowserNavigation();
-    const rememberedMode=sessionStorage.getItem(ACTIVE_MODE_KEY);
+    // الديوان سحابي فقط (فرع الكورة) — لا وضع محلي فيه.
+    const rememberedMode=APP_SECTION==="diwan"&&sessionStorage.getItem(ACTIVE_MODE_KEY)==="local"?null:sessionStorage.getItem(ACTIVE_MODE_KEY);
     if(rememberedMode==="cloud"){
       operationMode="cloud";state=loadState(CLOUD_STORAGE_KEY);applyModeBranding();
       $("#gatewayScreen").classList.add("hidden");$("#loadingScreen").classList.remove("hidden");
@@ -204,7 +224,7 @@ async function init(){
       else showScreen("setupScreen");
     }else{
       $("#loadingScreen").classList.add("hidden");
-      if(operationMode==="gateway"&&$("#trialStandaloneScreen").classList.contains("hidden"))showScreen("gatewayScreen");
+      if(operationMode==="gateway"&&$("#trialStandaloneScreen").classList.contains("hidden")){showScreen("gatewayScreen");if(APP_SECTION==="diwan")await openKouraMode()}
     }
   }catch(error){
     $("#loadingScreen").classList.remove("hidden");
@@ -622,7 +642,8 @@ async function setupApp(event){
   saveState();if(operationMode==="local"){sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.setItem(LOCAL_ACCESS_KEY,"granted")}showApp();toast("تم إنشاء دورة المسابقة بنجاح");
 }
 async function login(event){event.preventDefault();const ok=await hashText($("#loginPin").value)===state.config.pinHash;$("#loginError").classList.toggle("hidden",ok);if(ok){$("#loginPin").value="";if(operationMode==="local"){sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.setItem(LOCAL_ACCESS_KEY,"granted")}showApp()}}
-function setAdminTheme(theme){document.documentElement.classList.toggle("theme-rose",theme==="rose")}
+// قسم الديوان له ثيمه الخاص دائماً (theme-diwan) بدل ثيم الجنس (الأخضر/الوردي) المستخدم بالسنوية.
+function setAdminTheme(theme){const diwan=APP_SECTION==="diwan";document.documentElement.classList.toggle("theme-diwan",diwan);document.documentElement.classList.toggle("theme-rose",!diwan&&theme==="rose")}
 const COLOR_MODE_KEY="competition-color-mode";
 function setColorMode(mode){
   document.documentElement.classList.toggle("theme-dark",mode==="dark");
@@ -674,7 +695,7 @@ function toggleSidebar(){if(window.innerWidth<=MOBILE_BREAKPOINT){$(".sidebar").
 function restoreSidebarState(){if(window.innerWidth<=MOBILE_BREAKPOINT)return;const collapsed=localStorage.getItem(SIDEBAR_COLLAPSED_KEY)==="1";$("#app").classList.toggle("sidebar-collapsed",collapsed);syncSidebarTooltips(collapsed)}
 // بالشريط المطوي تختفي أسماء الصفحات وتبقى الأيقونات — الاسم يظهر كتلميح عند المرور.
 function syncSidebarTooltips(collapsed){$$(".sidebar .nav-item").forEach(item=>{const label=item.querySelector("span")?.textContent.trim();if(collapsed&&label)item.title=label;else item.removeAttribute("title")})}
-function applyModeBranding(){const local=operationMode==="local";$("#setupBrandLine").textContent=local?"استخدام محلي مستقل · بياناتك تبقى على هذا الجهاز":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#localLoginBrandLine").textContent=local?"استخدام محلي مستقل · لا يتم إرسال البيانات":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#sidebarBrandTitle").textContent=local?"منصة إدارة المسابقات القرآنية":"جمعية المحافظة على القرآن الكريم";$("#sidebarBrandSubtitle").textContent=local?"وضع محلي مستقل":"فرع الكورة | المسابقة السنوية"}
+function applyModeBranding(){const local=operationMode==="local";$("#setupBrandLine").textContent=local?"استخدام محلي مستقل · بياناتك تبقى على هذا الجهاز":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#localLoginBrandLine").textContent=local?"استخدام محلي مستقل · لا يتم إرسال البيانات":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#sidebarBrandTitle").textContent=local?"منصة إدارة المسابقات القرآنية":"جمعية المحافظة على القرآن الكريم";$("#sidebarBrandSubtitle").textContent=local?"وضع محلي مستقل":"فرع الكورة | المسابقة السنوية";if(APP_SECTION==="diwan"){$("#sidebarBrandTitle").textContent="ديوان الحفاظ";$("#sidebarBrandSubtitle").textContent="جمعية المحافظة على القرآن الكريم | فرع الكورة"}}
 // ديوان الحفاظ خاص بفرع الكورة — مخفي تماماً بالوضع المحلي (القائمة عبر CSS بـ.local-branch-app، والتنقل المباشر يُحوَّل للنظرة العامة).
 const LOCAL_HIDDEN_VIEWS=new Set(["diwan","diwanStudents"]);
 // الأقسام التي تعتمد على النظام السحابي تبقى ظاهرة بالوضع المحلي (للتعريف بها)، مع ملاحظة أنها متوفرة عبر فرع الكورة.
@@ -686,7 +707,7 @@ async function openKouraMode(){operationMode="cloud";sessionStorage.setItem(ACTI
 function openLocalMode(){operationMode="local";sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.removeItem(LOCAL_ACCESS_KEY);state=loadState(LOCAL_STORAGE_KEY);applyModeBranding();$("#app").classList.add("local-branch-app");if(!state.config){$("#setupCompetitionName").value="مسابقة تحفيظ القرآن الكريم";$("#setupAdminName").value="";showScreen("setupScreen")}else{$("#loginCompetitionName").textContent=state.config.competitionName;showScreen("loginScreen")}}
 function logout(){if(operationMode==="cloud")return cloudLogout();sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionStorage.removeItem(LOCAL_ACCESS_KEY);$("#app").classList.add("hidden");showScreen("gatewayScreen")}
 function showScreen(id){if(!$("#trialStandaloneScreen").classList.contains("hidden")){closeTrialAssessmentIfOpen();$("#trialStandaloneScreen").classList.add("hidden")}["gatewayScreen","setupScreen","loginScreen","cloudLoginScreen"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id));$("#committeeApp").classList.toggle("hidden",id!=="committeeApp");if(id)dockColorModeToggle(false);if(id&&!applyingBrowserHistory)recordBrowserRoute({surface:id==="committeeApp"?"committee":"screen",screen:id})}
-function currentViewKey(){return operationMode==="local"?`${LAST_ADMIN_VIEW_KEY}.local`:`${LAST_ADMIN_VIEW_KEY}.cloud`}
+function currentViewKey(){return operationMode==="local"?`${LAST_ADMIN_VIEW_KEY}.local`:`${LAST_ADMIN_VIEW_KEY}.cloud${APP_SECTION==="diwan"?".diwan":""}`}
 function currentListUi(){return {participantSearch:$("#participantSearch")?.value||"",participantFilter:$("#participantFilter")?.value||"all",participantGenderFilter:$("#participantGenderFilter")?.value||"all",participantCenterFilter:$("#participantCenterFilter")?.value||"all",participantLevelFilter:$("#participantLevelFilter")?.value||"all",participantCommitteeFilter:$("#participantCommitteeFilter")?.value||"all",historySearch:$("#historySearch")?.value||"",committeeSearch:$("#committeeSearch")?.value||"",committeeStatusFilter:$("#committeeStatusFilter")?.value||"all",scrollY:Math.max(0,window.scrollY||0)}}
 // فلاتر جدول المتسابقين تبقى محفوظة دائماً عبر localStorage (طبقة ثانية فوق history.state، الذي يتصفّر عند تحديث الصفحة).
 const PARTICIPANT_LIST_UI_KEY="competition-participant-list-ui";
@@ -696,7 +717,7 @@ function restoreListControls(ui={}){for(const [id,value] of Object.entries(ui)){
 function recordBrowserRoute(route,{replace=false}={}){if(applyingBrowserHistory)return;const current=history.state,same=current?.marker===HISTORY_MARKER&&current.surface===route.surface&&current.view===(route.view||current.view)&&current.screen===(route.screen||current.screen);const entry={marker:HISTORY_MARKER,mode:operationMode,...route,ui:currentListUi()};const url=new URL(location.href);url.hash=route.surface==="admin"?`admin/${route.view||"dashboard"}`:route.surface==="committee"?"committee":route.surface==="gateway"?"gateway":route.screen||"gateway";((replace||same)?history.replaceState:history.pushState).call(history,entry,"",url)}
 function hasUnfinishedAssessment(){if(!activeCloudSession)return false;const participant=state.participants.find(item=>item.id===activeCloudSession.participant_id);return Boolean(participant?.assessment&&participant.assessment.status!=="final")}
 function initializeBrowserNavigation(){if(history.state?.marker!==HISTORY_MARKER)recordBrowserRoute({surface:"gateway"},{replace:true});window.addEventListener("popstate",event=>{const target=event.state;if(!target||target.marker!==HISTORY_MARKER){history.forward();return}if(hasUnfinishedAssessment()&&!confirm("التقييم الحالي غير معتمد بعد، لكنه محفوظ كمسودة. هل تريد مغادرة شاشة التقييم؟")){history.forward();return}applyingBrowserHistory=true;try{closeModal();restoreListControls(target.ui);operationMode=target.mode||operationMode;if(target.surface==="admin"){showScreen("");$("#app").classList.remove("hidden");dockColorModeToggle(true);navigate(target.view||"dashboard",{historyMode:"none",ui:target.ui})}else if(target.surface==="committee"){$("#app").classList.add("hidden");showScreen("committeeApp");renderCommitteeStudents();requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}else{$("#app").classList.add("hidden");showScreen(target.surface==="gateway"?"gatewayScreen":target.screen||"gatewayScreen");requestAnimationFrame(()=>window.scrollTo(0,target.ui?.scrollY||0))}}finally{applyingBrowserHistory=false}});let routeTimer;document.addEventListener("input",event=>{if(!["participantSearch","historySearch","committeeSearch"].includes(event.target.id))return;clearTimeout(routeTimer);routeTimer=setTimeout(()=>{if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})},150)});document.addEventListener("change",event=>{if(!["participantFilter","committeeStatusFilter"].includes(event.target.id))return;if(history.state?.marker===HISTORY_MARKER)recordBrowserRoute(history.state,{replace:true})})}
-function showApp(){showScreen("");$("#app").classList.remove("hidden");dockColorModeToggle(true);restoreSidebarState();$("#app").classList.toggle("local-branch-app",operationMode==="local");$("#localModeNotice").classList.toggle("hidden",operationMode!=="local");renderLocalCloudNotices();$("#topCompetitionName").textContent=state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric",numberingSystem:"latn"}).format(new Date());updateClock();if(!clockTimer)clockTimer=setInterval(updateClock,1000);hydrateSettings();restoreListControls(loadPersistedParticipantFilters());renderAll();const savedRoute=history.state?.marker===HISTORY_MARKER&&history.state.surface==="admin"?history.state:null;navigate(savedRoute?.view||localStorage.getItem(currentViewKey())||"dashboard",{historyMode:savedRoute?"replace":"push",ui:savedRoute?.ui});if(operationMode==="cloud"&&cloudEnabled&&["admin","supervisor"].includes(window.CloudCompetition.context?.profile.role)){setupCloudAdminPanel();startAdminAutoRefresh()}else stopAdminAutoRefresh();if(operationMode==="cloud"&&cloudEnabled&&["admin","supervisor","subAdmin"].includes(window.CloudCompetition.context?.kind)){renderIssueReports();startIssueReportsPoll()}else stopIssueReportsPoll();prewarmQuranData()}
+function showApp(){showScreen("");$("#app").classList.remove("hidden");dockColorModeToggle(true);restoreSidebarState();$("#app").classList.toggle("local-branch-app",operationMode==="local");$("#localModeNotice").classList.toggle("hidden",operationMode!=="local");renderLocalCloudNotices();$("#topCompetitionName").textContent=APP_SECTION==="diwan"?"ديوان الحفاظ — فرع الكورة":state.config.competitionName;$("#todayText").textContent=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",year:"numeric",numberingSystem:"latn"}).format(new Date());updateClock();if(!clockTimer)clockTimer=setInterval(updateClock,1000);hydrateSettings();restoreListControls(loadPersistedParticipantFilters());renderAll();const savedRoute=history.state?.marker===HISTORY_MARKER&&history.state.surface==="admin"?history.state:null;navigate(savedRoute?.view||localStorage.getItem(currentViewKey())||"dashboard",{historyMode:savedRoute?"replace":"push",ui:savedRoute?.ui});if(operationMode==="cloud"&&cloudEnabled&&["admin","supervisor"].includes(window.CloudCompetition.context?.profile.role)){setupCloudAdminPanel();startAdminAutoRefresh()}else stopAdminAutoRefresh();if(operationMode==="cloud"&&cloudEnabled&&["admin","supervisor","subAdmin"].includes(window.CloudCompetition.context?.kind)){renderIssueReports();startIssueReportsPoll()}else stopIssueReportsPoll();prewarmQuranData()}
 // شاشة انتظار بملء الشاشة لأي عملية تأخذ ثوانٍ (الدخول، تحميل البيانات، تجهيز الاختبار) — كي لا تبدو الصفحة متجمدة.
 // تظهر بعد مهلة قصيرة فقط (افتراضياً 250ms) حتى لا تومض بالعمليات السريعة؛ فوق النوافذ وتحت رسائل التنبيه.
 let busyOverlayTimer=null;
@@ -1060,7 +1081,7 @@ async function enterCloudContext(context){try{operationMode="cloud";stopCommitte
     return;
   }
   resetSubAdminRestrictions();
-  if(!["admin","supervisor"].includes(context.profile.role)){setAdminTheme(context.committee?.responsibleGender==="أنثى"?"rose":"green");$("#app").classList.add("hidden");showScreen("committeeApp");setCommitteeTrack("annual");
+  if(!["admin","supervisor"].includes(context.profile.role)){setAdminTheme(context.committee?.responsibleGender==="أنثى"?"rose":"green");$("#app").classList.add("hidden");showScreen("committeeApp");setCommitteeTrack(APP_SECTION==="diwan"?"diwan":"annual");
     // دخول فوري بعد التحقق: تُفتح شاشة اللجنة مباشرة وتُحمَّل قائمة المتسابقين بالخلفية (كانت شاشة «جارٍ تسجيل الدخول» تنتظر كل البيانات).
     $("#committeeName").textContent=`لجنة: ${context.committee?.name||""}`;const list=$("#committeeStudents");if(list)list.innerHTML=`<div class="committee-empty"><b>جارٍ تحميل المتسابقين...</b><p>لحظات من فضلك</p></div>`;
     renderCommitteeWorkspace().catch(error=>toast(`تعذر تحميل بيانات اللجنة: ${error.message}`));startCommitteeAutoRefresh();return}
@@ -1380,7 +1401,7 @@ async function startCommitteeExam(participantId){const participant=state.partici
     }else toast(error.message);
     await renderCommitteeWorkspace()
   }}
-function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View")||(operationMode==="local"&&LOCAL_HIDDEN_VIEWS.has(view)))view="dashboard";safeSetItem(currentViewKey(),view==="demo"?"dashboard":view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants"){if(!ui&&$("#participantSearch"))$("#participantSearch").value="";renderParticipants()}if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();renderCommitteeBreakdown();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="diwanStudents"){ensureDiwanStateLoaded().then(renderDiwanStudents);renderDiwanStudents()}if(view==="diwan"){diwanOpenStage=null;const persistedDiwanFilters=loadDiwanPersistedParticipantFilters();restoreListControls(persistedDiwanFilters);diwanStatusSelection=Array.isArray(persistedDiwanFilters.diwanStatusSelection)?persistedDiwanFilters.diwanStatusSelection:[];ensureDiwanStateLoaded().then(renderDiwanParticipants);renderDiwanParticipants()}if(view==="monitor")renderMonitorView();if(view==="demo")window.DemoMode?.start();else window.DemoMode?.stop();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
+function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View")||(operationMode==="local"&&LOCAL_HIDDEN_VIEWS.has(view))||!viewAllowedInSection(view))view=sectionDefaultView();safeSetItem(currentViewKey(),view==="demo"?"dashboard":view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants"){if(!ui&&$("#participantSearch"))$("#participantSearch").value="";renderParticipants()}if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();renderCommitteeBreakdown();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="diwanStudents"){ensureDiwanStateLoaded().then(renderDiwanStudents);renderDiwanStudents()}if(view==="diwan"){diwanOpenStage=null;const persistedDiwanFilters=loadDiwanPersistedParticipantFilters();restoreListControls(persistedDiwanFilters);diwanStatusSelection=Array.isArray(persistedDiwanFilters.diwanStatusSelection)?persistedDiwanFilters.diwanStatusSelection:[];ensureDiwanStateLoaded().then(renderDiwanParticipants);renderDiwanParticipants()}if(view==="monitor")renderMonitorView();if(view==="demo")window.DemoMode?.start();else window.DemoMode?.stop();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
 function renderAll(){enforceWithdrawnZeroScore(state.participants);renderDashboard();renderParticipants();renderHistory();refreshDrawParticipants();renderAnalytics();lucide.createIcons()}
 
 // "ممتحن" = علامة حقيقية > صفر. المنسحب علامته صفر دائماً (enforceWithdrawnZeroScore) فلا يُحسب ممتحناً حتى لو انسحب بعد اعتماد علامته.
@@ -4464,7 +4485,7 @@ function hydrateSettings(){$("#settingsCompetitionName").value=state.config.comp
 // (تُنقل لـbody كي لا تتأثر بحركة الصفحة)، وشريط "تغييرات غير محفوظة" لنموذج بيانات الدورة.
 const SETTINGS_TAB_KEY="competition-settings-tab";
 let settingsTabsSignature="";
-function settingsPaneAvailable(pane){const view=$("#settingsView");for(let el=pane;el&&el!==view;el=el.parentElement)if(el.classList.contains("hidden"))return false;return true}
+function settingsPaneAvailable(pane){const view=$("#settingsView");for(let el=pane;el&&el!==view;el=el.parentElement)if(el.classList.contains("hidden")||inOtherSection(el))return false;return true}
 function refreshSettingsTabs(force=false){
   const view=$("#settingsView");if(!view)return;
   const panes=$$("[data-settings-pane]",view),tabs=$$("[data-settings-tab]",view);
@@ -4529,7 +4550,7 @@ function removeManagedCenter(name){
   state.config.managedCenters=(state.config.managedCenters||[]).filter(c=>c!==name);
   saveState();renderManagedCenters();toast("تم حذف المركز من القائمة المُدارة");
 }
-async function saveSettings(event){event.preventDefault();state.config.competitionName=$("#settingsCompetitionName").value.trim();state.config.showFullQuranStats=$("#settingsShowFullQuran").checked;state.config.showDrawsToCommittees=$("#settingsShowDraws").checked;saveState();$("#topCompetitionName").textContent=state.config.competitionName;renderDashboard();toast("تم حفظ الإعدادات")}
+async function saveSettings(event){event.preventDefault();state.config.competitionName=$("#settingsCompetitionName").value.trim();state.config.showFullQuranStats=$("#settingsShowFullQuran").checked;state.config.showDrawsToCommittees=$("#settingsShowDraws").checked;saveState();$("#topCompetitionName").textContent=APP_SECTION==="diwan"?"ديوان الحفاظ — فرع الكورة":state.config.competitionName;renderDashboard();toast("تم حفظ الإعدادات")}
 // النسخة الاحتياطية اليدوية: ملف واحد. data = المسابقة السنوية (بنفس مكانه القديم، فالملفات القديمة والجديدة تُستعاد بنفس الطريقة).
 // للمدير على السحابة يُضاف diwan (بيانات ديوان الحفاظ من الخادم مباشرة + جلسات اختباره) وexamSessions (جلسات السنوية، أرشيف).
 // نتائج لجان الديوان المعتمدة التي لم تُدمج بعد (لم تُفتح صفحة الديوان منذ اعتمادها) تُدمج داخل النسخة نفسها فقط.

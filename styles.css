@@ -90,6 +90,39 @@ html.theme-rose{
   --active-solid:#743a4f;
 }
 
+/* ثيم قسم «ديوان الحفاظ» (index.html?app=diwan) — مأخوذ من شعار الديوان: أخضر عميق + ذهبي فوق خلفية عاجية دافئة،
+   بنفس مستويات التباين. لتغيير ألوان الديوان مستقبلاً: هذه الكتلة وكتلة html.theme-diwan.theme-dark أدناه فقط. */
+html.theme-diwan{
+  --green-950:#0a2a22;
+  --green-900:#0f3a2e;
+  --green-800:#165244;
+  --green-700:#1e6a58;
+  --green-600:#2a806b;
+  --green-100:#e2ede6;
+  --green-50:#f3f7f2;
+  --gold:#b08d4a;
+  --gold-600:#7a5c1e;
+  --gold-soft:#f6edd6;
+  --ink:#1e1b14;
+  --ink-soft:#3e382c;
+  --muted:#6a6352;
+  --faint:#a59d8a;
+  --caption:#5c5547;
+  --line:#e8e1d1;
+  --line-soft:#f1ece0;
+  --surface:#fffefb;
+  --canvas:#f7f3ea;
+  --shadow-rgb:40,32,14;
+  --overlay-rgb:18,24,16;
+  --accent-rgb:30,106,88;
+  --on-brand-soft:#d6e3d6;
+  --on-brand-muted:#bccdbf;
+  --on-brand-faint:#a6bcad;
+  --control-border:#ddd4c1;
+  --control-border-hover:#cbbfa6;
+  --active-solid:#165244;
+}
+
 /* الوضع الداكن — يعيد تعريف الأسطح والنصوص والحدود فقط (نفس أسلوب theme-rose)، ويُبقي الأخضر/الذهبي كلون تمييز. */
 html.theme-dark{
   --ink:#e7ece9;
@@ -146,6 +179,35 @@ html.theme-rose.theme-dark{
   --accent-rgb:201,123,153;
   --overlay-rgb:10,4,7;
 }
+html.theme-diwan.theme-dark{
+  --ink:#ece7dc;
+  --ink-soft:#d0c8b7;
+  --muted:#aaa290;
+  --faint:#6b6556;
+  --caption:#b5ac99;
+  --line:#363226;
+  --line-soft:#2a271e;
+  --surface:#1c1a14;
+  --canvas:#12110c;
+  --green-50:#17271f;
+  --green-100:#1d3a2f;
+  --green-600:#45b08e;
+  --green-700:#55c29f;
+  --green-800:#7fdcbc;
+  --gold-soft:#352b12;
+  --gold-600:#e2c47a;
+  --control-border:#45402f;
+  --control-border-hover:#57513d;
+  --accent-on-surface:#8fd8bd;
+  --accent-rgb:69,176,142;
+  --overlay-rgb:6,6,3;
+}
+/* قسما الموقع: ما يخص قسماً واحداً (data-section) يختفي بالقسم الآخر. */
+html.section-annual [data-section="diwan"],
+html.section-diwan [data-section="annual"]{display:none!important}
+/* شعار الديوان أعرض من شعار الجمعية الدائري: يُعرض كاملاً بلا قص. */
+html.section-diwan .auth-logo,html.section-diwan .sidebar-logo{object-fit:contain;background:#fff;border-radius:16px}
+html.section-diwan .gateway-intro .diwan-gateway-logo{width:150px;height:150px}
 html.theme-dark .light-btn,
 html.theme-dark .range-btn,
 html.theme-dark .compact-btn,
@@ -1733,3 +1795,4 @@ body.settings-drawer-open{overflow:hidden}
 #committeeLevelOptions.level-chips label:has(input:checked) svg{display:block}
 #committeeLevelOptions.level-chips label:has(input:focus-visible){outline:2px solid var(--green-700);outline-offset:2px}
 @media(max-width:600px){#committeeLevelOptions.level-chips{grid-template-columns:1fr}}
+@media(max-width:760px){html.section-diwan .gateway-intro .diwan-gateway-logo{width:118px;height:118px}}

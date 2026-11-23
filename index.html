@@ -12,30 +12,51 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261118-diwan-filters">
+  <link rel="stylesheet" href="styles.css?v=20261123-diwan-section">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="المسابقة السنوية">
+  <!-- قسمان على نفس الموقع: المسابقة السنوية (index.html) وديوان الحفاظ (index.html?app=diwan، ورابطه المختصر diwan.html).
+       يُحدَّد القسم هنا قبل رسم الصفحة ليأخذ عنوانه وأيقونته وتطبيقه (manifest) وألوانه من أول لحظة. -->
+  <script>(function(){var diwan=new URLSearchParams(location.search).get("app")==="diwan",root=document.documentElement;window.APP_SECTION=diwan?"diwan":"annual";root.classList.add(diwan?"section-diwan":"section-annual");if(!diwan)return;root.classList.add("theme-diwan");document.title="ديوان الحفاظ — فرع الكورة";var set=function(sel,attr,val){var el=document.querySelector(sel);if(el)el.setAttribute(attr,val)};set('link[rel="icon"]',"href","assets/diwan-app-icons/icon-192.png?v=1");set('link[rel="manifest"]',"href","manifest-diwan.webmanifest");set('link[rel="apple-touch-icon"]',"href","assets/diwan-app-icons/apple-touch-icon.png");set('meta[name="apple-mobile-web-app-title"]',"content","ديوان الحفاظ");set('meta[name="theme-color"]',"content","#0f3a2e")})()</script>
 </head>
 <body>
   <div id="busyOverlay" class="loading-screen busy-overlay hidden" role="status" aria-live="polite"><img class="auth-logo loading-logo" src="assets/association-logo.png" alt=""><span class="busy-spinner" aria-hidden="true"></span><strong id="busyOverlayText">جارٍ التحميل...</strong><p>لحظات من فضلك</p></div>
   <div id="loadingScreen" class="loading-screen hidden">
     <img class="auth-logo loading-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
-    <strong>منصة المسابقة السنوية</strong>
+    <strong id="loadingScreenTitle">منصة المسابقة السنوية</strong>
     <p>جارٍ تجهيز المنصة...</p>
   </div>
 
   <section id="gatewayScreen" class="auth-screen gateway-screen">
     <div class="gateway-card">
       <button id="installAppBtn" class="install-app-btn hidden" type="button" title="تثبيت المنصة كتطبيق على جهازك"><i data-lucide="download"></i><span>تنزيل التطبيق</span></button>
-      <div class="gateway-intro">
+      <div class="gateway-intro" data-section="diwan">
+        <img class="auth-logo diwan-gateway-logo" src="assets/diwan-app-logo.png" alt="شعار ديوان الحفاظ">
+        <span class="eyebrow">جمعية المحافظة على القرآن الكريم | فرع الكورة</span>
+        <h1>ديوان الحفاظ</h1>
+        <p>اختبارات تصديق حفظ القرآن الكريم كاملاً عبر مراحل متتالية — دخول الإدارة ولجان الاختبار.</p>
+      </div>
+      <div class="gateway-options" data-section="diwan">
+        <article class="gateway-option koura-option">
+          <div class="gateway-icon"><i data-lucide="book-open-check"></i></div>
+          <div><span>النظام الرسمي</span><h2>دخول ديوان الحفاظ</h2><p>دخول الإدارة أو المشرفين أو لجان الاختبار بنفس حساباتكم المعتادة.</p></div>
+          <button class="primary-btn wide" type="button" onclick="openKouraMode()">تسجيل الدخول</button>
+        </article>
+        <article class="gateway-option local-option">
+          <div class="gateway-icon"><i data-lucide="trophy"></i></div>
+          <div><span>قسم آخر على نفس المنصة</span><h2>المسابقة السنوية</h2><p>الانتقال إلى منصة المسابقة السنوية لتحفيظ القرآن الكريم.</p></div>
+          <a class="secondary-btn wide" href="index.html">فتح المسابقة السنوية</a>
+        </article>
+      </div>
+      <div class="gateway-intro" data-section="annual">
         <img class="auth-logo" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
         <span class="eyebrow">منصة إدارة المسابقات القرآنية</span>
         <h1>اختر طريقة استخدام المنصة</h1>
         <p>بيانات فرع الكورة محمية بتسجيل الدخول، ويمكن لبقية الفروع استخدام الأدوات محلياً دون إرسال بياناتهم إلينا.</p>
       </div>
-      <div class="gateway-options">
+      <div class="gateway-options" data-section="annual">
         <article class="gateway-option koura-option">
           <div class="gateway-icon"><i data-lucide="shield-check"></i></div>
           <div><span>النظام الرسمي</span><h2>فرع الكورة</h2><p>دخول إدارة المسابقة أو لجان الاختبار والوصول إلى البيانات السحابية المحمية.</p></div>
@@ -51,6 +72,11 @@
           <div class="gateway-icon"><i data-lucide="flask-conical"></i></div>
           <div><span>للتجربة والتدريب فقط</span><h2>اختبار تجريبي</h2><p>بلا تسجيل دخول وبلا رمز إلزامي — يمكنك وضع رمز PIN خاص بك اختيارياً، وتبقى بياناتك على جهازك فقط — بيانات لحظية تُحذف تفاصيلها فور اعتماد العلامة.</p></div>
           <button id="openTrialModeBtn" class="secondary-btn wide" type="button" onclick="openTrialScreen()">فتح القسم التجريبي</button>
+        </article>
+        <article class="gateway-option local-option">
+          <div class="gateway-icon"><i data-lucide="book-open-check"></i></div>
+          <div><span>قسم مستقل على نفس المنصة</span><h2>ديوان الحفاظ</h2><p>اختبارات تصديق حفظ القرآن الكريم كاملاً — لها صفحتها وتطبيقها الخاص، بنفس حسابات فرع الكورة.</p></div>
+          <a class="secondary-btn wide" href="diwan.html">فتح ديوان الحفاظ</a>
         </article>
       </div>
       <div class="developer-credit"><b>تصميم وتطوير</b><span>م. مأمون محمود الفقيه</span><span>م. محمد عادل الفقيه</span></div>
@@ -102,7 +128,7 @@
     <div class="login-card">
       <button class="gateway-back-button" type="button" data-back-gateway><i data-lucide="arrow-right"></i><span>العودة لاختيار طريقة الاستخدام</span></button>
       <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
-      <p>جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
+      <p id="cloudLoginBrandLine">جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
       <h1 id="cloudLoginTitle">دخول لجنة الاختبار</h1>
       <form id="committeeLoginForm">
         <label>رمز اللجنة<input id="committeeLoginCode" required autocomplete="username" inputmode="latin" placeholder="مثال: L01"></label>
@@ -139,7 +165,7 @@
       <div class="committee-topbar-actions"><button id="showExamInstructionsBtn" class="secondary-btn" type="button"><i data-lucide="file-text"></i> تعليمات الاختبار</button><button id="committeeLogoutBtn" class="secondary-btn"><i data-lucide="log-out"></i> خروج</button></div>
     </header>
     <main class="committee-main">
-      <div class="monitor-role-tabs committee-track-tabs">
+      <div class="monitor-role-tabs committee-track-tabs hidden">
         <button type="button" class="compact-btn is-active" data-committee-track="annual">المسابقة السنوية</button>
         <button type="button" class="compact-btn" data-committee-track="diwan">اختبارات ديوان الحفاظ</button>
       </div>
@@ -194,15 +220,15 @@
         <div><b id="sidebarBrandTitle">جمعية المحافظة على القرآن الكريم</b><small id="sidebarBrandSubtitle">فرع الكورة | المسابقة السنوية</small></div>
       </div>
       <nav id="mainNav">
-        <button class="nav-item active" data-view="dashboard"><i data-lucide="layout-dashboard"></i><span>نظرة عامة</span></button>
-        <button class="nav-item" data-view="participants"><i data-lucide="users"></i><span>المتسابقون</span></button>
-        <button class="nav-item" data-view="draw"><i data-lucide="sparkles"></i><span>إجراء السحب</span></button>
-        <button class="nav-item" data-view="diwan"><i data-lucide="book-open-check"></i><span>اختبارات ديوان الحفاظ</span></button>
-        <button class="nav-item" data-view="diwanStudents"><i data-lucide="contact"></i><span>سجل متسابقي الديوان</span></button>
-        <button class="nav-item" data-view="history"><i data-lucide="history"></i><span>سجل السحوبات</span></button>
-        <button class="nav-item" data-view="examDuration"><i data-lucide="timer"></i><span>مدة الاختبار</span></button>
-        <button class="nav-item" data-view="monitor"><i data-lucide="eye"></i><span>مراقبة حية</span></button>
-        <button class="nav-item" data-view="analytics"><i data-lucide="chart-no-axes-combined"></i><span>الإحصاءات</span></button>
+        <button class="nav-item active" data-view="dashboard" data-section="annual"><i data-lucide="layout-dashboard"></i><span>نظرة عامة</span></button>
+        <button class="nav-item" data-view="participants" data-section="annual"><i data-lucide="users"></i><span>المتسابقون</span></button>
+        <button class="nav-item" data-view="draw" data-section="annual"><i data-lucide="sparkles"></i><span>إجراء السحب</span></button>
+        <button class="nav-item" data-view="diwan" data-section="diwan"><i data-lucide="book-open-check"></i><span>اختبارات ديوان الحفاظ</span></button>
+        <button class="nav-item" data-view="diwanStudents" data-section="diwan"><i data-lucide="contact"></i><span>سجل متسابقي الديوان</span></button>
+        <button class="nav-item" data-view="history" data-section="annual"><i data-lucide="history"></i><span>سجل السحوبات</span></button>
+        <button class="nav-item" data-view="examDuration" data-section="annual"><i data-lucide="timer"></i><span>مدة الاختبار</span></button>
+        <button class="nav-item" data-view="monitor" data-section="annual"><i data-lucide="eye"></i><span>مراقبة حية</span></button>
+        <button class="nav-item" data-view="analytics" data-section="annual"><i data-lucide="chart-no-axes-combined"></i><span>الإحصاءات</span></button>
         <button class="nav-item" data-view="settings"><i data-lucide="settings"></i><span>الإعدادات</span></button>
       </nav>
       <div class="sidebar-footer">
@@ -284,7 +310,7 @@
         </section>
 
         <section id="diwanView" class="view">
-          <div class="page-head page-head-stacked"><div><span class="eyebrow">مستقل تماماً عن المسابقة السنوية</span><h1>اختبارات ديوان الحفاظ - فرع الكورة</h1><p>تصديق حفظ القرآن الكريم كاملاً عبر أربع مراحل متتالية (١، ٢، ٣، النهائي) — كل مرحلة ١٠ أجزاء تختارها الإدارة عدا النهائي (القرآن كاملاً)، بعلامة نجاح ٨٥ (واختبار الخمسة أجزاء بالمرحلتين الثانية والثالثة بعلامة ٩٠). كل جزء جديد ينجح فيه يُحسب له، وعند اكتمال ١٠ أجزاء محسوبة ينتقل تلقائياً للمرحلة التالية، ويمكن للإدارة نقل أي متسابق إلى أي مرحلة يدوياً.</p></div><div class="page-actions"><button id="diwanSyncCommitteesBtn" class="secondary-btn hidden"><i data-lucide="refresh-cw"></i> تحديث نتائج اللجان</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استيراد Excel<input id="diwanImportInput" type="file" accept=".xlsx,.xls,.csv"></label><button id="diwanExportBtn" class="secondary-btn"><i data-lucide="file-spreadsheet"></i> تصدير Excel</button><button id="diwanCentersExportBtn" class="secondary-btn" title="ملف جاهز للمراكز لتعبئة أجزاء الاختبار القادم ثم استيراده"><i data-lucide="send"></i> ملف للمراكز</button><button id="diwanBulkPdfBtn" class="secondary-btn"><i data-lucide="files"></i> حفظ PDF</button><button id="diwanBulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><button id="diwanDistributeBtn" class="secondary-btn hidden"><i data-lucide="shuffle"></i> توزيع على اللجان</button><button id="diwanDeleteAllBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button><button id="addDiwanParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
+          <div class="page-head page-head-stacked"><div><span class="eyebrow">ديوان الحفاظ — فرع الكورة</span><h1>اختبارات ديوان الحفاظ</h1><p>تصديق حفظ القرآن الكريم كاملاً عبر أربع مراحل متتالية (١، ٢، ٣، النهائي) — كل مرحلة ١٠ أجزاء تختارها الإدارة عدا النهائي (القرآن كاملاً)، بعلامة نجاح ٨٥ (واختبار الخمسة أجزاء بالمرحلتين الثانية والثالثة بعلامة ٩٠). كل جزء جديد ينجح فيه يُحسب له، وعند اكتمال ١٠ أجزاء محسوبة ينتقل تلقائياً للمرحلة التالية، ويمكن للإدارة نقل أي متسابق إلى أي مرحلة يدوياً.</p></div><div class="page-actions"><button id="diwanSyncCommitteesBtn" class="secondary-btn hidden"><i data-lucide="refresh-cw"></i> تحديث نتائج اللجان</button><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استيراد Excel<input id="diwanImportInput" type="file" accept=".xlsx,.xls,.csv"></label><button id="diwanExportBtn" class="secondary-btn"><i data-lucide="file-spreadsheet"></i> تصدير Excel</button><button id="diwanCentersExportBtn" class="secondary-btn" title="ملف جاهز للمراكز لتعبئة أجزاء الاختبار القادم ثم استيراده"><i data-lucide="send"></i> ملف للمراكز</button><button id="diwanBulkPdfBtn" class="secondary-btn"><i data-lucide="files"></i> حفظ PDF</button><button id="diwanBulkDrawBtn" class="secondary-btn"><i data-lucide="layers"></i> سحب للجميع</button><button id="diwanDistributeBtn" class="secondary-btn hidden"><i data-lucide="shuffle"></i> توزيع على اللجان</button><button id="diwanDeleteAllBtn" class="danger-btn"><i data-lucide="users-round"></i> حذف الجميع</button><button id="addDiwanParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button></div></div>
           <div class="stats-grid">
             <article class="stat"><div class="stat-icon green"><i data-lucide="users"></i></div><div><span>إجمالي المتسابقين</span><b id="diwanStatTotal">0</b></div></article>
             <article class="stat"><div class="stat-icon gold"><i data-lucide="clipboard-check"></i></div><div><span>امتُحن</span><b id="diwanStatExamined">0</b></div></article>
@@ -346,13 +372,13 @@
             <button type="button" role="tab" data-settings-tab="general"><i data-lucide="sliders-horizontal"></i><span>عام</span></button>
             <button type="button" role="tab" data-settings-tab="committees"><i data-lucide="users-round"></i><span>اللجان</span></button>
             <button type="button" role="tab" data-settings-tab="accounts"><i data-lucide="key-round"></i><span>الحسابات والصلاحيات</span></button>
-            <button type="button" role="tab" data-settings-tab="requests"><i data-lucide="inbox"></i><span>الطلبات</span><b id="settingsRequestsBadge" class="settings-tab-badge hidden"></b></button>
-            <button type="button" role="tab" data-settings-tab="data"><i data-lucide="database"></i><span>البيانات والنسخ</span></button>
+            <button type="button" role="tab" data-settings-tab="requests" data-section="annual"><i data-lucide="inbox"></i><span>الطلبات</span><b id="settingsRequestsBadge" class="settings-tab-badge hidden"></b></button>
+            <button type="button" role="tab" data-settings-tab="data" data-section="annual"><i data-lucide="database"></i><span>البيانات والنسخ</span></button>
             <button type="button" role="tab" data-settings-tab="activity"><i data-lucide="history"></i><span>سجل النشاط</span></button>
           </nav>
           <div class="settings-body">
           <div id="rootOnlySettingsGrid" class="settings-grid">
-            <form id="settingsForm" class="panel" data-settings-pane="general">
+            <form id="settingsForm" class="panel" data-settings-pane="general" data-section="annual">
               <h3>بيانات الدورة</h3>
               <label>اسم المسابقة<input id="settingsCompetitionName" required></label>
               <label class="settings-toggle"><span class="settings-toggle-text"><b>إظهار مستوى القرآن الكامل بالإحصائيات</b><small>مستوى 30 جزءاً</small></span><span class="switch"><input id="settingsShowFullQuran" type="checkbox"><span class="switch-slider"></span></span></label>
@@ -365,7 +391,7 @@
               <p class="settings-note">تظهر بقائمة اختيار المركز عند تسجيل متسابق<span class="koura-only"> (السنوية وديوان الحفاظ)</span>، حتى قبل تسجيل أي متسابق فيها.</p>
               <div id="managedCentersList" class="committees-list"></div>
             </section>
-            <section class="panel" data-settings-pane="data">
+            <section class="panel" data-settings-pane="data" data-section="annual">
               <h3>النسخ الاحتياطي</h3>
               <p class="settings-note">نزّل نسخة قبل يوم المسابقة وبعده واحفظها بمكان آمن.</p>
               <div class="backup-actions">
@@ -427,7 +453,7 @@
             <div class="monitor-role-tabs committee-track-tabs" id="permissionsCategoryTabs"><button type="button" class="compact-btn is-active" data-permissions-category="supervisor">مشرفو المسابقة</button><button type="button" class="compact-btn" data-permissions-category="sub_admin">المسؤولون الفرعيون</button><button type="button" class="compact-btn" data-permissions-category="committee">اللجان</button></div>
             <div class="monitor-layout"><div class="monitor-committees-panel"><div id="permissionsSubjectList" class="committees-list"></div></div><div class="monitor-detail-panel" id="permissionsDetailPanel"><div class="monitor-empty">اختر حسابًا أو لجنة من القائمة لعرض صلاحياتها.</div></div></div>
           </section>
-          <section id="drRequestsPanel" class="panel cloud-committees-panel hidden" data-settings-pane="requests">
+          <section id="drRequestsPanel" class="panel cloud-committees-panel hidden" data-settings-pane="requests" data-section="annual">
             <div class="panel-head"><div><h3>طلبات DR بانتظار الموافقة</h3><p class="settings-note">تسجيل علامة يدوي طارئ عند تعطل النظام.</p></div><button id="approveAllDrBtn" class="secondary-btn" type="button">موافقة على الكل</button></div>
             <div id="drRequestsList" class="committees-list"><p class="committee-alerts-empty">لا توجد طلبات حاليًا.</p></div>
           </section>
@@ -450,7 +476,7 @@
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20261015-settings-polish"></script>
-  <script src="app.js?v=20261119-diwan-exam-day-2"></script>
+  <script src="app.js?v=20261123-diwan-section"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>
