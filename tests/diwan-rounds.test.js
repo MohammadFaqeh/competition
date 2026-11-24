@@ -152,7 +152,10 @@ load([
 ]);
 const stats = run("(()=>{const d=diwanStatsData(diwanOpenRound());return {juz:d.byJuz.map(r=>r.p.id+':'+r.juz),avg:d.byAvg.map(r=>r.p.id+':'+r.avg+'/'+r.exams),gain:d.byGain.map(r=>r.p.id+':'+r.gained),active:d.totals.active,certified:d.totals.certified}})()");
 assert.deepStrictEqual([...stats.juz], ["c:30", "a:20", "b:15"], "الأكثر أجزاءً: الحافظة 30، والمنسحبة خارج الترتيب");
-assert.deepStrictEqual([...stats.avg], ["b:98/1", "a:96/1"], "المعدل بلا «غير مكتمل» وبلا منسحبات");
+// «الأعلى معدّلاً»: الأكثر أجزاءً (بالجولة: الجديدة المكتسبة) أولاً ثم المعدل — «أ» كسبت 10 بعلامة 96 قبل «ب» 5 بعلامة 98
+assert.deepStrictEqual([...stats.avg], ["a:96/1", "b:98/1"], "الأجزاء أولاً ثم المعدل، بلا «غير مكتمل» وبلا منسحبات");
+const statsAll = run("diwanStatsData().byAvg.map(r=>r.p.id)");
+assert.deepStrictEqual([...statsAll], ["a", "b"], "كل الجولات: بالأجزاء المحسوبة تراكمياً (20 قبل 15) ثم المعدل");
 assert.deepStrictEqual([...stats.gain], ["a:10", "b:5"], "إنجاز الجولة: نجاح مُرقٍّ 10، وخمسة بلا انتقال من credit");
 assert.strictEqual(stats.active, 3);
 assert.strictEqual(stats.certified, 1);

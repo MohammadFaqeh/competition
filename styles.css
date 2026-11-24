@@ -1922,3 +1922,18 @@ body.settings-drawer-open{overflow:hidden}
 @media(max-width:1100px){.diwan-stats-tiles{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.diwan-stats-grid{grid-template-columns:1fr}.diwan-rank-list-wide{grid-template-columns:1fr}.diwan-rank-list-wide>.diwan-rank-item:nth-child(2){border-top:1px solid var(--line-soft)}}
 @media(max-width:600px){.diwan-stats-tiles{gap:8px}.diwan-stats-tile{padding:12px;gap:10px}.diwan-stats-tile b{font-size:20px}.diwan-stats-scope{width:100%}.diwan-stats-scope select{flex:1;min-width:0}}
+
+/* ===== صفحة «الملفات» (2026-11-24): بطاقة لكل ملف بزر واحد ===== */
+.diwan-files-group{margin:var(--sp-5) 0 var(--sp-3);font-size:15px;color:var(--ink-soft)}
+.diwan-files-group:first-of-type{margin-top:0}
+.diwan-files-group span{color:var(--gold-600)}
+.diwan-files-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.diwan-file-card{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+.diwan-file-card.is-main{border-top:3px solid var(--gold)}
+.diwan-file-card>svg{width:22px;height:22px;padding:10px;box-sizing:content-box;border-radius:50%;background:var(--green-50);color:var(--green-700)}
+.diwan-file-card b{display:block;font-size:15px;color:var(--ink);margin-bottom:3px}
+.diwan-file-card p{margin:0;font-size:12px;line-height:1.7;color:var(--caption)}
+.diwan-file-card .primary-btn,.diwan-file-card .secondary-btn{white-space:nowrap}
+.diwan-file-card button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:900px){.diwan-files-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.diwan-file-card{grid-template-columns:auto 1fr;padding:14px}.diwan-file-card>:last-child{grid-column:1/-1;justify-content:center}}
