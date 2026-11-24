@@ -1979,3 +1979,14 @@ body.settings-drawer-open{overflow:hidden}
 @media(max-width:1100px){.diwan-stats-tiles{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.diwan-stats-grid{grid-template-columns:1fr}.diwan-rank-list-wide{grid-template-columns:1fr}.diwan-rank-list-wide>.diwan-rank-item:nth-child(2){border-top:1px solid var(--line-soft)}}
 @media(max-width:600px){.diwan-stats-tiles{gap:8px}.diwan-stats-tile{padding:12px;gap:10px}.diwan-stats-tile b{font-size:20px}.diwan-stats-scope{width:100%}.diwan-stats-scope select{flex:1;min-width:0}}
+
+/* ===== «القسم» لكل حساب (2026-11-24) ===== */
+.section-denied-notice{display:flex;align-items:flex-start;gap:10px;margin:0 0 16px;padding:12px 14px;border:1px solid var(--gold);border-radius:var(--radius);background:var(--gold-soft);text-align:start}
+.section-denied-notice svg{width:18px;height:18px;flex:0 0 auto;color:var(--gold-600);margin-top:2px}
+.section-denied-notice div{display:flex;flex-direction:column;gap:4px}
+.section-denied-notice b{font-size:13px;color:var(--ink)}
+.section-denied-notice a{font-size:13px;font-weight:800;color:var(--accent-on-surface)}
+.account-section-tag{display:inline-block;margin-inline-start:8px;padding:2px 8px;border-radius:999px;background:var(--gold-soft);color:var(--gold-600);font-size:11px;font-weight:800}
+.account-section-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--canvas);font-size:13px;font-weight:800}
+.account-section-row select{min-width:200px}
+@media(max-width:600px){.account-section-row{flex-direction:column;align-items:stretch}.account-section-row select{min-width:0}}

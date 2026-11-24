@@ -54,3 +54,19 @@ This pattern has previously been encountered and fixed in this project's own his
 internal helper function was left `PUBLIC`-executable after creation and had to be explicitly
 revoked once the exposure was identified. Treat that precedent as a reason to check this
 deliberately on every new function, not as a one-time fix that already covers future additions.
+
+### A role helper that can return something new must be re-audited against legacy comparisons on the LIVE database
+
+When a change lets an existing identity/role helper (e.g. `current_user_role()`) return a new value
+for some authenticated users, NULL is the dangerous choice: in plpgsql `if current_user_role()<>'admin'
+then raise` does not fire on NULL, so the guarded function runs. Verified 2026-11-24 while adding
+per-account sections (`supabase/account-sections.sql`): `committee-live-draw.sql` (lines 4 and 114)
+still contains `current_user_role()<>'admin'` and its header tells operators to re-run the whole file,
+which would silently restore NULL-unsafe versions over the later null-safe fixes. Rules:
+- Prefer a non-role sentinel (the sections change returns `'restricted'`) so every old or new check
+  rejects it; never return NULL for "deny".
+- Audit the live definitions, not just the repo's latest file (e.g. `pg_get_functiondef` search for
+  `current_user_role()` compared with `<>`, `!=`, `not in`).
+- When a restriction is an account attribute, any role that can create or re-credential accounts
+  (create committee/sub-admin, reset a PIN) must not be able to hand out the unrestricted default —
+  guard at the table level (row trigger) so current and future functions are all covered.
