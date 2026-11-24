@@ -3192,20 +3192,51 @@ function diwanAttemptRows(participant){
   }
   return rows;
 }
+// ملف الطالبة (تصميم 2026-11-24 بطلب الإدارة — كان «معجوقاً»): رأس بالاسم وسطر بياناتها وشارة حالتها، شبكة الأجزاء الثلاثين
+// (الأخضر ما نجحت فيه، الذهبي أجزاء تسجيلها الحالي)، زر رئيسي واحد حسب حالتها وبقية الإجراءات بقائمة «⋯ إجراءات أخرى»،
+// المحاولات كخط زمني بالجولات، وسجل العمليات مطوي. نفس المعلومات والإجراءات السابقة كلها، بترتيب أوضح.
+function diwanProfilePrimaryAction(p){
+  if(p.unenrolled)return null;
+  if(p.withdrawn)return {label:"إلغاء الانسحاب",icon:"user-check",run:async()=>{await toggleDiwanParticipantWithdrawn(p);openDiwanStudentProfile(p.id)}};
+  const status=diwanParticipantStatusOf(p),draw=currentDiwanDraw(p,diwanState.draws);
+  if(status==="certified")return draw?{label:"الشهادة",icon:"award",run:()=>downloadDiwanCertificate(p,draw)}:null;
+  if(status==="pending")return {label:"ورقة المواضع",icon:"eye",run:()=>showDiwanResult(draw)};
+  if(status==="failed")return {label:"إعادة الاختبار",icon:"rotate-ccw",run:()=>retryDiwanStage(p)};
+  if(diwanStageOf(p)===DIWAN_FINAL_STAGE)return {label:"سحب الاختبار النهائي",icon:"layers",run:()=>startDiwanFinalDraw(p)};
+  return {label:diwanHasReadyParts(p)?"السحب":"اختيار الأجزاء",icon:"list-checks",run:()=>openDiwanJuzPicker(p)};
+}
+function diwanProfileJuzGridHtml(p){
+  const passed=new Set(p.certified?Array.from({length:DIWAN_TOTAL_JUZ},(_,i)=>i+1):(p.usedJuz||[]).map(Number));
+  const current=new Set(p.certified||p.unenrolled||p.withdrawn?[]:(p.parts||[]).map(Number));
+  const cells=Array.from({length:DIWAN_TOTAL_JUZ},(_,i)=>{const n=i+1,cls=passed.has(n)?"is-passed":current.has(n)?"is-current":"";return `<span class="${cls}" title="الجزء ${n}${passed.has(n)?" — نجحت فيه":current.has(n)?" — بتسجيلها الحالي":""}">${n}</span>`}).join("");
+  return `<div class="diwan-juz-map" role="img" aria-label="${passed.size} جزءاً محسوباً من 30">${cells}</div><div class="diwan-juz-legend"><span><i class="is-passed"></i> نجحت فيه</span>${current.size?`<span><i class="is-current"></i> تسجيلها الحالي</span>`:""}<span><i></i> لم تُختبر فيه بعد</span></div>`;
+}
 function openDiwanStudentProfile(participantId){
   const p=diwanState.participants.find(x=>x.id===participantId);if(!p)return;
   const partsLabel=(stage,parts)=>stage===DIWAN_FINAL_STAGE?"القرآن الكريم كاملاً":parts&&parts.length?parts.join("، "):"لم تُحدَّد بعد";
   const attempts=diwanAttemptRows(p),log=(p.log||[]).slice().reverse();
-  const timeline=attempts.length?`<ol class="diwan-timeline">${attempts.map((a,i)=>`<li class="${a.pending?"is-pending":""}"><div class="diwan-timeline-head"><b>${a.pending?"التسجيل الحالي":`المحاولة رقم ${i+1}`}</b><span class="state ${diwanStatusClass(a.key)}">${escapeHtml(a.result)}</span></div><div class="diwan-timeline-meta"><span>${escapeHtml(DIWAN_STAGE_LABELS[a.stage]||"")}</span><span>الأجزاء: ${escapeHtml(partsLabel(a.stage,a.parts))}</span><span>${a.pending?"تاريخ التسجيل":"تاريخ السحب"}: ${formatDate(a.date)}</span>${a.finalizedAt?`<span>اعتماد النتيجة: ${formatDate(a.finalizedAt)}</span>`:""}${a.committee?`<span>${escapeHtml(a.committee)}</span>`:""}</div></li>`).join("")}</ol>`:`<p class="diwan-stage-empty">لا توجد محاولات بعد</p>`;
+  const roundOf=iso=>iso?diwanRounds().find(r=>diwanInRound(r,iso)):null;
+  const timeline=attempts.length?`<ol class="diwan-attempts">${attempts.map(a=>{const round=a.pending?null:roundOf(a.finalizedAt||a.date);return `<li class="is-${a.pending?"pending":a.key}"><span class="diwan-attempt-dot" aria-hidden="true"></span><div class="diwan-attempt-main"><b>${a.pending?"التسجيل الحالي":escapeHtml(round?.name||formatDate(a.date))}<span> · ${escapeHtml(DIWAN_STAGE_LABELS[a.stage]||"")}</span></b><small>${a.stage===DIWAN_FINAL_STAGE?"القرآن الكريم كاملاً":(a.parts||[]).length?`${formatNumber(a.parts.length)} أجزاء: ${escapeHtml(partsLabel(a.stage,a.parts))}`:"لم تُحدَّد الأجزاء بعد"}${a.committee?` · ${escapeHtml(a.committee)}`:""}${a.finalizedAt?` · اعتُمدت ${formatDate(a.finalizedAt)}`:""}</small></div><span class="state ${diwanStatusClass(a.key)}">${escapeHtml(a.result)}</span></li>`}).join("")}</ol>`:`<p class="diwan-stage-empty">لا توجد محاولات بعد</p>`;
   const logHtml=log.length?`<ul class="diwan-audit-log">${log.map(e=>`<li><span>${escapeHtml(e.text)}</span><small>${formatDate(e.at)} · ${escapeHtml(e.by||"")}</small></li>`).join("")}</ul>`:`<p class="field-help">لا توجد عمليات مسجَّلة بعد — يبدأ تسجيل العمليات من الآن.</p>`;
-  const currentParts=p.certified||p.unenrolled?"—":partsLabel(diwanStageOf(p),p.parts);
-  openModal(`<div class="modal-head"><h2>${escapeHtml(p.name)}</h2><button class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><h3 class="diwan-profile-title">بيانات المتسابق</h3><div class="diwan-profile-grid"><div><small>رقم الجلوس</small><b>${escapeHtml(p.seat||"—")}</b></div><div><small>الرقم التسلسلي</small><b>${escapeHtml(diwanSerialOf(p)||"—")}</b></div><div><small>الجنس</small><b>${escapeHtml(p.gender||"غير محدد")}</b></div><div><small>المركز</small><b>${escapeHtml(p.center||"—")}</b></div><div><small>الاختبار الحالي</small><b>${escapeHtml(diwanRegistryStageText(p))}</b></div><div><small>الحالة الحالية</small><b>${escapeHtml(diwanRegistryStatusText(p))}</b></div><div><small>أجزاء التسجيل الحالي</small><b>${escapeHtml(currentParts)}</b></div><div><small>أجزاء اجتازها بنجاح</small><b>${(p.usedJuz||[]).length?escapeHtml(p.usedJuz.slice().sort((a,b)=>a-b).join("، ")):"—"}</b></div></div><div class="diwan-profile-actions"><button class="compact-btn" data-profile-edit><i data-lucide="pencil"></i> تعديل البيانات</button><button class="compact-btn" data-profile-move><i data-lucide="git-branch"></i> نقل / إعادة تسجيل في اختبار</button>${!p.certified&&!p.unenrolled?`<button class="compact-btn" data-profile-unenroll><i data-lucide="log-out"></i> إزالة من الاختبار الحالي</button>`:""}${p.certified?"":`<button class="compact-btn" data-profile-withdraw><i data-lucide="${p.withdrawn?"user-check":"user-x"}"></i> ${p.withdrawn?"إلغاء الانسحاب":"تسجيل انسحاب"}</button>`}<button class="compact-btn" data-profile-attempts><i data-lucide="history"></i> تعديل نتائج المحاولات</button></div><h3 class="diwan-profile-title">سجل الاختبارات</h3>${timeline}<details class="diwan-profile-log"><summary>سجل العمليات (${formatNumber(log.length)})</summary>${logHtml}</details></div><div class="modal-actions">${diwanStaffCan("can_delete_data")?`<button class="danger-btn" data-profile-delete type="button"><i data-lucide="trash-2"></i> حذف نهائي للمتسابق</button>`:""}<button class="secondary-btn" data-close>إغلاق</button></div>`,"diwan-profile-modal");
-  $("[data-profile-edit]").onclick=()=>openDiwanParticipantModal(p);
-  $("[data-profile-move]").onclick=()=>openDiwanMoveStageModal(p.id);
-  const unenroll=$("[data-profile-unenroll]");if(unenroll)unenroll.onclick=()=>confirmUnenrollDiwanParticipant(p.id);
-  const withdraw=$("[data-profile-withdraw]");if(withdraw)withdraw.onclick=async()=>{await toggleDiwanParticipantWithdrawn(p);openDiwanStudentProfile(p.id)};
-  $("[data-profile-attempts]").onclick=()=>openDiwanAttemptHistory(p);
-  const remove=$("[data-profile-delete]");if(remove)remove.onclick=()=>{confirmDeleteDiwanParticipant(p.id);if(!diwanState.participants.some(x=>x.id===p.id))closeModal()};
+  const statusKey=diwanRegistryStatusKey(p),credited=diwanCreditedJuzCount(p),stage=diwanStageOf(p);
+  const progressLine=p.certified?"حافظة معتمدة — القرآن الكريم كاملاً":p.unenrolled?"غير مسجَّلة حالياً بأي اختبار":`${DIWAN_STAGE_LABELS[stage]}${stage<DIWAN_FINAL_STAGE?` — رصيد المرحلة ${formatNumber(diwanStageCreditOf(p))} من 10`:""}`;
+  const facts=[["رقم",p.seat||"—"],["التسلسلي",diwanSerialOf(p)||"—"],["",p.center||"بلا مركز"],["",p.gender||"الجنس غير محدد"]].map(([k,v])=>`<span>${k?`<small>${k}</small> `:""}${escapeHtml(v)}</span>`).join("");
+  const primary=diwanProfilePrimaryAction(p);
+  const more=[`<button type="button" data-profile-edit><i data-lucide="pencil"></i> تعديل البيانات</button>`,`<button type="button" data-profile-move><i data-lucide="git-branch"></i> نقل / إعادة تسجيل في اختبار</button>`,!p.certified&&!p.unenrolled?`<button type="button" data-profile-unenroll><i data-lucide="log-out"></i> إزالة من الاختبار الحالي</button>`:"",!p.certified&&!p.withdrawn?`<button type="button" data-profile-withdraw><i data-lucide="user-x"></i> تسجيل انسحاب</button>`:"",`<button type="button" data-profile-attempts><i data-lucide="history"></i> تعديل نتائج المحاولات</button>`,diwanStaffCan("can_delete_data")?`<button type="button" data-profile-delete class="is-danger"><i data-lucide="trash-2"></i> حذف نهائي للمتسابق</button>`:""].filter(Boolean).join("");
+  openModal(`<div class="modal-head diwan-profile-head"><div><h2>${escapeHtml(p.name)}</h2><div class="diwan-profile-facts">${facts}</div></div><span class="state ${diwanStatusClass(statusKey)}">${escapeHtml(diwanRegistryStatusText(p))}</span><button class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body">
+    <section class="diwan-profile-progress"><div class="diwan-profile-progress-head"><b>${escapeHtml(progressLine)}</b><span><b>${formatNumber(credited)}</b> من 30 جزءاً</span></div>${diwanProfileJuzGridHtml(p)}</section>
+    <div class="diwan-profile-actions">${primary?`<button type="button" class="primary-btn" data-profile-primary><i data-lucide="${primary.icon}"></i> ${escapeHtml(primary.label)}</button>`:""}<details class="diwan-more"><summary class="secondary-btn"><i data-lucide="ellipsis"></i> إجراءات أخرى</summary><div class="diwan-more-menu">${more}</div></details></div>
+    <h3 class="diwan-profile-title">المحاولات</h3>${timeline}
+    <details class="diwan-profile-log"><summary>سجل العمليات (${formatNumber(log.length)})</summary>${logHtml}</details>
+  </div>`,"diwan-profile-modal");
+  const on=(sel,fn)=>{const el=$(sel);if(el)el.onclick=fn};
+  on("[data-profile-primary]",()=>primary?.run());
+  on("[data-profile-edit]",()=>openDiwanParticipantModal(p));
+  on("[data-profile-move]",()=>openDiwanMoveStageModal(p.id));
+  on("[data-profile-unenroll]",()=>confirmUnenrollDiwanParticipant(p.id));
+  on("[data-profile-withdraw]",async()=>{await toggleDiwanParticipantWithdrawn(p);openDiwanStudentProfile(p.id)});
+  on("[data-profile-attempts]",()=>openDiwanAttemptHistory(p));
+  on("[data-profile-delete]",()=>{confirmDeleteDiwanParticipant(p.id);if(!diwanState.participants.some(x=>x.id===p.id))closeModal()});
   lucide.createIcons();
 }
 function openDiwanStage(stage){
@@ -3442,10 +3473,14 @@ function renderDiwanParticipants(){
   // «أين الطالبات الآن»: شريط مختصر بعدد كل مرحلة (كل طالبة مرة واحدة، بلا منسحبات) — الضغط يفتح صفحة المرحلة بتفاصيلها وفلاترها.
   const activeOf=p=>!p.withdrawn&&!p.unenrolled;
   const withdrawnCount=all.filter(p=>p.withdrawn&&!p.unenrolled).length;
-  $("#diwanStageBoard").innerHTML=`<span class="diwan-strip-label">أين الطالبات الآن</span>`+[1,2,3,4].map(stage=>{
-    const n=stage===4?all.filter(p=>activeOf(p)&&diwanStageOf(p)===4).length:all.filter(p=>activeOf(p)&&!p.certified&&diwanStageOf(p)===stage).length;
-    return `<button type="button" class="diwan-strip-item stage-${stage}" data-open-stage="${stage}"><span>${escapeHtml(DIWAN_STAGE_LABELS[stage])}</span><b>${formatNumber(n)}</b><i data-lucide="chevron-left"></i></button>`;
-  }).join("")+(withdrawnCount?`<button type="button" class="diwan-strip-item is-withdrawn" data-open-stage="1" title="المنسحبات بصفحة الاختبار الأول (فلتر «منسحب»)"><span>منسحبات</span><b>${formatNumber(withdrawnCount)}</b></button>`:"");
+  // «مسار الطالبات» (تصميم 2026-11-24 بطلب الإدارة): بطاقات المراحل متصلة بأسهم بترتيب الانتقال، رقم كبير وشريط حصّة المرحلة،
+  // و«عرض ←» ظاهرة؛ المنسحبات بطاقة باهتة منفصلة. نفس الوظيفة: الضغط يفتح صفحة المرحلة.
+  const stageCounts=[1,2,3,4].map(stage=>stage===4?all.filter(p=>activeOf(p)&&diwanStageOf(p)===4).length:all.filter(p=>activeOf(p)&&!p.certified&&diwanStageOf(p)===stage).length);
+  const pathTotal=Math.max(1,stageCounts.reduce((a,b)=>a+b,0));
+  $("#diwanStageBoard").innerHTML=`<div class="diwan-path-head"><span>مسار الطالبات</span><small>من الاختبار الأول حتى القرآن كاملاً — اضغط أي مرحلة لعرض طالباتها</small></div><div class="diwan-path">`+[1,2,3,4].map((stage,i)=>{
+    const n=stageCounts[i];
+    return `${i?`<span class="diwan-path-arrow" aria-hidden="true"><i data-lucide="chevron-left"></i></span>`:""}<button type="button" class="diwan-path-step stage-${stage}" data-open-stage="${stage}"><span class="diwan-path-name">${stage===4?"★ ":""}${escapeHtml(DIWAN_STAGE_LABELS[stage])}</span><b>${formatNumber(n)}</b><span class="diwan-path-bar" aria-hidden="true"><i style="width:${Math.round(n/pathTotal*100)}%"></i></span><span class="diwan-path-open">عرض <i data-lucide="arrow-left"></i></span></button>`;
+  }).join("")+(withdrawnCount?`<button type="button" class="diwan-path-out" data-open-stage="1" title="المنسحبات بصفحة الاختبار الأول (فلتر «منسحب»)"><span>منسحبات</span><b>${formatNumber(withdrawnCount)}</b></button>`:"")+`</div>`;
   // بحث سريع بكل المراحل: يستبدل الصناديق بنتائج البحث ما دام نص البحث غير فارغ.
   const matches=query?all.filter(p=>[p.name,p.seat,p.center,p.serialNumber].some(x=>String(x??"").toLowerCase().includes(query))):[];
   $("#diwanStageBoard").classList.toggle("hidden",Boolean(query));

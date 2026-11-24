@@ -1433,6 +1433,42 @@ button.diwan-stage-stat:hover,.diwan-stage-stat.is-active{border-color:var(--gre
 .diwan-audit-log{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;max-height:260px;overflow:auto}
 .diwan-audit-log li{display:grid;gap:2px;padding:7px 10px;border-radius:7px;background:var(--green-50);font-size:13px}
 .diwan-audit-log small{color:var(--muted);font-size:11px}
+/* ملف الطالبة (2026-11-24): رأس + شبكة الأجزاء + زر رئيسي + محاولات كخط زمني */
+.diwan-profile-head{align-items:flex-start;gap:12px}
+.diwan-profile-head>div{flex:1;min-width:0}
+.diwan-profile-head h2{margin:0 0 6px}
+.diwan-profile-head>.state{flex:0 0 auto;margin-top:4px}
+.diwan-profile-facts{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--ink-soft)}
+.diwan-profile-facts small{color:var(--muted);font-size:11px}
+.diwan-profile-progress{padding:14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--canvas)}
+.diwan-profile-progress-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.diwan-profile-progress-head>b{font-size:14px;color:var(--ink)}
+.diwan-profile-progress-head span{font-size:12px;color:var(--muted)}
+.diwan-profile-progress-head span b{font-size:18px;color:var(--green-700)}
+.diwan-juz-map{display:grid;grid-template-columns:repeat(15,1fr);gap:4px}
+.diwan-juz-map span{display:grid;place-items:center;aspect-ratio:1;border-radius:6px;background:var(--surface);border:1px solid var(--line);font-size:11px;font-weight:700;color:var(--faint)}
+.diwan-juz-map span.is-passed{background:var(--green-700);border-color:var(--green-700);color:#fff}
+.diwan-juz-map span.is-current{background:var(--gold-soft);border-color:var(--gold);color:var(--gold-600)}
+.diwan-juz-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:11px;color:var(--muted)}
+.diwan-juz-legend span{display:inline-flex;align-items:center;gap:5px}
+.diwan-juz-legend i{width:10px;height:10px;border-radius:3px;background:var(--surface);border:1px solid var(--line)}
+.diwan-juz-legend i.is-passed{background:var(--green-700);border-color:var(--green-700)}
+.diwan-juz-legend i.is-current{background:var(--gold-soft);border-color:var(--gold)}
+.diwan-profile-modal .diwan-profile-actions{display:flex;align-items:center;gap:8px;margin:14px 0 4px}
+.diwan-profile-modal .diwan-more-menu{left:0;right:auto}
+.diwan-attempts{list-style:none;margin:0;padding:0;position:relative}
+.diwan-attempts li{position:relative;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:10px 0}
+.diwan-attempts li+li{border-top:1px solid var(--line-soft)}
+.diwan-attempt-dot{width:12px;height:12px;border-radius:50%;background:var(--muted);box-shadow:0 0 0 3px var(--surface),0 0 0 4px var(--line)}
+.diwan-attempts li.is-passed .diwan-attempt-dot{background:var(--green-700)}
+.diwan-attempts li.is-failed .diwan-attempt-dot,.diwan-attempts li.is-withdrawn .diwan-attempt-dot{background:var(--red)}
+.diwan-attempts li.is-pending .diwan-attempt-dot,.diwan-attempts li.is-in_progress .diwan-attempt-dot{background:var(--gold)}
+.diwan-attempt-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.diwan-attempt-main b{font-size:13px;color:var(--ink)}
+.diwan-attempt-main b span{font-weight:600;color:var(--muted)}
+.diwan-attempt-main small{font-size:11px;color:var(--caption);line-height:1.6}
+.diwan-attempts .state{white-space:nowrap}
+@media(max-width:600px){.diwan-juz-map{grid-template-columns:repeat(10,1fr)}.diwan-attempts li{grid-template-columns:auto 1fr}.diwan-attempts .state{grid-column:2;justify-self:start}.diwan-profile-head{flex-wrap:wrap}}
 .diwan-import-preview{max-height:52vh;overflow:auto}
 .diwan-import-preview tr.is-rejected td{background:var(--red-soft)}
 .diwan-import-ids{display:block;color:var(--muted);font-size:11px}
@@ -1858,15 +1894,31 @@ body.settings-drawer-open{overflow:hidden}
 .diwan-overview-head{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;padding:var(--sp-4) var(--sp-4) 0}
 .diwan-overview-head h3{margin:0;font-size:16px}
 .diwan-overview-head .search-box{flex:1 1 260px;max-width:420px;margin-inline-start:auto}
-.diwan-stage-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:var(--sp-4)}
-.diwan-strip-label{font-size:12px;font-weight:800;color:var(--muted);margin-inline-end:4px}
-.diwan-strip-item{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
-.diwan-strip-item b{font-size:15px;color:var(--green-700)}
-.diwan-strip-item svg{width:14px;height:14px;color:var(--muted)}
-.diwan-strip-item:hover{border-color:var(--control-border-hover);background:var(--green-50)}
-.diwan-strip-item.stage-4 b{color:var(--gold-600)}
-.diwan-strip-item.is-withdrawn{color:var(--muted)}
-.diwan-strip-item.is-withdrawn b{color:var(--red)}
+/* «مسار الطالبات» (2026-11-24): بطاقات المراحل متصلة بأسهم بترتيب الانتقال */
+.diwan-stage-strip{padding:var(--sp-4)}
+.diwan-path-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.diwan-path-head span{font-size:14px;font-weight:800;color:var(--ink)}
+.diwan-path-head small{font-size:12px;color:var(--caption)}
+.diwan-path{display:flex;align-items:stretch;gap:6px}
+.diwan-path-step{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px 14px 12px;border:1px solid var(--line);border-top:3px solid var(--green-700);border-radius:var(--radius);background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer;box-shadow:var(--shadow-sm);transition:transform var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease)}
+.diwan-path-step.stage-4{border-top-color:var(--gold)}
+.diwan-path-step:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--control-border-hover)}
+.diwan-path-step:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.diwan-path-name{font-size:12px;font-weight:800;color:var(--muted)}
+.diwan-path-step>b{font-size:30px;line-height:1;color:var(--green-700)}
+.diwan-path-step.stage-4>b{color:var(--gold-600)}
+.diwan-path-bar{display:block;width:100%;height:5px;border-radius:999px;background:var(--line-soft);overflow:hidden}
+.diwan-path-bar i{display:block;height:100%;border-radius:999px;background:var(--green-700)}
+.diwan-path-step.stage-4 .diwan-path-bar i{background:var(--gold)}
+.diwan-path-open{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:800;color:var(--accent-on-surface)}
+.diwan-path-open svg{width:14px;height:14px;transition:transform var(--dur-fast) var(--ease)}
+.diwan-path-step:hover .diwan-path-open svg{transform:translateX(-3px)}
+.diwan-path-arrow{display:flex;align-items:center;color:var(--faint)}
+.diwan-path-arrow svg{width:18px;height:18px}
+.diwan-path-out{flex:0 0 auto;align-self:center;display:flex;flex-direction:column;align-items:center;gap:2px;margin-inline-start:10px;padding:10px 14px;border:1px dashed var(--line);border-radius:var(--radius);background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.diwan-path-out b{font-size:18px;color:var(--red)}
+.diwan-path-out:hover{border-color:var(--control-border-hover);background:var(--canvas)}
+@media(max-width:760px){.diwan-path{display:grid;grid-template-columns:1fr 1fr;gap:8px}.diwan-path-arrow{display:none}.diwan-path-out{grid-column:1/-1;flex-direction:row;justify-content:center;gap:8px;margin:0;align-self:stretch}}
 .diwan-archive{margin-top:var(--sp-5)}
 .diwan-archive-row{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;align-items:center;gap:var(--sp-4);padding:12px 0;border-top:1px solid var(--line-soft)}
 .diwan-archive-row:first-child{border-top:0}
