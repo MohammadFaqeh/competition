@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261124-files">
+  <link rel="stylesheet" href="styles.css?v=20261124-stats-3">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -221,7 +221,6 @@
         <button class="nav-item" data-view="draw" data-section="annual"><i data-lucide="sparkles"></i><span>إجراء السحب</span></button>
         <button class="nav-item" data-view="diwan" data-section="diwan"><i data-lucide="book-open-check"></i><span>اختبارات ديوان الحفاظ</span></button>
         <button class="nav-item" data-view="diwanStudents" data-section="diwan"><i data-lucide="contact"></i><span>سجل متسابقي الديوان</span></button>
-        <button class="nav-item" data-view="diwanFiles" data-section="diwan"><i data-lucide="folder-down"></i><span>الملفات</span></button>
         <button class="nav-item" data-view="diwanStats" data-section="diwan"><i data-lucide="trophy"></i><span>لوحة الإنجاز</span></button>
         <button class="nav-item" data-view="history" data-section="annual"><i data-lucide="history"></i><span>سجل السحوبات</span></button>
         <button class="nav-item" data-view="examDuration" data-section="annual"><i data-lucide="timer"></i><span>مدة الاختبار</span></button>
@@ -308,7 +307,7 @@
         </section>
 
         <section id="diwanView" class="view">
-          <div class="page-head diwan-head"><div><span class="eyebrow">ديوان الحفاظ — فرع الكورة</span><h1>اختبارات ديوان الحفاظ</h1></div><div class="page-actions"><button id="addDiwanParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button><details class="diwan-more"><summary class="secondary-btn"><i data-lucide="ellipsis"></i> المزيد</summary><div class="diwan-more-menu"><button id="diwanDeleteAllBtn" type="button" class="is-danger"><i data-lucide="users-round"></i> حذف الجميع</button></div></details></div></div>
+          <div class="page-head diwan-head"><div><span class="eyebrow">ديوان الحفاظ — فرع الكورة</span><h1>اختبارات ديوان الحفاظ</h1></div><div class="page-actions"><button id="addDiwanParticipantBtn" class="primary-btn"><i data-lucide="user-plus"></i> متسابق جديد</button><details class="diwan-more"><summary class="secondary-btn"><i data-lucide="ellipsis"></i> المزيد</summary><div class="diwan-more-menu"><button id="diwanExportBtn" type="button"><i data-lucide="file-spreadsheet"></i> تصدير Excel (الملف الكامل أو يوم)</button><button id="diwanBulkPdfBtn" type="button"><i data-lucide="files"></i> تجميع ملفات PDF</button><button id="diwanDeleteAllBtn" type="button" class="is-danger"><i data-lucide="users-round"></i> حذف الجميع</button></div></details></div></div>
           <!-- الجولة (قرار الإدارة 2026-11-24): أساس الصفحة — خطوات كل جولة بالترتيب، وثلاث حالات للطالبة، وأرشيف الجولات. -->
           <div id="diwanHome">
             <section id="diwanRoundPanel" class="panel diwan-round">
@@ -345,26 +344,6 @@
             <div class="diwan-stage-filters"><details id="diwanStatusMulti" class="multi-filter"><summary>الحالة: الكل</summary><div class="multi-filter-list"></div></details><select id="diwanTypeFilter" aria-label="نوع الاختبار"><option value="all">نوع الاختبار: الكل</option></select><select id="diwanGenderFilter" aria-label="الجنس"><option value="all">الجنس: الكل</option></select><select id="diwanCenterFilter" aria-label="المركز"><option value="all">المركز: الكل</option></select><select id="diwanCommitteeFilter" aria-label="اللجنة"><option value="all">اللجنة: الكل</option></select></div>
             <div id="diwanStageParticipants" class="diwan-stage-participants"></div>
           </section>
-        </section>
-
-        <!-- الملفات (طلب الإدارة 2026-11-24): كل ملفات الديوان بصفحة مستقلة — بطاقة لكل ملف بزر واحد، متاحة دائماً (بجولة مفتوحة أو بدونها). -->
-        <section id="diwanFilesView" class="view">
-          <div class="page-head diwan-head"><div><span class="eyebrow">ديوان الحفاظ — فرع الكورة</span><h1>الملفات</h1><p class="diwan-stats-lead">كل ملف بكبسة زر — للمراكز وللإدارة.</p></div></div>
-          <h3 class="diwan-files-group">للمراكز</h3>
-          <div class="diwan-files-grid">
-            <article class="diwan-file-card is-main"><i data-lucide="send"></i><div><b>ملف المراكز</b><p>سطر لكل طالبة بكل بياناتها جاهزة — المراكز تعبّئ عمودين فقط: «عدد الأجزاء» و«أجزاء الاختبار القادم».</p></div><button type="button" class="primary-btn" data-files-action="centers"><i data-lucide="download"></i> تنزيل</button></article>
-            <article class="diwan-file-card is-main"><i data-lucide="upload"></i><div><b>استيراد ملف المراكز</b><p>بعد ما ترجع المراكز الملف معبّأً — تظهر معاينة قبل الحفظ ولا يُحذف أحد.</p></div><label class="primary-btn file-btn"><i data-lucide="upload"></i> استيراد<input id="diwanFilesImportInput" type="file" accept=".xlsx,.xls,.csv"></label></article>
-          </div>
-          <h3 class="diwan-files-group">النتائج — <span id="diwanFilesRoundName">آخر جولة</span></h3>
-          <div class="diwan-files-grid">
-            <article class="diwan-file-card"><i data-lucide="file-down"></i><div><b>الشهادات والتوصيات</b><p>شهادة لكل ناجحة وتوصية لكل من لم تنجح بالجولة — ملف PDF واحد، بفلتر المركز.</p></div><button type="button" class="secondary-btn" data-files-action="docs"><i data-lucide="download"></i> تنزيل</button></article>
-            <article class="diwan-file-card"><i data-lucide="file-spreadsheet"></i><div><b>نتائج الجولة Excel</b><p>صف لكل اختبار بالجولة (العلامة والنتيجة واللجنة) مع ملخص لكل مركز.</p></div><button type="button" class="secondary-btn" data-files-action="roundExcel"><i data-lucide="download"></i> تنزيل</button></article>
-          </div>
-          <h3 class="diwan-files-group">ملفات أخرى</h3>
-          <div class="diwan-files-grid">
-            <article class="diwan-file-card"><i data-lucide="table"></i><div><b>كل الطالبات Excel</b><p>الملف الكامل بكل البيانات والعلامات، أو «من امتحن» بيوم معيّن.</p></div><button type="button" class="secondary-btn" data-files-action="fullExcel"><i data-lucide="download"></i> تنزيل</button></article>
-            <article class="diwan-file-card"><i data-lucide="files"></i><div><b>أوراق المواضع PDF</b><p>تجميع أوراق المواضع والنتائج بملف واحد للطباعة، حسب المركز وتاريخ الاختبار.</p></div><button type="button" class="secondary-btn" data-files-action="bulkPdf"><i data-lucide="download"></i> تنزيل</button></article>
-          </div>
         </section>
 
         <!-- لوحة الإنجاز (طلب الإدارة 2026-11-24): ترتيب الطالبات المستمرات بالأجزاء المحسوبة والمعدل، وإنجاز كل جولة، والمراكز — تتحدث مع كل نتيجة. -->
@@ -526,7 +505,7 @@
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20261124-rounds"></script>
-  <script src="app.js?v=20261124-files"></script>
+  <script src="app.js?v=20261124-stats-3"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>
