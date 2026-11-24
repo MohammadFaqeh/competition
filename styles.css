@@ -1879,3 +1879,46 @@ body.settings-drawer-open{overflow:hidden}
 .diwan-archive-actions{display:flex;gap:8px}
 @media(max-width:900px){.diwan-step{grid-template-columns:auto 1fr}.diwan-step-actions{grid-column:1/-1;justify-content:flex-start}.diwan-archive-row{grid-template-columns:1fr}.diwan-archive-actions{flex-wrap:wrap}}
 @media(max-width:600px){.diwan-round-counters{gap:8px}.diwan-round-counters button{padding:10px 10px}.diwan-round-counters button b{font-size:24px}.diwan-round-counters button small{display:none}.diwan-step-actions>*{flex:1 1 auto;justify-content:center}.diwan-more-menu{left:auto;right:0}.diwan-overview-head .search-box{max-width:none}}
+
+/* ===== لوحة الإنجاز (2026-11-24) ===== */
+.diwan-stats-lead{margin:4px 0 0;color:var(--muted);font-size:13px}
+.diwan-stats-scope{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;font-weight:800;color:var(--ink-soft)}
+.diwan-stats-scope select{min-width:220px}
+.diwan-stats-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:var(--sp-5)}
+.diwan-stats-tile{display:flex;align-items:center;gap:12px;padding:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+.diwan-stats-tile>svg{width:22px;height:22px;flex:0 0 auto;padding:9px;box-sizing:content-box;border-radius:50%;background:var(--green-50);color:var(--green-700)}
+.diwan-stats-tile div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.diwan-stats-tile span{font-size:12px;font-weight:700;color:var(--muted)}
+.diwan-stats-tile b{font-size:24px;line-height:1.2;color:var(--ink)}
+.diwan-stats-tile small{font-size:11px;color:var(--caption)}
+.diwan-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-5);margin-bottom:var(--sp-5)}
+.diwan-rank-panel .panel-head{align-items:flex-start}
+.diwan-rank-panel .panel-head h3{margin:0 0 2px}
+.diwan-rank-panel .panel-head small{font-size:12px;color:var(--caption)}
+.diwan-rank-panel .panel-head>svg{width:22px;height:22px;color:var(--gold)}
+#diwanRankRoundPanel{margin-bottom:var(--sp-5)}
+.diwan-rank-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.diwan-rank-list-wide{display:grid;grid-template-columns:1fr 1fr;column-gap:var(--sp-5)}
+.diwan-rank-item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft)}
+.diwan-rank-list>.diwan-rank-item:first-child,.diwan-rank-list-wide>.diwan-rank-item:nth-child(2){border-top:0}
+.diwan-rank-no{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--canvas);border:1px solid var(--line);font-weight:800;font-size:13px;color:var(--ink-soft)}
+.diwan-rank-item.is-top-1 .diwan-rank-no{background:var(--gold);border-color:var(--gold);color:#fff}
+.diwan-rank-item.is-top-2 .diwan-rank-no{background:#9aa5ad;border-color:#9aa5ad;color:#fff}
+.diwan-rank-item.is-top-3 .diwan-rank-no{background:#b07a4f;border-color:#b07a4f;color:#fff}
+.diwan-rank-who{display:flex;flex-direction:column;gap:3px;min-width:0}
+.diwan-rank-name{all:unset;cursor:pointer;font-size:14px;font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.diwan-rank-name:hover{color:var(--green-700);text-decoration:underline}
+.diwan-rank-name:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
+.diwan-rank-who small{font-size:11px;color:var(--caption);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.diwan-rank-bar{display:block;height:6px;border-radius:999px;background:var(--line-soft);overflow:hidden;margin-top:2px}
+.diwan-rank-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green-700),var(--gold))}
+.diwan-rank-metric{display:flex;flex-direction:column;align-items:flex-end;min-width:64px}
+.diwan-rank-metric b{font-size:20px;line-height:1.1;color:var(--green-700)}
+.diwan-rank-metric small{font-size:11px;color:var(--caption);white-space:nowrap}
+.diwan-rank-empty{padding:24px 8px;text-align:center;color:var(--muted);font-size:13px;grid-column:1/-1}
+.diwan-centers-table{width:100%;min-width:0}
+@media(max-width:600px){.diwan-centers-table th,.diwan-centers-table td{padding:10px 6px;font-size:12px;white-space:normal}.diwan-centers-table td:first-child{font-weight:700}}
+.diwan-centers-table td:not(:first-child),.diwan-centers-table th:not(:first-child){text-align:center}
+@media(max-width:1100px){.diwan-stats-tiles{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.diwan-stats-grid{grid-template-columns:1fr}.diwan-rank-list-wide{grid-template-columns:1fr}.diwan-rank-list-wide>.diwan-rank-item:nth-child(2){border-top:1px solid var(--line-soft)}}
+@media(max-width:600px){.diwan-stats-tiles{gap:8px}.diwan-stats-tile{padding:12px;gap:10px}.diwan-stats-tile b{font-size:20px}.diwan-stats-scope{width:100%}.diwan-stats-scope select{flex:1;min-width:0}}

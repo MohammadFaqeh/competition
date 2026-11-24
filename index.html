@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261124-rounds-2">
+  <link rel="stylesheet" href="styles.css?v=20261124-stats-2">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -221,6 +221,7 @@
         <button class="nav-item" data-view="draw" data-section="annual"><i data-lucide="sparkles"></i><span>إجراء السحب</span></button>
         <button class="nav-item" data-view="diwan" data-section="diwan"><i data-lucide="book-open-check"></i><span>اختبارات ديوان الحفاظ</span></button>
         <button class="nav-item" data-view="diwanStudents" data-section="diwan"><i data-lucide="contact"></i><span>سجل متسابقي الديوان</span></button>
+        <button class="nav-item" data-view="diwanStats" data-section="diwan"><i data-lucide="trophy"></i><span>لوحة الإنجاز</span></button>
         <button class="nav-item" data-view="history" data-section="annual"><i data-lucide="history"></i><span>سجل السحوبات</span></button>
         <button class="nav-item" data-view="examDuration" data-section="annual"><i data-lucide="timer"></i><span>مدة الاختبار</span></button>
         <button class="nav-item" data-view="monitor" data-section="annual"><i data-lucide="eye"></i><span>مراقبة حية</span></button>
@@ -343,6 +344,18 @@
             <div class="diwan-stage-filters"><details id="diwanStatusMulti" class="multi-filter"><summary>الحالة: الكل</summary><div class="multi-filter-list"></div></details><select id="diwanTypeFilter" aria-label="نوع الاختبار"><option value="all">نوع الاختبار: الكل</option></select><select id="diwanGenderFilter" aria-label="الجنس"><option value="all">الجنس: الكل</option></select><select id="diwanCenterFilter" aria-label="المركز"><option value="all">المركز: الكل</option></select><select id="diwanCommitteeFilter" aria-label="اللجنة"><option value="all">اللجنة: الكل</option></select></div>
             <div id="diwanStageParticipants" class="diwan-stage-participants"></div>
           </section>
+        </section>
+
+        <!-- لوحة الإنجاز (طلب الإدارة 2026-11-24): ترتيب الطالبات المستمرات بالأجزاء المحسوبة والمعدل، وإنجاز كل جولة، والمراكز — تتحدث مع كل نتيجة. -->
+        <section id="diwanStatsView" class="view">
+          <div class="page-head diwan-head"><div><span class="eyebrow">ديوان الحفاظ — فرع الكورة</span><h1>لوحة الإنجاز</h1><p class="diwan-stats-lead">ترتيب الطالبات المستمرات — يتحدث تلقائياً مع كل نتيجة تُعتمد. المنسحبات خارج الترتيب.</p></div><div class="page-actions"><label class="diwan-stats-scope">الفترة<select id="diwanStatsScope" aria-label="فترة الإحصائيات"><option value="all">كل الجولات</option></select></label></div></div>
+          <div id="diwanStatsTiles" class="diwan-stats-tiles"></div>
+          <div class="diwan-stats-grid">
+            <section class="panel diwan-rank-panel"><div class="panel-head"><div><h3>الأكثر أجزاءً</h3><small>الأجزاء المحسوبة من 30 — من تمشي أكثر</small></div><i data-lucide="book-open-check"></i></div><ol id="diwanRankJuz" class="diwan-rank-list"></ol></section>
+            <section class="panel diwan-rank-panel"><div class="panel-head"><div><h3>الأعلى معدّلاً</h3><small id="diwanRankAvgHint">متوسط علامات كل اختباراتها</small></div><i data-lucide="award"></i></div><ol id="diwanRankAvg" class="diwan-rank-list"></ol></section>
+          </div>
+          <section id="diwanRankRoundPanel" class="panel diwan-rank-panel hidden"><div class="panel-head"><div><h3 id="diwanRankRoundTitle">إنجاز الجولة</h3><small>من كسبت أكثر أجزاء جديدة بهذه الجولة</small></div><i data-lucide="trending-up"></i></div><ol id="diwanRankRound" class="diwan-rank-list diwan-rank-list-wide"></ol></section>
+          <section class="panel table-panel diwan-centers-panel"><div class="panel-head"><div><h3>المراكز</h3><small id="diwanCentersHint">المستمرات بكل مركز، ومتوسط أجزائهن وعلاماتهن</small></div><i data-lucide="building-2"></i></div><div class="table-wrap"><table class="diwan-centers-table"><thead><tr><th>المركز</th><th>المستمرات</th><th>متوسط الأجزاء</th><th>متوسط العلامة</th><th>نجاحات</th></tr></thead><tbody id="diwanCentersBody"></tbody></table></div></section>
         </section>
 
         <section id="diwanStudentsView" class="view">
@@ -492,7 +505,7 @@
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20261124-rounds"></script>
-  <script src="app.js?v=20261124-rounds-2"></script>
+  <script src="app.js?v=20261124-stats-2"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>

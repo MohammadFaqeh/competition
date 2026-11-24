@@ -81,8 +81,8 @@ const LAST_ADMIN_VIEW_KEY="competition-last-admin-view";
 // يُحدَّد بسكربت صغير برأس index.html قبل الرسم (window.APP_SECTION + صنف section-* على <html>). كل قسم يعرض صفحاته فقط:
 // العناصر المعلَّمة data-section="annual|diwan" تُخفى بالقسم الآخر عبر CSS، والتنقل المباشر لصفحة القسم الآخر يُحوَّل لصفحة القسم الافتراضية.
 const APP_SECTION=window.APP_SECTION==="diwan"?"diwan":"annual";
-const DIWAN_SECTION_VIEWS=new Set(["diwan","diwanStudents","settings"]);
-const DIWAN_ONLY_VIEWS=new Set(["diwan","diwanStudents"]);
+const DIWAN_SECTION_VIEWS=new Set(["diwan","diwanStudents","diwanStats","settings"]);
+const DIWAN_ONLY_VIEWS=new Set(["diwan","diwanStudents","diwanStats"]);
 function sectionDefaultView(){return APP_SECTION==="diwan"?"diwan":"dashboard"}
 function viewAllowedInSection(view){return APP_SECTION==="diwan"?DIWAN_SECTION_VIEWS.has(view):!DIWAN_ONLY_VIEWS.has(view)}
 function inOtherSection(el){const section=el?.dataset?.section;return Boolean(section&&section!==APP_SECTION)}
@@ -564,6 +564,7 @@ function bindEvents(){
   $("#diwanDeleteAllBtn")?.addEventListener("click",confirmDeleteAllDiwanParticipants);
   // الجولة: بدء/إغلاق، وثائقها ونتائجها، وعدّادات الحالات الثلاث (الضغط يعرض الطالبات، وضغطة ثانية تخفيهن).
   $("#diwanRoundStartBtn")?.addEventListener("click",openDiwanStartRoundModal);
+  $("#diwanStatsScope")?.addEventListener("change",renderDiwanStats);
   $("#diwanRoundCloseBtn")?.addEventListener("click",confirmCloseDiwanRound);
   $("#diwanRoundDocsBtn")?.addEventListener("click",()=>openDiwanRoundDocsModal(diwanOpenRound()));
   $("#diwanRoundExcelBtn")?.addEventListener("click",()=>exportDiwanRoundResults(diwanOpenRound()));
@@ -706,7 +707,7 @@ function restoreSidebarState(){if(window.innerWidth<=MOBILE_BREAKPOINT)return;co
 function syncSidebarTooltips(collapsed){$$(".sidebar .nav-item").forEach(item=>{const label=item.querySelector("span")?.textContent.trim();if(collapsed&&label)item.title=label;else item.removeAttribute("title")})}
 function applyModeBranding(){const local=operationMode==="local";$("#setupBrandLine").textContent=local?"استخدام محلي مستقل · بياناتك تبقى على هذا الجهاز":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#localLoginBrandLine").textContent=local?"استخدام محلي مستقل · لا يتم إرسال البيانات":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#sidebarBrandTitle").textContent=local?"منصة إدارة المسابقات القرآنية":"جمعية المحافظة على القرآن الكريم";$("#sidebarBrandSubtitle").textContent=local?"وضع محلي مستقل":"فرع الكورة | المسابقة السنوية";if(APP_SECTION==="diwan"){$("#sidebarBrandTitle").textContent="ديوان الحفاظ";$("#sidebarBrandSubtitle").textContent="جمعية المحافظة على القرآن الكريم | فرع الكورة"}}
 // ديوان الحفاظ خاص بفرع الكورة — مخفي تماماً بالوضع المحلي (القائمة عبر CSS بـ.local-branch-app، والتنقل المباشر يُحوَّل للنظرة العامة).
-const LOCAL_HIDDEN_VIEWS=new Set(["diwan","diwanStudents"]);
+const LOCAL_HIDDEN_VIEWS=new Set(["diwan","diwanStudents","diwanStats"]);
 // الأقسام التي تعتمد على النظام السحابي تبقى ظاهرة بالوضع المحلي (للتعريف بها)، مع ملاحظة أنها متوفرة عبر فرع الكورة.
 const LOCAL_CLOUD_ONLY_FEATURES={monitorView:"المراقبة الحية للجان",examDurationView:"مدة الاختبار داخل كل لجنة",analyticsView:"أداء كل لجنة ومقارنة علامات الرئيس والعضو",settingsView:"إدارة اللجان وحسابات المسؤولين والصلاحيات وطلبات DR وسجل النشاط"};
 function renderLocalCloudNotices(){Object.entries(LOCAL_CLOUD_ONLY_FEATURES).forEach(([viewId,feature])=>{const view=$("#"+viewId);if(!view)return;const existing=view.querySelector(".local-cloud-notice");if(operationMode!=="local"){existing?.remove();return}if(existing)return;view.querySelector(".page-head")?.insertAdjacentHTML("afterend",`<div class="local-mode-notice local-cloud-notice"><i data-lucide="info"></i><div><b>متوفرة عبر فرع الكورة</b><span>${escapeHtml(feature)}: تعمل بالكامل عند الدخول عبر «فرع الكورة (النظام الرسمي)»، وفي الاستخدام المحلي تكون غير متاحة أو محدودة.</span></div></div>`)});lucide.createIcons()}
@@ -1410,7 +1411,7 @@ async function startCommitteeExam(participantId){const participant=state.partici
     }else toast(error.message);
     await renderCommitteeWorkspace()
   }}
-function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View")||(operationMode==="local"&&LOCAL_HIDDEN_VIEWS.has(view))||!viewAllowedInSection(view))view=sectionDefaultView();safeSetItem(currentViewKey(),view==="demo"?"dashboard":view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants"){if(!ui&&$("#participantSearch"))$("#participantSearch").value="";renderParticipants()}if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();renderCommitteeBreakdown();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="diwanStudents"){ensureDiwanStateLoaded().then(renderDiwanStudents);renderDiwanStudents()}if(view==="diwan"){diwanOpenStage=null;const persistedDiwanFilters=loadDiwanPersistedParticipantFilters();restoreListControls(persistedDiwanFilters);diwanStatusSelection=Array.isArray(persistedDiwanFilters.diwanStatusSelection)?persistedDiwanFilters.diwanStatusSelection:[];ensureDiwanStateLoaded().then(renderDiwanParticipants);renderDiwanParticipants()}if(view==="monitor")renderMonitorView();if(view==="demo")window.DemoMode?.start();else window.DemoMode?.stop();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
+function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View")||(operationMode==="local"&&LOCAL_HIDDEN_VIEWS.has(view))||!viewAllowedInSection(view))view=sectionDefaultView();safeSetItem(currentViewKey(),view==="demo"?"dashboard":view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants"){if(!ui&&$("#participantSearch"))$("#participantSearch").value="";renderParticipants()}if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();renderCommitteeBreakdown();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="diwanStudents"){ensureDiwanStateLoaded().then(renderDiwanStudents);renderDiwanStudents()}if(view==="diwanStats"){ensureDiwanStateLoaded().then(renderDiwanStats);renderDiwanStats()}if(view==="diwan"){diwanOpenStage=null;const persistedDiwanFilters=loadDiwanPersistedParticipantFilters();restoreListControls(persistedDiwanFilters);diwanStatusSelection=Array.isArray(persistedDiwanFilters.diwanStatusSelection)?persistedDiwanFilters.diwanStatusSelection:[];ensureDiwanStateLoaded().then(renderDiwanParticipants);renderDiwanParticipants()}if(view==="monitor")renderMonitorView();if(view==="demo")window.DemoMode?.start();else window.DemoMode?.stop();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
 function renderAll(){enforceWithdrawnZeroScore(state.participants);renderDashboard();renderParticipants();renderHistory();refreshDrawParticipants();renderAnalytics();lucide.createIcons()}
 
 // "ممتحن" = علامة حقيقية > صفر. المنسحب علامته صفر دائماً (enforceWithdrawnZeroScore) فلا يُحسب ممتحناً حتى لو انسحب بعد اعتماد علامته.
@@ -2153,14 +2154,14 @@ async function exportDiwanCentersFile(){
   sheet["!cols"]=[{wch:12},{wch:14},{wch:32},{wch:10},{wch:22},{wch:24},{wch:14},{wch:22},{wch:30},{wch:12},{wch:30}];sheet["!views"]=[{rightToLeft:true}];workbook.Workbook={Views:[{RTL:true}]};
   XLSX.utils.book_append_sheet(workbook,sheet,"المتسابقون");
   const notes=XLSX.utils.aoa_to_sheet([["تعليمات"],
-    ["• عبّوا عمود «أجزاء الاختبار القادم» بـ ١٠ أجزاء بالضبط لكل متسابق، مثل 11-20 أو 11،12،13،…"],
+    ["• المطلوب فقط عمودان: «عدد الأجزاء» و«أجزاء الاختبار القادم» — ١٠ أجزاء لكل متسابق (أو ٥ لاختبار الخمسة)، مثل 11-20 أو 11،12،13،…"],
     ["• «عدد الأجزاء»: اتركوه 10، واكتبوا 5 فقط لمن اختار اختبار الخمسة أجزاء (٥ أجزاء، نجاحه 90) — متاح بالاختبار الثاني والثالث فقط، ويجب أن يطابق عدد الأجزاء المكتوبة."],
     ["• كل جزء جديد ينجح فيه يُحسب له، والجزء الذي نجح فيه سابقاً لا يُحسب مرة ثانية، وعند اكتمال ١٠ أجزاء محسوبة ينتقل للاختبار التالي («رصيد المرحلة» للعلم)."],
     ["• من رسب: يعيد «الاختبار القادم» نفسه، ويمكن اختيار نفس الأجزاء أو غيرها."],
     ["• الاختبار النهائي: القرآن كاملاً تلقائياً — لا حاجة لتعبئة الأجزاء."],
     ["• لا تعدّلوا «رقم الجلوس» ولا «الرقم التسلسلي» — بهما يُعرف المتسابق عند إعادة الملف."],
     ["• «الاختبار القادم» و«رصيد المرحلة» و«النتيجة» و«أجزاء الاختبار السابق» للعلم فقط ولا يغيّر تعديلها شيئاً."],
-    ["• متسابق جديد بلا رقم جلوس أو رقم تسلسلي: يُعطى رقماً تلقائياً بالترتيب عند الاستيراد."]]);
+    ["• متسابق جديد: أضيفوه بسطر جديد بالاسم والمركز و«الجنس» (مطلوب) وأجزائه، واتركوا رقم الجلوس والرقم التسلسلي فارغين — يُعطى رقماً تلقائياً بالترتيب عند الاستيراد."]]);
   notes["!cols"]=[{wch:100}];notes["!views"]=[{rightToLeft:true}];
   XLSX.utils.book_append_sheet(workbook,notes,"تعليمات");
   XLSX.writeFile(workbook,`ديوان-الحفاظ-ملف-المراكز-${dateStamp()}.xlsx`);toast("تم تنزيل ملف المراكز");
@@ -3308,6 +3309,63 @@ function diwanRoundCardHtml({p,st}){
   const moved=st.kind==="passed"&&diwanStageOf(p)>Number(st.session?.stage)?` — انتقلت إلى ${DIWAN_STAGE_LABELS[diwanStageOf(p)]}`:"";
   return `<div class="diwan-round-card"><span class="diwan-round-result is-${st.kind}">${escapeHtml(label)}${score} · ${escapeHtml(DIWAN_STAGE_LABELS[st.session?.stage]||"")}${escapeHtml(moved)}</span>${card}</div>`;
 }
+// ==========================================================================
+// لوحة الإنجاز (طلب الإدارة 2026-11-24): الطالبات المستمرات فقط (بلا منسحبات/مُزالات). الأجزاء المحسوبة تراكمية دائماً
+// (usedJuz، والحافظة المعتمدة 30)، والمعدل ونجاحات المراكز حسب «الفترة» (كل الجولات أو جولة)، و«إنجاز الجولة» = الأجزاء
+// الجديدة المحسوبة بنجاحات تلك الجولة (draw.credit، والمحاولات القديمة بلا credit: المُرقّية كل أجزائها، و«بلا انتقال» صفر).
+const DIWAN_TOTAL_JUZ=30;
+function diwanStatsActive(){return diwanState.participants.filter(p=>!p.withdrawn&&!p.unenrolled)}
+function diwanCreditedJuzCount(p){return p.certified?DIWAN_TOTAL_JUZ:new Set((p.usedJuz||[]).map(Number).filter(j=>j>=1&&j<=DIWAN_TOTAL_JUZ)).size}
+// اختبارات معتمدة بعلامة حقيقية (بلا انسحاب ولا «غير مكتمل») — أساس المعدل.
+function diwanScoredSessions(round=null){return diwanAdminSessions.filter(s=>s.status==="final"&&!s.assessment?.withdrawn&&!s.assessment?.incomplete&&Number.isFinite(Number(s.score))&&s.score!==null&&(!round||diwanInRound(round,diwanSessionFinalAt(s))))}
+function diwanJuzGainedBy(session){
+  if(!diwanScorePasses(session))return 0;
+  const draw=diwanState.draws.find(d=>d.id===session.draw_id);if(!draw||Number(draw.stage)>=DIWAN_FINAL_STAGE)return 0;
+  if(Array.isArray(draw.credit?.credited))return draw.credit.credited.length;
+  return draw.noPromotion?0:(draw.eligibleParts||[]).length;
+}
+function diwanStatsData(round=null){
+  const active=diwanStatsActive(),scored=diwanScoredSessions(round);
+  const byParticipant=new Map();scored.forEach(s=>{const list=byParticipant.get(s.participant_id)||[];list.push(s);byParticipant.set(s.participant_id,list)});
+  const avgOf=list=>list.length?list.reduce((t,s)=>t+Number(s.score),0)/list.length:null;
+  const rows=active.map(p=>{const list=byParticipant.get(p.id)||[];return {p,juz:diwanCreditedJuzCount(p),avg:avgOf(list),exams:list.length,passes:list.filter(s=>diwanScorePasses(s)).length,gained:list.reduce((t,s)=>t+diwanJuzGainedBy(s),0)}});
+  const byJuz=[...rows].sort((a,b)=>(b.juz-a.juz)||((b.avg??-1)-(a.avg??-1))||(diwanSeatNumber(a.p)-diwanSeatNumber(b.p)));
+  const byAvg=rows.filter(r=>r.avg!=null).sort((a,b)=>(b.avg-a.avg)||(b.exams-a.exams)||(b.juz-a.juz)||(diwanSeatNumber(a.p)-diwanSeatNumber(b.p)));
+  const byGain=rows.filter(r=>r.gained>0).sort((a,b)=>(b.gained-a.gained)||((b.avg??-1)-(a.avg??-1))||(diwanSeatNumber(a.p)-diwanSeatNumber(b.p)));
+  const centers=new Map();rows.forEach(r=>{const key=r.p.center||"بلا مركز",c=centers.get(key)||{center:key,count:0,juz:0,scores:[],passes:0};c.count++;c.juz+=r.juz;(byParticipant.get(r.p.id)||[]).forEach(s=>c.scores.push(Number(s.score)));c.passes+=r.passes;centers.set(key,c)});
+  const allScores=scored.filter(s=>active.some(p=>p.id===s.participant_id)).map(s=>Number(s.score));
+  return {rows,byJuz,byAvg,byGain,centers:[...centers.values()].sort((a,b)=>(b.count-a.count)||a.center.localeCompare(b.center,"ar")),
+    totals:{active:active.length,juz:rows.reduce((t,r)=>t+r.juz,0),avg:allScores.length?allScores.reduce((t,x)=>t+x,0)/allScores.length:null,certified:active.filter(p=>p.certified).length,gained:rows.reduce((t,r)=>t+r.gained,0)}};
+}
+function diwanRankItemHtml(r,i,metric){
+  const medal=i<3?` is-top is-top-${i+1}`:"";
+  const stage=r.p.certified?"حافظة معتمدة":DIWAN_STAGE_LABELS[diwanStageOf(r.p)]||"";
+  return `<li class="diwan-rank-item${medal}"><span class="diwan-rank-no">${i+1}</span><div class="diwan-rank-who"><button type="button" class="diwan-rank-name" data-diwan-profile="${escapeAttr(r.p.id)}">${escapeHtml(r.p.name)}</button><small>${escapeHtml(r.p.center||"بلا مركز")} · ${escapeHtml(stage)}</small>${metric.bar!=null?`<span class="diwan-rank-bar" aria-hidden="true"><i style="width:${Math.round(metric.bar*100)}%"></i></span>`:""}</div><div class="diwan-rank-metric"><b>${metric.value}</b><small>${metric.unit}</small></div></li>`;
+}
+function renderDiwanStats(){
+  const view=$("#diwanStatsView");if(!view)return;
+  const select=$("#diwanStatsScope"),rounds=diwanRounds().slice().sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt));
+  const current=select?.value||"all";
+  if(select){select.innerHTML=`<option value="all">كل الجولات</option>${rounds.map(r=>`<option value="${escapeAttr(r.id)}">${escapeHtml(r.name)}${r.closedAt?"":" (الحالية)"}</option>`).join("")}`;select.value=rounds.some(r=>r.id===current)?current:"all"}
+  const round=select?.value&&select.value!=="all"?rounds.find(r=>r.id===select.value):null;
+  const data=diwanStatsData(round),t=data.totals;
+  const tile=(icon,label,value,hint)=>`<article class="diwan-stats-tile"><i data-lucide="${icon}"></i><div><span>${label}</span><b>${value}</b>${hint?`<small>${hint}</small>`:""}</div></article>`;
+  $("#diwanStatsTiles").innerHTML=[
+    tile("users","الطالبات المستمرات",formatNumber(t.active),""),
+    tile("book-open-check","الأجزاء المحسوبة",formatNumber(t.juz),t.active?`متوسط ${formatAssessmentNumber(Math.round(t.juz/t.active*10)/10)} جزءاً للطالبة`:""),
+    tile("award",round?"متوسط العلامات بالجولة":"متوسط العلامات",t.avg==null?"—":formatAssessmentNumber(Math.round(t.avg*10)/10),round?escapeHtml(round.name):"كل الاختبارات المعتمدة"),
+    round?tile("trending-up","أجزاء جديدة بالجولة",formatNumber(t.gained),"حُسبت بنجاحات الجولة"):tile("badge-check","حافظات معتمدات",formatNumber(t.certified),"القرآن كاملاً")].join("");
+  const empty=text=>`<li class="diwan-rank-empty">${text}</li>`;
+  $("#diwanRankJuz").innerHTML=data.byJuz.slice(0,10).map((r,i)=>diwanRankItemHtml(r,i,{value:formatNumber(r.juz),unit:"من 30",bar:r.juz/DIWAN_TOTAL_JUZ})).join("")||empty("لا توجد طالبات بعد");
+  $("#diwanRankAvgHint").textContent=round?`متوسط علاماتها في ${round.name}`:"متوسط علامات كل اختباراتها";
+  $("#diwanRankAvg").innerHTML=data.byAvg.slice(0,10).map((r,i)=>diwanRankItemHtml(r,i,{value:formatAssessmentNumber(Math.round(r.avg*10)/10),unit:r.exams===1?"اختبار واحد":`${formatNumber(r.exams)} اختبارات`})).join("")||empty("لا توجد علامات معتمدة بهذه الفترة");
+  $("#diwanRankRoundPanel")?.classList.toggle("hidden",!round);
+  if(round){$("#diwanRankRoundTitle").textContent=`إنجاز ${round.name}`;$("#diwanRankRound").innerHTML=data.byGain.slice(0,10).map((r,i)=>diwanRankItemHtml(r,i,{value:`+${formatNumber(r.gained)}`,unit:"جزء جديد"})).join("")||empty("لم تُحسب أجزاء جديدة بهذه الجولة")}
+  $("#diwanCentersHint").textContent=round?`المستمرات بكل مركز، ومتوسط علاماتهن ونجاحاتهن في ${round.name}`:"المستمرات بكل مركز، ومتوسط أجزائهن وعلاماتهن";
+  $("#diwanCentersBody").innerHTML=data.centers.map(c=>`<tr><td title="${escapeAttr(c.center)}">${escapeHtml(c.center.replace(/^مركز\s+/,"").replace(/\s+القرآني$/,""))}</td><td>${formatNumber(c.count)}</td><td>${formatAssessmentNumber(Math.round(c.juz/c.count*10)/10)}</td><td>${c.scores.length?formatAssessmentNumber(Math.round(c.scores.reduce((a,b)=>a+b,0)/c.scores.length*10)/10):"—"}</td><td>${formatNumber(c.passes)}</td></tr>`).join("")||`<tr><td colspan="5" class="diwan-stage-empty">لا توجد بيانات</td></tr>`;
+  $$("#diwanStatsView [data-diwan-profile]").forEach(b=>b.onclick=()=>openDiwanStudentProfile(b.dataset.diwanProfile));
+  lucide.createIcons();
+}
 function renderDiwanRoundsArchive(){
   const panel=$("#diwanRoundsArchive"),box=$("#diwanRoundsArchiveList");if(!panel||!box)return;
   const closed=diwanRounds().filter(r=>r.closedAt).sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt));
@@ -3423,6 +3481,7 @@ function renderDiwanParticipants(){
   $$(`[data-diwan-profile]`).forEach(b=>b.onclick=()=>openDiwanStudentProfile(b.dataset.diwanProfile));
   $$(`[data-diwan-stat-filter]`).forEach(b=>b.onclick=()=>{const key=b.dataset.diwanStatFilter;diwanStatusSelection=diwanStatusSelection.length===1&&diwanStatusSelection[0]===key?[]:[key];saveDiwanPersistedParticipantFilters();renderDiwanParticipants()});
   if($("#diwanStudentsView")?.classList.contains("active-view"))renderDiwanStudents();
+  if($("#diwanStatsView")?.classList.contains("active-view"))renderDiwanStats();
   $$(`[data-diwan-history]`).forEach(b=>b.onclick=()=>openDiwanAttemptHistory(diwanState.participants.find(p=>p.id===b.dataset.diwanHistory)));
   $$(`[data-diwan-transfer]`).forEach(b=>b.onclick=()=>openDiwanAssignCommitteeModal(b.dataset.diwanTransfer));
   $$(`[data-diwan-edit]`).forEach(b=>b.onclick=()=>openDiwanParticipantModal(diwanState.participants.find(p=>p.id===b.dataset.diwanEdit)));

@@ -133,4 +133,28 @@ load([P({ id: "x" })], [], []);
 assert.strictEqual(run("diwanRounds().length"), 0);
 assert.strictEqual(run("diwanOpenRound()"), null);
 
+// ٧) لوحة الإنجاز: الأجزاء المحسوبة تراكمية، المعدل بلا انسحاب ولا «غير مكتمل»، وإنجاز الجولة من draw.credit، والمنسحبة خارج الترتيب
+load([
+  P({ id: "a", name: "أ", seat: "1", stage: 3, usedJuz: range(1, 20) }),
+  P({ id: "b", name: "ب", seat: "2", stage: 2, usedJuz: range(1, 15), stageCredit: 5 }),
+  P({ id: "c", name: "ج", seat: "3", stage: 4, usedJuz: range(1, 30), certified: true }),
+  P({ id: "w", name: "منسحبة", seat: "4", stage: 1, withdrawn: true, usedJuz: range(1, 30) }),
+], [
+  D("a1", "a", 2, "2026-11-18T08:00:00.000Z", range(11, 20)),
+  Object.assign(D("b1", "b", 2, "2026-11-18T08:00:00.000Z", range(11, 15)), { noPromotion: true, credit: { credited: [11, 12, 13, 14, 15], before: { stage: 2, stageCredit: 0 } } }),
+  D("b2", "b", 2, "2026-11-19T08:00:00.000Z", range(16, 25)),
+  D("w1", "w", 1, "2026-11-18T08:00:00.000Z"),
+], [
+  S("sa1", "a", "a1", 2, "final", "2026-11-20T10:00:00.000Z", 96),
+  S("sb1", "b", "b1", 2, "final", "2026-11-20T10:00:00.000Z", 98),
+  S("sb2", "b", "b2", 2, "final", "2026-11-21T10:00:00.000Z", 0, { incomplete: true }),
+  S("sw1", "w", "w1", 1, "final", "2026-11-21T10:00:00.000Z", 100),
+]);
+const stats = run("(()=>{const d=diwanStatsData(diwanOpenRound());return {juz:d.byJuz.map(r=>r.p.id+':'+r.juz),avg:d.byAvg.map(r=>r.p.id+':'+r.avg+'/'+r.exams),gain:d.byGain.map(r=>r.p.id+':'+r.gained),active:d.totals.active,certified:d.totals.certified}})()");
+assert.deepStrictEqual([...stats.juz], ["c:30", "a:20", "b:15"], "الأكثر أجزاءً: الحافظة 30، والمنسحبة خارج الترتيب");
+assert.deepStrictEqual([...stats.avg], ["b:98/1", "a:96/1"], "المعدل بلا «غير مكتمل» وبلا منسحبات");
+assert.deepStrictEqual([...stats.gain], ["a:10", "b:5"], "إنجاز الجولة: نجاح مُرقٍّ 10، وخمسة بلا انتقال من credit");
+assert.strictEqual(stats.active, 3);
+assert.strictEqual(stats.certified, 1);
+
 console.log("diwan-rounds.test.js: نجح — الجولات المشتقة، الحالات الثلاث، نسب الاختبار للجولة، الوثائق، البدء والإغلاق، ودمج جهازين");
