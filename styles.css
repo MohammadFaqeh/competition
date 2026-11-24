@@ -2029,3 +2029,34 @@ html.theme-dark .exam-action.tajweed .exam-action-add{background:#2a2412;border-
 html.theme-dark .exam-action.hesitation .exam-action-add{background:#241e2e;border-color:#3e3350}
 html.theme-dark .exam-action.positionChange .exam-action-add{background:var(--red-soft);border-color:#5a2c2c;color:#f2b8b8}
 html.theme-dark .exam-action-add:active{background:var(--green-100)}
+
+/* 21. Phone hardening (2026-11-24) ------------------------------------------------------ */
+/* الوقت بالشريط العلوي كان يُدفع خارج حافة الشاشة: مجموعة الأزرار لا تنكمش، والعنوان هو الذي يُختصر بنقاط. */
+@media(max-width:780px){.topbar-actions{flex-shrink:0}.topbar>div:nth-child(2){flex:1 1 auto}}
+/* أزرار التنقل أسفل شاشة الاختبار كانت تنزل 4px تحت حافة الشاشة على الهاتف (الحشوة 10px لا 14px). */
+@media(max-width:520px){.examiner-navigation{bottom:-10px}}
+/* الهاتف بالوضع الأفقي: تصغير الهوامش في شاشة الاختبار حتى تظهر صفحة المصحف بمساحة أكبر. */
+@media(max-height:500px) and (orientation:landscape){
+  .examiner-header{padding-block:6px}.examiner-screen{padding-top:6px}.position-stepper{margin-bottom:4px}
+  .examiner-navigation{padding-block:6px}.examiner-navigation button{min-height:38px;padding-block:6px}
+}
+/* الجداول على الهاتف تُمرَّر أفقياً، فلا داعي لضغط الأعمدة حتى تنكسر الأسماء كلمة كلمة. */
+@media(max-width:600px){.table-wrap td{min-width:120px}.table-wrap td:nth-child(2){min-width:150px}}
+/* مجموعات الخيارات (fieldset) كانت بإطار المتصفح الافتراضي (أبيض ناتئ بالوضع الداكن)، وبين الخيارات فراغات غير متساوية. */
+fieldset{border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px;margin:0 0 var(--sp-4);min-width:0}
+legend{padding:0 6px;font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+.committee-level-options label{margin:0}
+/* شاشة اللجنة على الهاتف: بالعمود صار flex-basis:340px ارتفاعاً ثابتاً، فكان مربع التنبيهات الفارغ يأخذ نصف الشاشة. */
+@media(max-width:760px){.committee-top-row .committee-alerts-compact,.committee-top-row .committee-pass-rate-panel{flex:0 0 auto}}
+/* زر الوضع الليلي العائم كان يغطي أزرار النوافذ المنبثقة (مثل «إبلاغ عن خطأ») — يُخفى ما دامت نافذة مفتوحة. */
+body:has(#modal:not(.hidden)) .color-mode-toggle:not(.docked){display:none}
+@media(max-width:780px){.topbar .menu-btn{flex-shrink:0}}
+/* قائمة «المزيد» كانت تمتد خارج حافة الشاشة اليسرى على الهاتف: تُثبَّت على الحافة اليمنى لزرها وتمتد نحو الداخل. */
+@media(max-width:600px){.page-actions-more-list{inset-inline-end:auto;inset-inline-start:0;min-width:min(240px,calc(100vw - 32px))}}
+@media(max-width:600px){.table-wrap td.td-level{min-width:200px}}
+@media(max-width:600px){.table-wrap .row-actions{flex-wrap:nowrap;min-width:max-content}}
+/* شريط اللجنة على الهاتف: الأزرار (الوضع الليلي، التعليمات، الخروج) بصف واحد بدل عمود طويل. */
+@media(max-width:600px){.committee-topbar>.committee-topbar-actions{flex-direction:row;gap:6px;flex-shrink:0}.committee-topbar .committee-topbar-actions .secondary-btn{width:38px;height:38px}.committee-topbar-actions .color-mode-toggle.docked{width:38px;height:38px}}
+.committee-topbar>.committee-topbar-actions{flex-direction:row;flex-shrink:0}
+.committee-topbar-actions .color-mode-toggle.docked{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);box-shadow:none}
+@media(max-width:400px){.committee-topbar h1{font-size:15px}.committee-topbar>.committee-topbar-actions{gap:4px}.committee-topbar .committee-topbar-actions .secondary-btn,.committee-topbar-actions .color-mode-toggle.docked{width:34px;height:34px}}
