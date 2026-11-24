@@ -202,6 +202,35 @@ html.theme-diwan.theme-dark{
   --accent-rgb:69,176,142;
   --overlay-rgb:6,6,3;
 }
+/* لجان الإناث بالديوان: نفس هوية الديوان (الخلفية العاجية والذهبي والنصوص الدافئة) بلمسة أنثوية —
+   وردي داكن هادئ بدل الأخضر، بنفس مستويات التباين. المحددات بثلاثة أصناف فتغلب ثيم الديوان والداكن. */
+html.theme-diwan.theme-diwan-female{
+  --green-950:#3a1d2a;
+  --green-900:#54283b;
+  --green-800:#6e3950;
+  --green-700:#894a65;
+  --green-600:#a35d7b;
+  --green-100:#f3e0e7;
+  --green-50:#fbf2f5;
+  --shadow-rgb:46,20,30;
+  --overlay-rgb:30,12,20;
+  --accent-rgb:137,74,101;
+  --on-brand-soft:#ecd2dc;
+  --on-brand-muted:#dcbac8;
+  --on-brand-faint:#c9a5b4;
+  --active-solid:#6e3950;
+  --accent-on-surface:var(--green-800);
+}
+html.theme-diwan.theme-diwan-female.theme-dark{
+  --green-50:#2a1a21;
+  --green-100:#3f2430;
+  --green-600:#c87b99;
+  --green-700:#d98fad;
+  --green-800:#eeb0c8;
+  --accent-on-surface:#e9a8c1;
+  --accent-rgb:200,123,153;
+  --overlay-rgb:10,4,7;
+}
 /* قسما الموقع: ما يخص قسماً واحداً (data-section) يختفي بالقسم الآخر. */
 html.section-annual [data-section="diwan"],
 html.section-diwan [data-section="annual"]{display:none!important}
@@ -1037,7 +1066,7 @@ body.exam-fullscreen .examiner-mode-modal{width:100%;max-width:none;height:100dv
 .examiner-diff-type-row>b{font-size:14px;color:var(--green-800);text-align:center}
 .examiner-diff-type-row input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-weight:800;text-align:center}
 @media(max-width:640px){.examiner-diff-type-head{display:none}.examiner-diff-type-row{grid-template-columns:1fr;gap:4px;text-align:center}}
-.examiner-navigation{position:sticky;bottom:-18px;z-index:4;display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:8px;margin:10px -18px -18px;padding:10px 18px 14px;background:var(--surface);border-top:1px solid var(--line)}.examiner-navigation button{justify-content:center}.examiner-navigation button:disabled,.examiner-quickbar button:disabled{opacity:.45;cursor:not-allowed}
+.examiner-navigation{position:sticky;bottom:-14px;z-index:4;display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:8px;margin:10px -16px -14px;padding:10px 16px 14px;background:var(--surface);border-top:1px solid var(--line)}.examiner-navigation button{justify-content:center}.examiner-navigation button:disabled,.examiner-quickbar button:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:850px){.assessment-layout{grid-template-columns:1fr}.assessment-summary{position:static;order:-1}.assessment-counters{grid-template-columns:1fr}.assessment-review-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.assessment-layout{padding:10px}.assessment-position>header{grid-template-columns:38px 1fr}.assessment-position>header>b{grid-column:2}.assessment-counter{align-items:flex-start;flex-direction:column}.counter-control{align-self:stretch;grid-template-columns:36px 1fr 36px}.assessment-modal .modal-actions{flex-wrap:wrap}.assessment-modal .modal-actions button{flex:1 1 100%}.modal:has(.examiner-mode-modal){padding:0}.examiner-mode-modal{width:100%;height:100dvh;max-height:100dvh;border-radius:0}.examiner-header{border-radius:0;padding:11px 12px;grid-template-columns:38px 1fr 72px}.examiner-header>div:nth-child(2)>span{font-size:14px}.examiner-score b{font-size:25px}.examiner-screen{padding:10px}.exam-position-card{padding:14px}.exam-position-card>h2{font-size:20px}.exam-actions{grid-template-columns:1fr;gap:8px;margin:14px 0}.exam-action.positionChange{grid-column:auto}.exam-action-add{min-height:70px}.examiner-navigation{grid-template-columns:1fr 1fr;margin:8px -10px -10px;padding:9px 10px}.examiner-navigation #reviewAssessmentBtn{grid-column:1/-1;grid-row:1}.position-stepper{justify-content:flex-start}}
 
@@ -1990,3 +2019,13 @@ body.settings-drawer-open{overflow:hidden}
 .account-section-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--canvas);font-size:13px;font-weight:800}
 .account-section-row select{min-width:200px}
 @media(max-width:600px){.account-section-row{flex-direction:column;align-items:stretch}.account-section-row select{min-width:0}}
+
+/* بطاقات أخطاء الاختبار بالوضع الداكن (2026-11-24): كان نص «خطأ الحفظ» داكناً فوق خلفية داكنة (--green-950 لا يتبدل
+   بالداكن)، وبقية البطاقات بخلفيات فاتحة ثابتة — الآن خلفيات داكنة مصبوغة بلون كل نوع ونص فاتح مقروء. */
+html.theme-dark .exam-action-add{background:var(--green-50);border-color:var(--green-100);color:var(--ink)}
+html.theme-dark .exam-action-add small{color:var(--caption)}
+html.theme-dark .exam-action.language .exam-action-add{background:#18262e;border-color:#2b4250}
+html.theme-dark .exam-action.tajweed .exam-action-add{background:#2a2412;border-color:#4a3f1c}
+html.theme-dark .exam-action.hesitation .exam-action-add{background:#241e2e;border-color:#3e3350}
+html.theme-dark .exam-action.positionChange .exam-action-add{background:var(--red-soft);border-color:#5a2c2c;color:#f2b8b8}
+html.theme-dark .exam-action-add:active{background:var(--green-100)}

@@ -678,7 +678,9 @@ async function setupApp(event){
 }
 async function login(event){event.preventDefault();const ok=await hashText($("#loginPin").value)===state.config.pinHash;$("#loginError").classList.toggle("hidden",ok);if(ok){$("#loginPin").value="";if(operationMode==="local"){sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.setItem(LOCAL_ACCESS_KEY,"granted")}showApp()}}
 // قسم الديوان له ثيمه الخاص دائماً (theme-diwan) بدل ثيم الجنس (الأخضر/الوردي) المستخدم بالسنوية.
-function setAdminTheme(theme){const diwan=APP_SECTION==="diwan";document.documentElement.classList.toggle("theme-diwan",diwan);document.documentElement.classList.toggle("theme-rose",!diwan&&theme==="rose")}
+// لجان الإناث بالديوان (طلب الإدارة 2026-11-24): نفس هوية الديوان (العاجي والذهبي) بلمسة أنثوية — وردي داكن هادئ
+// بدل الأخضر (theme-diwan-female)؛ لجان الذكور بثيم الديوان كما هو. خاص بشاشة اللجنة ({committee:true}).
+function setAdminTheme(theme,{committee=false}={}){const diwan=APP_SECTION==="diwan",root=document.documentElement;root.classList.toggle("theme-diwan",diwan);root.classList.toggle("theme-rose",!diwan&&theme==="rose");root.classList.toggle("theme-diwan-female",diwan&&committee&&theme==="rose")}
 const COLOR_MODE_KEY="competition-color-mode";
 function setColorMode(mode){
   document.documentElement.classList.toggle("theme-dark",mode==="dark");
@@ -1127,7 +1129,7 @@ async function enterCloudContext(context){try{operationMode="cloud";stopCommitte
     return;
   }
   resetSubAdminRestrictions();
-  if(!["admin","supervisor"].includes(context.profile.role)){setAdminTheme(context.committee?.responsibleGender==="أنثى"?"rose":"green");$("#app").classList.add("hidden");showScreen("committeeApp");setCommitteeTrack(APP_SECTION==="diwan"?"diwan":"annual");
+  if(!["admin","supervisor"].includes(context.profile.role)){setAdminTheme(context.committee?.responsibleGender==="أنثى"?"rose":"green",{committee:true});$("#app").classList.add("hidden");showScreen("committeeApp");setCommitteeTrack(APP_SECTION==="diwan"?"diwan":"annual");
     // دخول فوري بعد التحقق: تُفتح شاشة اللجنة مباشرة وتُحمَّل قائمة المتسابقين بالخلفية (كانت شاشة «جارٍ تسجيل الدخول» تنتظر كل البيانات).
     $("#committeeName").textContent=`لجنة: ${context.committee?.name||""}`;const list=$("#committeeStudents");if(list)list.innerHTML=`<div class="committee-empty"><b>جارٍ تحميل المتسابقين...</b><p>لحظات من فضلك</p></div>`;
     renderCommitteeWorkspace().catch(error=>toast(`تعذر تحميل بيانات اللجنة: ${error.message}`));startCommitteeAutoRefresh();return}
