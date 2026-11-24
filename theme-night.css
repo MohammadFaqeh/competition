@@ -1,6 +1,6 @@
 /* ==========================================================================
    «ليل المسابقة» — هوية المسابقة السنوية (الإصدار الثاني، 2026-11)
-   كحلي ليلي + نحاسي، خط Readex Pro للواجهة و«ريم كوفي» للعناوين.
+   كحلي ليلي + نحاسي، خط Readex Pro للواجهة وChanga للعناوين (بدل «ريم كوفي» المتشابك — طلب الإدارة 2026-11-24).
    كل قاعدة هنا مقيّدة بـ html.section-annual — قسم «ديوان الحفاظ» (section-diwan) لا يتأثر إطلاقاً.
    يُحمَّل بعد styles.css. الخطوط محلية (assets/fonts) فالموقع يعمل بلا إنترنت؛ الرخصة SIL OFL 1.1.
    لإلغاء الهوية الجديدة والعودة للأخضر: احذف سطر هذا الملف من index.html فقط.
@@ -8,8 +8,8 @@
 
 @font-face{font-family:'Readex Pro';font-style:normal;font-weight:160 700;font-display:swap;src:url(assets/fonts/readexpro-arabic-var.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
 @font-face{font-family:'Readex Pro';font-style:normal;font-weight:160 700;font-display:swap;src:url(assets/fonts/readexpro-latin-var.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'Reem Kufi';font-style:normal;font-weight:400 700;font-display:swap;src:url(assets/fonts/reemkufi-arabic-var.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
-@font-face{font-family:'Reem Kufi';font-style:normal;font-weight:400 700;font-display:swap;src:url(assets/fonts/reemkufi-latin-var.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Changa';font-style:normal;font-weight:200 800;font-display:swap;src:url(assets/fonts/changa-arabic-var.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
+@font-face{font-family:'Changa';font-style:normal;font-weight:200 800;font-display:swap;src:url(assets/fonts/changa-latin-var.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 
 /* 1. الألوان — نفس أسماء المتغيرات (--green-* = «لون الهوية») حتى تتحول كل الواجهة دون لمس قواعدها. */
 html.section-annual{
@@ -54,7 +54,7 @@ html.section-annual{
   --radius:12px;
   --radius-lg:18px;
   --font-arabic:"Readex Pro","Tajawal","IBM Plex Sans Arabic","Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;
-  --font-display:"Reem Kufi","Readex Pro","Tajawal",sans-serif;
+  --font-display:"Changa","Readex Pro","Tajawal",sans-serif;
   --star-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg fill='none' stroke='%23e8b06a' stroke-opacity='.11' stroke-width='1'%3E%3Crect x='31' y='31' width='34' height='34'/%3E%3Crect x='31' y='31' width='34' height='34' transform='rotate(45 48 48)'/%3E%3Ccircle cx='48' cy='48' r='8'/%3E%3Cpath d='M0 48h24M72 48h24M48 0v24M48 72v24'/%3E%3C/g%3E%3C/svg%3E");
 }
 
@@ -159,7 +159,7 @@ html.section-annual.theme-rose.theme-dark{
 
 /* 2. الخطوط */
 html.section-annual body{font-size:14px;line-height:1.7}
-/* «ريم كوفي» للعناوين الكبيرة فقط — بالأحجام الصغيرة يصعب قراءته، فالعناوين الصغيرة ترجع لـReadex Pro. */
+/* Changa للعناوين الكبيرة (مربّع عصري وواضح)؛ العناوين الصغيرة (الشريط العلوي، رؤوس النوافذ) بـReadex Pro. */
 html.section-annual h1,html.section-annual h2{font-family:var(--font-display);font-weight:600;letter-spacing:0}
 html.section-annual h3{font-weight:600}
 html.section-annual .topbar h2,
