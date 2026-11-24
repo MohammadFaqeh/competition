@@ -133,6 +133,30 @@ load([P({ id: "x" })], [], []);
 assert.strictEqual(run("diwanRounds().length"), 0);
 assert.strictEqual(run("diwanOpenRound()"), null);
 
+// ٦ب) الانسحابات بالجولة: من انسحبت خلالها (بلا اختبار) + من سُجّل انسحابها على اختبار فيها — بلا تكرار
+load([
+  P({ id: "w1", stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", gradedAt: "2026-11-23T10:00:00.000Z" }),
+  P({ id: "w2", stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", gradedAt: "2026-09-26T10:00:00.000Z" }),
+  P({ id: "w3", stage: 1, withdrawn: true, score: 0, scoreSource: "withdrawn", gradedAt: "2026-11-21T10:00:00.000Z", lastGradedDrawId: "dw3" }),
+  P({ id: "ok", stage: 2, usedJuz: range(1, 10), lastGradedDrawId: "dok", score: 95 }),
+], [D("dw3", "w3", 1, "2026-11-18T08:00:00.000Z"), D("dok", "ok", 1, "2026-09-25T08:00:00.000Z")], [
+  S("sw3", "w3", "dw3", 1, "final", "2026-11-21T10:00:00.000Z", 0, { withdrawn: true }),
+  S("sok", "ok", "dok", 1, "final", "2026-09-26T10:00:00.000Z", 95),
+  S("snov", "ok", "dok", 1, "final", "2026-11-20T10:00:00.000Z", 95),
+]);
+assert.strictEqual(run("diwanRoundWithdrawals(diwanRounds().find(r=>/تشرين الثاني/.test(r.name)))"), 2, "تشرين الثاني: w1 (بلا اختبار) + w3 (على اختبار) مرة واحدة");
+assert.strictEqual(run("diwanRoundWithdrawals(diwanRounds().find(r=>/أيلول/.test(r.name)))"), 1, "أيلول: w2");
+
+// ٦ج) إلغاء جولة بدأت بالخطأ: تُعلَّم ملغاة فتختفي، ودمج جهازين لا يعيدها
+run("diwanMaterializeRounds();diwanState.config.rounds.forEach(r=>{if(!r.closedAt)r.closedAt='2026-11-24T00:00:00.000Z'});diwanState.config.rounds.push({id:'R-x',name:'جولة بالخطأ',startedAt:'2026-11-24T01:00:00.000Z',closedAt:null})");
+assert.strictEqual(run("diwanOpenRound().id"), "R-x");
+sandbox.confirm = () => true; sandbox.toast = () => {};
+run("confirmCancelDiwanRound()");
+assert.strictEqual(run("diwanOpenRound()"), null, "بعد الإلغاء لا جولة مفتوحة");
+assert.ok(!run("diwanRounds().some(r=>r.id==='R-x')"), "الجولة الملغاة لا تظهر");
+const mergedCancel = sandbox.mergeDiwanRounds([{ id: "R-x", startedAt: "2026-11-24", closedAt: null }], [{ id: "R-x", startedAt: "2026-11-24", closedAt: null, cancelled: true }]);
+assert.ok(mergedCancel[0].cancelled, "دمج جهاز لم يرَ الإلغاء: الإلغاء يغلب");
+
 // ٧) لوحة الإنجاز: الأجزاء المحسوبة تراكمية، المعدل بلا انسحاب ولا «غير مكتمل»، وإنجاز الجولة من draw.credit، والمنسحبة خارج الترتيب
 load([
   P({ id: "a", name: "أ", seat: "1", stage: 3, usedJuz: range(1, 20) }),

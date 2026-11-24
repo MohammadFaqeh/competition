@@ -1856,6 +1856,11 @@ body.settings-drawer-open{overflow:hidden}
 .diwan-round-head h2{margin:2px 0;font-size:22px;color:var(--ink)}
 .diwan-round-head small{color:var(--caption);font-size:12px}
 .diwan-round-total{font-size:12px;font-weight:700;color:var(--muted)}
+.diwan-round-head-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.diwan-round-cancel{display:inline-flex;align-items:center;gap:5px;padding:2px 0;border:0;background:transparent;font:inherit;font-size:12px;font-weight:700;color:var(--red);cursor:pointer}
+.diwan-round-cancel svg{width:14px;height:14px}
+.diwan-round-cancel:hover{text-decoration:underline}
+@media(max-width:600px){.diwan-round-head-side{align-items:flex-start}}
 .diwan-round-counters{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:var(--sp-4)}
 .diwan-round-counters button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--ink);font:inherit;text-align:start;cursor:pointer;transition:border-color var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
 .diwan-round-counters button b{font-size:30px;line-height:1.1}

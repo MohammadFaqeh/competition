@@ -571,6 +571,7 @@ function bindEvents(){
   $("#diwanRoundStartBtn")?.addEventListener("click",openDiwanStartRoundModal);
   $("#diwanStatsScope")?.addEventListener("change",renderDiwanStats);
   $("#diwanRoundCloseBtn")?.addEventListener("click",confirmCloseDiwanRound);
+  $("#diwanRoundCancelBtn")?.addEventListener("click",confirmCancelDiwanRound);
   $("#diwanRoundDocsBtn")?.addEventListener("click",()=>openDiwanRoundDocsModal(diwanOpenRound()));
   $("#diwanRoundExcelBtn")?.addEventListener("click",()=>exportDiwanRoundResults(diwanOpenRound()));
   $$("[data-round-filter]").forEach(b=>b.addEventListener("click",()=>{diwanRoundFilter=diwanRoundFilter===b.dataset.roundFilter?null:b.dataset.roundFilter;renderDiwanParticipants()}));
@@ -753,7 +754,7 @@ const LOGIN_RECOVERY_KINDS={
 function openLoginRecoveryModal(kind){
   const cfg=LOGIN_RECOVERY_KINDS[kind];
   const prefill=$(`#${cfg.prefillId}`)?.value.trim()||"";
-  openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة الدخول</span><h2>${cfg.title}</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">اكتب ${cfg.fieldLabel} — بيوصل رمز تحقق للإدارة، اطلبه منها هاتفياً وأدخله بالخطوة التالية.</p><form id="loginRecoveryStep1" class="form-grid"><label>${cfg.fieldLabel}<input id="recoveryIdentifier" type="${cfg.fieldType}" required value="${escapeAttr(prefill)}" placeholder="${cfg.fieldPlaceholder}"></label><p id="recoveryStep1Error" class="form-error hidden"></p><button class="primary-btn wide" type="submit">إرسال الرمز</button></form></div>`,"bulk-pdf-modal");
+  openModal(`<div class="modal-head"><div><span class="eyebrow">استعادة الدخول</span><h2>${cfg.title}</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p class="field-help">اكتب ${cfg.fieldLabel}، فيُرسَل رمز تحقق إلى الإدارة؛ اطلبه منها هاتفياً ثم أدخله في الخطوة التالية.</p><form id="loginRecoveryStep1" class="form-grid"><label>${cfg.fieldLabel}<input id="recoveryIdentifier" type="${cfg.fieldType}" required value="${escapeAttr(prefill)}" placeholder="${cfg.fieldPlaceholder}"></label><p id="recoveryStep1Error" class="form-error hidden"></p><button class="primary-btn wide" type="submit">إرسال الرمز</button></form></div>`,"bulk-pdf-modal");
   $("#loginRecoveryStep1").addEventListener("submit",event=>submitLoginRecoveryRequest(event,kind));
   $("#recoveryIdentifier").focus();
 }
@@ -3272,17 +3273,27 @@ function diwanDerivedRounds(sessions=diwanAdminSessions){
   return months.map((m,i)=>({id:`R-${m}`,name:diwanRoundNameFor(startOf(m)),startedAt:startOf(m).toISOString(),closedAt:months[i+1]?startOf(months[i+1]).toISOString():null}));
 }
 function diwanSavedRounds(){const saved=diwanState.config?.rounds;return Array.isArray(saved)&&saved.length?saved:null}
-function diwanRounds(){return diwanSavedRounds()||diwanDerivedRounds()}
+function diwanRounds(){const saved=diwanSavedRounds();return saved?saved.filter(r=>!r.cancelled):diwanDerivedRounds()}
 function diwanOpenRound(){return diwanRounds().find(r=>!r.closedAt)||null}
 function diwanInRound(round,iso){if(!round||!iso)return false;const t=new Date(iso).getTime();return t>=new Date(round.startedAt).getTime()&&(!round.closedAt||t<new Date(round.closedAt).getTime())}
 function diwanRoundSessions(round){const ids=new Set(diwanState.participants.map(p=>p.id));return diwanAdminSessions.filter(x=>x.status==="final"&&ids.has(x.participant_id)&&diwanInRound(round,diwanSessionFinalAt(x)))}
 // دمج جولات جهازين (نفس حساب الإدارة على أكثر من جهاز): اتحاد بالمعرّف، والمغلقة تغلب المفتوحة — فلا تضيع جولة بدأت أو أُغلقت بجهاز آخر.
 function mergeDiwanRounds(local,remote){
   const byId=new Map();
-  [...(Array.isArray(remote)?remote:[]),...(Array.isArray(local)?local:[])].forEach(r=>{if(!r?.id)return;const prev=byId.get(r.id);byId.set(r.id,!prev?r:prev.closedAt&&!r.closedAt?prev:r)});
+  [...(Array.isArray(remote)?remote:[]),...(Array.isArray(local)?local:[])].forEach(r=>{if(!r?.id)return;const prev=byId.get(r.id);byId.set(r.id,!prev?r:prev.cancelled&&!r.cancelled?prev:r.cancelled?r:prev.closedAt&&!r.closedAt?prev:r)});
   return [...byId.values()].sort((a,b)=>new Date(a.startedAt)-new Date(b.startedAt));
 }
 window.mergeDiwanRounds=mergeDiwanRounds;
+// الانسحابات في جولة: كل من انسحبت خلالها (تاريخ انسحابها gradedAt ضمن الجولة) أو سُجّل انسحابها على اختبار اعتُمد فيها.
+function diwanRoundWithdrawals(round){const ids=new Set();diwanState.participants.forEach(p=>{if(p.withdrawn&&p.scoreSource==="withdrawn"&&diwanInRound(round,p.gradedAt))ids.add(p.id)});diwanRoundSessions(round).forEach(s=>{if(s.assessment?.withdrawn)ids.add(s.participant_id)});return ids.size}
+// إلغاء جولة بدأت بالخطأ: مسموح فقط ما دام لم تُعتمد فيها أي نتيجة. تُعلَّم «ملغاة» (لا تُحذف) كي لا يعيدها دمج جهاز آخر.
+function confirmCancelDiwanRound(){
+  const round=diwanOpenRound();if(!round)return;
+  if(diwanRoundSessions(round).length)return toast("لا يمكن إلغاء جولة اعتُمدت فيها نتائج — يمكن إغلاقها");
+  if(!confirm(`إلغاء «${round.name}»؟ تُلغى الجولة نفسها فقط، ولا يتغير شيء من بيانات الطالبات أو أجزائهن.`))return;
+  const target=diwanMaterializeRounds().find(r=>r.id===round.id);if(target){target.cancelled=true;target.cancelledAt=new Date().toISOString()}
+  saveDiwanState();diwanRoundFilter=null;renderDiwanParticipants();toast(`أُلغيت ${round.name}`);
+}
 function diwanMaterializeRounds(){if(!diwanSavedRounds())diwanState.config={...diwanState.config,rounds:diwanDerivedRounds()};return diwanState.config.rounds}
 const DIWAN_ROUND_RESULT_KIND=text=>text.startsWith("ناجح")?"passed":text==="منسحب"?"withdrawn":text==="غير مكتمل"?"incomplete":"failed";
 // حالة الطالبة بالجولة: {key:"todo"|"ready"|"done"|"out", sub, session, result}
@@ -3308,6 +3319,7 @@ function renderDiwanRound(){
   $("#diwanNoRoundPanel")?.classList.toggle("hidden",Boolean(round));
   $("#diwanRoundStartBtn")?.classList.toggle("hidden",!writer);
   $("#diwanRoundCloseBtn")?.classList.toggle("hidden",!writer);
+  $("#diwanRoundCancelBtn")?.classList.toggle("hidden",!writer||!round||diwanRoundSessions(round).length>0);
   renderDiwanRoundsArchive();
   if(!round)return;
   if(!diwanResultsReady()){
@@ -3323,19 +3335,19 @@ function renderDiwanRound(){
   const doneRows=rows.filter(r=>r.st.key==="done"),passed=doneRows.filter(r=>r.st.kind==="passed").length,failed=doneRows.filter(r=>r.st.kind==="failed"||r.st.kind==="incomplete").length;
   $("#diwanRoundName").textContent=round.name;
   $("#diwanRoundSince").textContent=`بدأت ${DIWAN_ROUND_DATE.format(new Date(round.startedAt))}`;
-  $("#diwanRoundTotal").textContent=`${formatNumber(total)} طالبة بالجولة${withdrawnOut?` · ${formatNumber(withdrawnOut)} منسحبة خارجها`:""}`;
+  $("#diwanRoundTotal").textContent=`عدد الطالبات: ${formatNumber(total)}${withdrawnOut?` · المنسحبات: ${formatNumber(withdrawnOut)}`:""}`;
   $("#diwanRoundTodo").textContent=formatNumber(todo);$("#diwanRoundReady").textContent=formatNumber(ready);$("#diwanRoundDone").textContent=formatNumber(done);
   const step=(name,complete,note)=>{const li=$(`.diwan-step[data-step="${name}"]`);if(!li)return;li.classList.toggle("is-complete",Boolean(complete));if(note!=null){const small=li.querySelector("small");if(small)small.textContent=note}};
-  step("import",total&&!todo,total?(todo?`${formatNumber(total-todo)} من ${formatNumber(total)} لها أجزاء — ${formatNumber(todo)} بانتظار الأجزاء`:`كل الطالبات (${formatNumber(total)}) لهن أجزاء`):"لا توجد طالبات بالجولة");
+  step("import",total&&!todo,total?(todo?`${formatNumber(total-todo)} من ${formatNumber(total)} لها أجزاء — ${formatNumber(todo)} بانتظار الأجزاء`:`كل الطالبات (${formatNumber(total)}) لهن أجزاء`):"لا توجد طالبات في الجولة");
   step("draw",!parts&&(drawn+inProgress+done)>0,parts?`${formatNumber(parts)} لها أجزاء بانتظار السحب${drawn+inProgress?` · ${formatNumber(drawn+inProgress)} سُحب لها`:""}`:(drawn+inProgress?`سُحب للجميع — ${formatNumber(drawn+inProgress)} بانتظار الاختبار`:"لا يوجد من ينتظر السحب"));
   step("exam",!ready&&done>0,`${formatNumber(done)} انتهت${inProgress?` · ${formatNumber(inProgress)} قيد الاختبار الآن`:""}${drawn?` · ${formatNumber(drawn)} بانتظار اللجنة`:""}`);
-  step("close",false,done?`${formatNumber(passed)} ناجحة و${formatNumber(failed)} لم تنجح بهذه الجولة — بعد الانتهاء أغلق الجولة لتنتقل للأرشيف`:"شهادات الناجحات وتوصيات الراسبات ونتائج الجولة، ثم إغلاقها لتنتقل للأرشيف");
+  step("close",false,done?`${formatNumber(passed)} ناجحة و${formatNumber(failed)} غير ناجحة في هذه الجولة. تُغلق الجولة بعد الانتهاء فتنتقل إلى الأرشيف.`:"شهادات الناجحات وتوصيات غير الناجحات ونتائج الجولة، ثم إغلاق الجولة ونقلها إلى الأرشيف");
   $$("[data-round-filter]").forEach(b=>{b.classList.toggle("is-active",b.dataset.roundFilter===diwanRoundFilter);b.setAttribute("aria-pressed",b.dataset.roundFilter===diwanRoundFilter?"true":"false")});
   const list=$("#diwanRoundList");
   if(list){
     const chosen=diwanRoundFilter?rows.filter(r=>r.st.key===diwanRoundFilter).sort((a,b)=>diwanSeatNumber(a.p)-diwanSeatNumber(b.p)):[];
     list.classList.toggle("hidden",!diwanRoundFilter);
-    const label={todo:"لم تجهز — بانتظار الأجزاء",ready:"جاهزة — لها أجزاء أو سحب ولم تمتحن",done:"انتهت — اعتُمدت نتيجتها بهذه الجولة"}[diwanRoundFilter]||"";
+    const label={todo:"غير جاهزة — لم تُحدَّد أجزاؤها",ready:"جاهزة — لم تُختبر بعد",done:"انتهت — اعتُمدت نتيجتها"}[diwanRoundFilter]||"";
     list.innerHTML=diwanRoundFilter?`<div class="diwan-round-list-head"><b>${escapeHtml(label)}</b><span>${formatNumber(chosen.length)}</span><button type="button" class="text-btn" data-round-filter-close>إخفاء</button></div>${chosen.length?`<div class="diwan-stage-participants">${chosen.map(r=>diwanRoundCardHtml(r)).join("")}</div>`:`<p class="diwan-stage-empty">لا يوجد</p>`}`:"";
     $("[data-round-filter-close]")?.addEventListener("click",()=>{diwanRoundFilter=null;renderDiwanParticipants()});
   }
@@ -3345,7 +3357,7 @@ function renderDiwanRound(){
 function diwanRoundCardHtml({p,st}){
   const card=diwanParticipantCardHtml(p,true);
   if(st.key!=="done")return card;
-  const label={passed:"ناجحة",failed:"لم تنجح",withdrawn:"منسحبة",incomplete:"غير مكتمل"}[st.kind]||st.result;
+  const label={passed:"ناجحة",failed:"غير ناجحة",withdrawn:"منسحبة",incomplete:"غير مكتمل"}[st.kind]||st.result;
   const score=st.kind==="withdrawn"||st.kind==="incomplete"||!Number.isFinite(Number(st.session?.score))?"":` · ${formatAssessmentNumber(Number(st.session.score))}`;
   const moved=st.kind==="passed"&&diwanStageOf(p)>Number(st.session?.stage)?` — انتقلت إلى ${DIWAN_STAGE_LABELS[diwanStageOf(p)]}`:"";
   return `<div class="diwan-round-card"><span class="diwan-round-result is-${st.kind}">${escapeHtml(label)}${score} · ${escapeHtml(DIWAN_STAGE_LABELS[st.session?.stage]||"")}${escapeHtml(moved)}</span>${card}</div>`;
@@ -3403,14 +3415,14 @@ function renderDiwanStats(){
     tile("users","الطالبات المستمرات",formatNumber(t.active),""),
     tile("book-open-check","الأجزاء المحسوبة",formatNumber(t.juz),t.active?`متوسط ${formatAssessmentNumber(Math.round(t.juz/t.active*10)/10)} جزءاً للطالبة`:""),
     tile("award",round?"متوسط العلامات بالجولة":"متوسط العلامات",t.avg==null?"—":formatAssessmentNumber(Math.round(t.avg*10)/10),round?escapeHtml(round.name):"كل الاختبارات المعتمدة"),
-    round?tile("trending-up","أجزاء جديدة بالجولة",formatNumber(t.gained),"حُسبت بنجاحات الجولة"):tile("badge-check","حافظات معتمدات",formatNumber(t.certified),"القرآن كاملاً")].join("");
+    round?tile("trending-up","الأجزاء الجديدة في الجولة",formatNumber(t.gained),"المعتمدة في الجولة"):tile("badge-check","حافظات معتمدات",formatNumber(t.certified),"القرآن كاملاً")].join("");
   const empty=text=>`<li class="diwan-rank-empty">${text}</li>`;
   $("#diwanRankJuz").innerHTML=data.byJuz.slice(0,10).map((r,i)=>diwanRankItemHtml(r,i,{value:formatNumber(r.juz),unit:"من 30",bar:r.juz/DIWAN_TOTAL_JUZ})).join("")||empty("لا توجد طالبات بعد");
-  $("#diwanRankAvgHint").textContent=round?`الأكثر أجزاءً جديدة في ${round.name} أولاً، ثم الأعلى معدّلاً`:"الأكثر أجزاءً معتمدة أولاً، ثم الأعلى معدّلاً";
-  $("#diwanRankAvg").innerHTML=data.byAvg.slice(0,10).map((r,i)=>diwanRankItemHtml(r,i,{value:formatAssessmentNumber(Math.round(r.avg*10)/10),unit:`${round?"+":""}${formatNumber(round?r.gained:r.juz)} جزءاً · ${r.exams===1?"اختبار واحد":`${formatNumber(r.exams)} اختبارات`}`})).join("")||empty("لا توجد علامات معتمدة بهذه الفترة");
+  $("#diwanRankAvgHint").textContent=round?`بحسب الأجزاء الجديدة المعتمدة في ${round.name}، ثم المعدّل`:"بحسب الأجزاء المعتمدة، ثم المعدّل";
+  $("#diwanRankAvg").innerHTML=data.byAvg.slice(0,10).map((r,i)=>diwanRankItemHtml(r,i,{value:formatAssessmentNumber(Math.round(r.avg*10)/10),unit:`${round?"+":""}${formatNumber(round?r.gained:r.juz)} جزءاً · ${r.exams===1?"اختبار واحد":`${formatNumber(r.exams)} اختبارات`}`})).join("")||empty("لا توجد علامات معتمدة في هذه الفترة");
   $("#diwanRankRoundPanel")?.classList.toggle("hidden",!round);
-  if(round){$("#diwanRankRoundTitle").textContent=`إنجاز ${round.name}`;$("#diwanRankRound").innerHTML=data.byGain.slice(0,10).map((r,i)=>diwanRankItemHtml(r,i,{value:`+${formatNumber(r.gained)}`,unit:"جزء جديد"})).join("")||empty("لم تُحسب أجزاء جديدة بهذه الجولة")}
-  $("#diwanCentersHint").textContent=round?`المستمرات بكل مركز، ومتوسط علاماتهن ونجاحاتهن في ${round.name}`:"المستمرات بكل مركز، ومتوسط أجزائهن وعلاماتهن";
+  if(round){$("#diwanRankRoundTitle").textContent=`إنجاز ${round.name}`;$("#diwanRankRound").innerHTML=data.byGain.slice(0,10).map((r,i)=>diwanRankItemHtml(r,i,{value:`+${formatNumber(r.gained)}`,unit:"جزء جديد"})).join("")||empty("لا توجد أجزاء جديدة معتمدة في هذه الجولة")}
+  $("#diwanCentersHint").textContent=round?`عدد الطالبات المستمرات ومتوسط العلامات والنجاحات في كل مركز — ${round.name}`:"عدد الطالبات المستمرات ومتوسط الأجزاء والعلامات في كل مركز";
   $("#diwanCentersBody").innerHTML=data.centers.map(c=>`<tr><td title="${escapeAttr(c.center)}">${escapeHtml(c.center.replace(/^مركز\s+/,"").replace(/\s+القرآني$/,""))}</td><td>${formatNumber(c.count)}</td><td>${formatAssessmentNumber(Math.round(c.juz/c.count*10)/10)}</td><td>${c.scores.length?formatAssessmentNumber(Math.round(c.scores.reduce((a,b)=>a+b,0)/c.scores.length*10)/10):"—"}</td><td>${formatNumber(c.passes)}</td></tr>`).join("")||`<tr><td colspan="5" class="diwan-stage-empty">لا توجد بيانات</td></tr>`;
   $$("#diwanStatsView [data-diwan-profile]").forEach(b=>b.onclick=()=>openDiwanStudentProfile(b.dataset.diwanProfile));
   lucide.createIcons();
@@ -3423,15 +3435,15 @@ function renderDiwanRoundsArchive(){
   box.innerHTML=closed.map(r=>{
     if(!ready)return `<article class="diwan-archive-row"><div><b>${escapeHtml(r.name)}</b><small>${DIWAN_ROUND_DATE.format(new Date(r.startedAt))} — ${DIWAN_ROUND_DATE.format(new Date(new Date(r.closedAt).getTime()-1))}</small></div><div class="diwan-archive-stats"><span>${diwanResultsPendingText()}</span></div><div class="diwan-archive-actions"></div></article>`;
     const sessions=diwanRoundSessions(r),kinds=sessions.map(x=>DIWAN_ROUND_RESULT_KIND(diwanSessionResultText(x,diwanState.draws.find(d=>d.id===x.draw_id))));
-    const n=k=>kinds.filter(x=>x===k).length,people=new Set(sessions.map(x=>x.participant_id)).size;
-    return `<article class="diwan-archive-row"><div><b>${escapeHtml(r.name)}</b><small>${DIWAN_ROUND_DATE.format(new Date(r.startedAt))} — ${DIWAN_ROUND_DATE.format(new Date(new Date(r.closedAt).getTime()-1))}</small></div><div class="diwan-archive-stats"><span>${formatNumber(people)} امتحنت</span><span class="is-passed">${formatNumber(n("passed"))} نجاح</span><span class="is-failed">${formatNumber(n("failed")+n("incomplete"))} لم تنجح</span>${n("withdrawn")?`<span>${formatNumber(n("withdrawn"))} انسحاب</span>`:""}</div><div class="diwan-archive-actions"><button type="button" class="secondary-btn" data-round-docs="${escapeAttr(r.id)}"${sessions.length?"":" disabled"}><i data-lucide="file-down"></i> الوثائق</button><button type="button" class="secondary-btn" data-round-excel="${escapeAttr(r.id)}"${sessions.length?"":" disabled"}><i data-lucide="file-spreadsheet"></i> النتائج</button></div></article>`;
+    const n=k=>kinds.filter(x=>x===k).length,people=new Set(sessions.map(x=>x.participant_id)).size,withdrawals=diwanRoundWithdrawals(r);
+    return `<article class="diwan-archive-row"><div><b>${escapeHtml(r.name)}</b><small>${DIWAN_ROUND_DATE.format(new Date(r.startedAt))} — ${DIWAN_ROUND_DATE.format(new Date(new Date(r.closedAt).getTime()-1))}</small></div><div class="diwan-archive-stats"><span>${formatNumber(people)} امتحنت</span><span class="is-passed">${formatNumber(n("passed"))} نجاح</span><span class="is-failed">${formatNumber(n("failed")+n("incomplete"))} غير ناجحة</span>${withdrawals?`<span>${formatNumber(withdrawals)} انسحاب</span>`:""}</div><div class="diwan-archive-actions"><button type="button" class="secondary-btn" data-round-docs="${escapeAttr(r.id)}"${sessions.length?"":" disabled"}><i data-lucide="file-down"></i> الوثائق</button><button type="button" class="secondary-btn" data-round-excel="${escapeAttr(r.id)}"${sessions.length?"":" disabled"}><i data-lucide="file-spreadsheet"></i> النتائج</button></div></article>`;
   }).join("");
   $$("[data-round-docs]").forEach(b=>b.onclick=()=>openDiwanRoundDocsModal(diwanRounds().find(r=>r.id===b.dataset.roundDocs)));
   $$("[data-round-excel]").forEach(b=>b.onclick=()=>exportDiwanRoundResults(diwanRounds().find(r=>r.id===b.dataset.roundExcel)));
 }
 function openDiwanStartRoundModal(){
-  if(diwanOpenRound())return toast("أغلق الجولة الحالية أولاً");
-  openModal(`<form id="diwanStartRoundForm"><div class="modal-head"><div><span class="eyebrow">ديوان الحفاظ</span><h2>بدء جولة جديدة</h2></div><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><label>اسم الجولة<input id="diwanRoundNameInput" required maxlength="60" value="${escapeAttr(diwanRoundNameFor(new Date()))}"></label><p class="field-help">الطالبات ينتقلن كما هنّ: من نجحت تنتظر أجزاء اختبارها التالي، ومن رسبت تنتظر أجزاء إعادتها، والمنسحبات خارج الجولة. ابدأ بتنزيل ملف المراكز.</p></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button type="submit" class="primary-btn"><i data-lucide="play"></i> بدء الجولة</button></div></form>`);
+  if(diwanOpenRound())return toast("يجب إغلاق الجولة الحالية أولاً");
+  openModal(`<form id="diwanStartRoundForm"><div class="modal-head"><div><span class="eyebrow">ديوان الحفاظ</span><h2>بدء جولة جديدة</h2></div><button type="button" class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><label>اسم الجولة<input id="diwanRoundNameInput" required maxlength="60" value="${escapeAttr(diwanRoundNameFor(new Date()))}"></label><p class="field-help">تنتقل الطالبات إلى الجولة الجديدة بحالاتهن الحالية، والخطوة الأولى تنزيل ملف المراكز.</p></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button type="submit" class="primary-btn"><i data-lucide="play"></i> بدء الجولة</button></div></form>`);
   lucide.createIcons();
   $("#diwanStartRoundForm").onsubmit=event=>{event.preventDefault();const name=$("#diwanRoundNameInput").value.trim();if(!name)return;
     const rounds=diwanMaterializeRounds();rounds.push({id:uid("R"),name,startedAt:new Date().toISOString(),closedAt:null});
@@ -3440,9 +3452,9 @@ function openDiwanStartRoundModal(){
 function confirmCloseDiwanRound(){
   const round=diwanOpenRound();if(!round)return;
   const rows=diwanState.participants.map(p=>diwanRoundStatus(p,round)),ready=rows.filter(r=>r.key==="ready").length,done=rows.filter(r=>r.key==="done").length;
-  openModal(`<div class="modal-head"><div><span class="eyebrow">ديوان الحفاظ</span><h2>إغلاق ${escapeHtml(round.name)}</h2></div><button class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><p>تنتقل الجولة للأرشيف مع نتائجها (${formatNumber(done)} اختبار انتهى)، وتبقى شهاداتها وتوصياتها ونتائجها قابلة للتنزيل منه في أي وقت.</p>${ready?`<p class="form-error">${formatNumber(ready)} طالبة لها أجزاء أو سحب ولم تمتحن بعد — تبقى كما هي وتظهر في الجولة القادمة.</p>`:""}<p class="field-help">لا يُحذف أي شيء، ولا تتغير مرحلة أي طالبة.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button type="button" class="primary-btn" id="confirmCloseDiwanRound"><i data-lucide="archive"></i> إغلاق الجولة</button></div>`);
+  openModal(`<div class="modal-head"><div><span class="eyebrow">ديوان الحفاظ</span><h2>إغلاق ${escapeHtml(round.name)}</h2></div><button class="icon-btn" data-close title="إغلاق"><i data-lucide="x"></i></button></div><div class="modal-body"><p>تنتقل الجولة إلى الأرشيف مع نتائجها (عدد الاختبارات المعتمدة: ${formatNumber(done)})، وتبقى وثائقها ونتائجها متاحة للتنزيل.</p>${ready?`<p class="form-error">عدد الطالبات اللواتي لم يُختبرن بعد: ${formatNumber(ready)}، ويبقين على حالهن في الجولة القادمة.</p>`:""}<p class="field-help">لا يُحذف أي شيء، ولا تتغير مرحلة أي طالبة.</p></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button type="button" class="primary-btn" id="confirmCloseDiwanRound"><i data-lucide="archive"></i> إغلاق الجولة</button></div>`);
   lucide.createIcons();
-  $("#confirmCloseDiwanRound").onclick=()=>{const rounds=diwanMaterializeRounds(),target=rounds.find(r=>r.id===round.id);if(target)target.closedAt=new Date().toISOString();saveDiwanState();closeModal();diwanRoundFilter=null;renderDiwanParticipants();toast(`أُغلقت ${round.name} وانتقلت للأرشيف`)};
+  $("#confirmCloseDiwanRound").onclick=()=>{const rounds=diwanMaterializeRounds(),target=rounds.find(r=>r.id===round.id);if(target)target.closedAt=new Date().toISOString();saveDiwanState();closeModal();diwanRoundFilter=null;renderDiwanParticipants();toast(`أُغلقت ${round.name} ونُقلت إلى الأرشيف`)};
 }
 // وثائق الجولة: شهادة لكل نجاح وتوصية لكل عدم نجاح اعتُمد بالجولة (من كل الاختبارات)، بفلتر المركز والنتيجة.
 function diwanRoundDocumentJobs(round){
@@ -3494,7 +3506,7 @@ function renderDiwanParticipants(){
   // و«عرض ←» ظاهرة؛ المنسحبات بطاقة باهتة منفصلة. نفس الوظيفة: الضغط يفتح صفحة المرحلة.
   const stageCounts=[1,2,3,4].map(stage=>stage===4?all.filter(p=>activeOf(p)&&diwanStageOf(p)===4).length:all.filter(p=>activeOf(p)&&!p.certified&&diwanStageOf(p)===stage).length);
   const pathTotal=Math.max(1,stageCounts.reduce((a,b)=>a+b,0));
-  $("#diwanStageBoard").innerHTML=`<div class="diwan-path-head"><span>مسار الطالبات</span><small>من الاختبار الأول حتى القرآن كاملاً — اضغط أي مرحلة لعرض طالباتها</small></div><div class="diwan-path">`+[1,2,3,4].map((stage,i)=>{
+  $("#diwanStageBoard").innerHTML=`<div class="diwan-path-head"><span>مسار الطالبات</span></div><div class="diwan-path">`+[1,2,3,4].map((stage,i)=>{
     const n=stageCounts[i];
     return `${i?`<span class="diwan-path-arrow" aria-hidden="true"><i data-lucide="chevron-left"></i></span>`:""}<button type="button" class="diwan-path-step stage-${stage}" data-open-stage="${stage}"><span class="diwan-path-name">${stage===4?"★ ":""}${escapeHtml(DIWAN_STAGE_LABELS[stage])}</span><b>${formatNumber(n)}</b><span class="diwan-path-bar" aria-hidden="true"><i style="width:${Math.round(n/pathTotal*100)}%"></i></span><span class="diwan-path-open">عرض <i data-lucide="arrow-left"></i></span></button>`;
   }).join("")+(withdrawnCount?`<button type="button" class="diwan-path-out" data-open-stage="1" title="المنسحبات بصفحة الاختبار الأول (فلتر «منسحب»)"><span>منسحبات</span><b>${formatNumber(withdrawnCount)}</b></button>`:"")+`</div>`;

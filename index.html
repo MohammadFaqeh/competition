@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261124-profile-2">
+  <link rel="stylesheet" href="styles.css?v=20261124-formal">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -311,24 +311,24 @@
           <!-- الجولة (قرار الإدارة 2026-11-24): أساس الصفحة — خطوات كل جولة بالترتيب، وثلاث حالات للطالبة، وأرشيف الجولات. -->
           <div id="diwanHome">
             <section id="diwanRoundPanel" class="panel diwan-round">
-              <div class="diwan-round-head"><div><span class="eyebrow">الجولة الحالية</span><h2 id="diwanRoundName">—</h2><small id="diwanRoundSince"></small></div><span id="diwanRoundTotal" class="diwan-round-total"></span></div>
+              <div class="diwan-round-head"><div><span class="eyebrow">الجولة الحالية</span><h2 id="diwanRoundName">—</h2><small id="diwanRoundSince"></small></div><div class="diwan-round-head-side"><span id="diwanRoundTotal" class="diwan-round-total"></span><button id="diwanRoundCancelBtn" class="text-btn diwan-round-cancel hidden" type="button"><i data-lucide="x-circle"></i> إلغاء الجولة</button></div></div>
               <div class="diwan-round-counters" role="group" aria-label="حالات الطالبات بالجولة">
-                <button type="button" data-round-filter="todo" class="is-todo"><b id="diwanRoundTodo">0</b><span>لم تجهز</span><small>بانتظار الأجزاء</small></button>
-                <button type="button" data-round-filter="ready" class="is-ready"><b id="diwanRoundReady">0</b><span>جاهزة</span><small>لها أجزاء أو سحب ولم تمتحن</small></button>
-                <button type="button" data-round-filter="done" class="is-done"><b id="diwanRoundDone">0</b><span>انتهت</span><small>اعتُمدت نتيجتها بهذه الجولة</small></button>
+                <button type="button" data-round-filter="todo" class="is-todo"><b id="diwanRoundTodo">0</b><span>غير جاهزة</span><small>لم تُحدَّد أجزاؤها</small></button>
+                <button type="button" data-round-filter="ready" class="is-ready"><b id="diwanRoundReady">0</b><span>جاهزة</span><small>لم تُختبر بعد</small></button>
+                <button type="button" data-round-filter="done" class="is-done"><b id="diwanRoundDone">0</b><span>انتهت</span><small>اعتُمدت نتيجتها</small></button>
               </div>
               <div id="diwanRoundList" class="diwan-round-list hidden"></div>
               <ol class="diwan-steps">
-                <li class="diwan-step" data-step="centers"><span class="diwan-step-num">1</span><div class="diwan-step-body"><b>ملف المراكز</b><small id="diwanStepCentersNote">يُرسَل للمراكز لتكتب أجزاء كل طالبة، ثم يُستورد كما هو</small></div><div class="diwan-step-actions"><button id="diwanCentersExportBtn" class="secondary-btn" type="button"><i data-lucide="send"></i> تنزيل ملف المراكز</button></div></li>
+                <li class="diwan-step" data-step="centers"><span class="diwan-step-num">1</span><div class="diwan-step-body"><b>ملف المراكز</b><small id="diwanStepCentersNote">يُرسَل إلى المراكز لتحديد أجزاء كل طالبة، ثم يُستورد</small></div><div class="diwan-step-actions"><button id="diwanCentersExportBtn" class="secondary-btn" type="button"><i data-lucide="send"></i> تنزيل ملف المراكز</button></div></li>
                 <li class="diwan-step" data-step="import"><span class="diwan-step-num">2</span><div class="diwan-step-body"><b>استيراد الأجزاء</b><small id="diwanStepImportNote"></small></div><div class="diwan-step-actions"><label class="secondary-btn file-btn"><i data-lucide="upload"></i> استيراد ملف المراكز<input id="diwanImportInput" type="file" accept=".xlsx,.xls,.csv"></label></div></li>
                 <li class="diwan-step" data-step="draw"><span class="diwan-step-num">3</span><div class="diwan-step-body"><b>التوزيع والسحب</b><small id="diwanStepDrawNote"></small></div><div class="diwan-step-actions"><button id="diwanDistributeBtn" class="secondary-btn hidden" type="button"><i data-lucide="shuffle"></i> توزيع على اللجان</button><button id="diwanBulkDrawBtn" class="secondary-btn" type="button"><i data-lucide="layers"></i> سحب للجميع</button></div></li>
                 <li class="diwan-step" data-step="exam"><span class="diwan-step-num">4</span><div class="diwan-step-body"><b>يوم الاختبار</b><small id="diwanStepExamNote"></small></div><div class="diwan-step-actions"><button id="diwanSyncCommitteesBtn" class="secondary-btn hidden" type="button"><i data-lucide="refresh-cw"></i> تحديث نتائج اللجان</button></div></li>
-                <li class="diwan-step" data-step="close"><span class="diwan-step-num">5</span><div class="diwan-step-body"><b>النتائج والإغلاق</b><small id="diwanStepCloseNote">شهادات الناجحات وتوصيات الراسبات ونتائج الجولة، ثم إغلاقها لتنتقل للأرشيف</small></div><div class="diwan-step-actions"><button id="diwanRoundDocsBtn" class="secondary-btn" type="button"><i data-lucide="file-down"></i> الشهادات والتوصيات</button><button id="diwanRoundExcelBtn" class="secondary-btn" type="button"><i data-lucide="file-spreadsheet"></i> نتائج الجولة Excel</button><button id="diwanRoundCloseBtn" class="primary-btn" type="button"><i data-lucide="archive"></i> إغلاق الجولة</button></div></li>
+                <li class="diwan-step" data-step="close"><span class="diwan-step-num">5</span><div class="diwan-step-body"><b>النتائج والإغلاق</b><small id="diwanStepCloseNote">شهادات الناجحات وتوصيات غير الناجحات ونتائج الجولة، ثم إغلاق الجولة ونقلها إلى الأرشيف</small></div><div class="diwan-step-actions"><button id="diwanRoundDocsBtn" class="secondary-btn" type="button"><i data-lucide="file-down"></i> الشهادات والتوصيات</button><button id="diwanRoundExcelBtn" class="secondary-btn" type="button"><i data-lucide="file-spreadsheet"></i> نتائج الجولة Excel</button><button id="diwanRoundCloseBtn" class="primary-btn" type="button"><i data-lucide="archive"></i> إغلاق الجولة</button></div></li>
               </ol>
             </section>
             <section id="diwanNoRoundPanel" class="panel diwan-round diwan-no-round hidden">
               <i data-lucide="calendar-plus"></i>
-              <div><h2>لا توجد جولة مفتوحة</h2><p>عند التحضير للاختبار القادم ابدأ جولة جديدة: الطالبات ينتقلن معك كما هنّ (من نجحت تنتظر أجزاء اختبارها التالي، ومن رسبت تنتظر أجزاء إعادتها).</p></div>
+              <div><h2>لا توجد جولة مفتوحة</h2><p>تبدأ الجولة الجديدة عند التحضير للاختبار القادم، وتنتقل إليها الطالبات بحالاتهن الحالية.</p></div>
               <button id="diwanRoundStartBtn" class="primary-btn" type="button"><i data-lucide="play"></i> بدء جولة جديدة</button>
             </section>
             <section id="diwanOverviewPanel" class="panel table-panel">
@@ -348,14 +348,14 @@
 
         <!-- لوحة الإنجاز (طلب الإدارة 2026-11-24): ترتيب الطالبات المستمرات بالأجزاء المحسوبة والمعدل، وإنجاز كل جولة، والمراكز — تتحدث مع كل نتيجة. -->
         <section id="diwanStatsView" class="view">
-          <div class="page-head diwan-head"><div><span class="eyebrow">ديوان الحفاظ — فرع الكورة</span><h1>لوحة الإنجاز</h1><p class="diwan-stats-lead">ترتيب الطالبات المستمرات — يتحدث تلقائياً مع كل نتيجة تُعتمد. المنسحبات خارج الترتيب.</p></div><div class="page-actions"><label class="diwan-stats-scope">الفترة<select id="diwanStatsScope" aria-label="فترة الإحصائيات"><option value="all">كل الجولات</option></select></label></div></div>
+          <div class="page-head diwan-head"><div><span class="eyebrow">ديوان الحفاظ — فرع الكورة</span><h1>لوحة الإنجاز</h1><p class="diwan-stats-lead">ترتيب الطالبات المستمرات وفق الأجزاء المعتمدة والمعدّلات.</p></div><div class="page-actions"><label class="diwan-stats-scope">الفترة<select id="diwanStatsScope" aria-label="فترة الإحصائيات"><option value="all">كل الجولات</option></select></label></div></div>
           <div id="diwanStatsTiles" class="diwan-stats-tiles"></div>
           <div class="diwan-stats-grid">
-            <section class="panel diwan-rank-panel"><div class="panel-head"><div><h3>الأكثر أجزاءً</h3><small>الأجزاء المحسوبة من 30 — من تمشي أكثر</small></div><i data-lucide="book-open-check"></i></div><ol id="diwanRankJuz" class="diwan-rank-list"></ol></section>
+            <section class="panel diwan-rank-panel"><div class="panel-head"><div><h3>الأكثر أجزاءً</h3><small>عدد الأجزاء المعتمدة من ثلاثين جزءاً</small></div><i data-lucide="book-open-check"></i></div><ol id="diwanRankJuz" class="diwan-rank-list"></ol></section>
             <section class="panel diwan-rank-panel"><div class="panel-head"><div><h3>الأعلى معدّلاً</h3><small id="diwanRankAvgHint">متوسط علامات كل اختباراتها</small></div><i data-lucide="award"></i></div><ol id="diwanRankAvg" class="diwan-rank-list"></ol></section>
           </div>
-          <section id="diwanRankRoundPanel" class="panel diwan-rank-panel hidden"><div class="panel-head"><div><h3 id="diwanRankRoundTitle">إنجاز الجولة</h3><small>من كسبت أكثر أجزاء جديدة بهذه الجولة</small></div><i data-lucide="trending-up"></i></div><ol id="diwanRankRound" class="diwan-rank-list diwan-rank-list-wide"></ol></section>
-          <section class="panel table-panel diwan-centers-panel"><div class="panel-head"><div><h3>المراكز</h3><small id="diwanCentersHint">المستمرات بكل مركز، ومتوسط أجزائهن وعلاماتهن</small></div><i data-lucide="building-2"></i></div><div class="table-wrap"><table class="diwan-centers-table"><thead><tr><th>المركز</th><th>المستمرات</th><th>متوسط الأجزاء</th><th>متوسط العلامة</th><th>نجاحات</th></tr></thead><tbody id="diwanCentersBody"></tbody></table></div></section>
+          <section id="diwanRankRoundPanel" class="panel diwan-rank-panel hidden"><div class="panel-head"><div><h3 id="diwanRankRoundTitle">إنجاز الجولة</h3><small>الأجزاء الجديدة المعتمدة في الجولة</small></div><i data-lucide="trending-up"></i></div><ol id="diwanRankRound" class="diwan-rank-list diwan-rank-list-wide"></ol></section>
+          <section class="panel table-panel diwan-centers-panel"><div class="panel-head"><div><h3>المراكز</h3><small id="diwanCentersHint">عدد الطالبات المستمرات ومتوسط الأجزاء والعلامات في كل مركز</small></div><i data-lucide="building-2"></i></div><div class="table-wrap"><table class="diwan-centers-table"><thead><tr><th>المركز</th><th>المستمرات</th><th>متوسط الأجزاء</th><th>متوسط العلامة</th><th>نجاحات</th></tr></thead><tbody id="diwanCentersBody"></tbody></table></div></section>
         </section>
 
         <section id="diwanStudentsView" class="view">
@@ -505,7 +505,7 @@
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20261124-rounds"></script>
-  <script src="app.js?v=20261124-results-loading"></script>
+  <script src="app.js?v=20261124-formal"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>
