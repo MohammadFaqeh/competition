@@ -1,0 +1,324 @@
+/* ==========================================================================
+   «ليل المسابقة» — هوية المسابقة السنوية (الإصدار الثاني، 2026-11)
+   كحلي ليلي + نحاسي، خط Readex Pro للواجهة و«ريم كوفي» للعناوين.
+   كل قاعدة هنا مقيّدة بـ html.section-annual — قسم «ديوان الحفاظ» (section-diwan) لا يتأثر إطلاقاً.
+   يُحمَّل بعد styles.css. الخطوط محلية (assets/fonts) فالموقع يعمل بلا إنترنت؛ الرخصة SIL OFL 1.1.
+   لإلغاء الهوية الجديدة والعودة للأخضر: احذف سطر هذا الملف من index.html فقط.
+   ========================================================================== */
+
+@font-face{font-family:'Readex Pro';font-style:normal;font-weight:160 700;font-display:swap;src:url(assets/fonts/readexpro-arabic-var.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
+@font-face{font-family:'Readex Pro';font-style:normal;font-weight:160 700;font-display:swap;src:url(assets/fonts/readexpro-latin-var.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Reem Kufi';font-style:normal;font-weight:400 700;font-display:swap;src:url(assets/fonts/reemkufi-arabic-var.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
+@font-face{font-family:'Reem Kufi';font-style:normal;font-weight:400 700;font-display:swap;src:url(assets/fonts/reemkufi-latin-var.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+/* 1. الألوان — نفس أسماء المتغيرات (--green-* = «لون الهوية») حتى تتحول كل الواجهة دون لمس قواعدها. */
+html.section-annual{
+  --green-950:#0a1128;
+  --green-900:#0f1a3d;
+  --green-800:#1d2d63;
+  --green-700:#2b3f80;
+  --green-600:#3c56a3;
+  --green-100:#e1e6f5;
+  --green-50:#f1f3fa;
+  --gold:#c98a3d;
+  --gold-600:#875718;
+  --gold-soft:#f8ecd9;
+  --ink:#121a33;
+  --ink-soft:#2c3553;
+  --muted:#5b6380;
+  --faint:#9aa1b8;
+  --caption:#505874;
+  --line:#e0e4ee;
+  --line-soft:#edf0f6;
+  --surface:#fff;
+  --canvas:#f3f5fa;
+  --blue:#2f6f8f;
+  --blue-soft:#e2eff4;
+  --shadow-rgb:12,20,48;
+  --overlay-rgb:6,10,26;
+  --accent-rgb:43,63,128;
+  --on-brand-soft:#c5cde6;
+  --on-brand-muted:#aab4d4;
+  --on-brand-faint:#959fc3;
+  --control-border:#cdd3e4;
+  --control-border-hover:#b4bdd6;
+  --accent-on-surface:var(--green-800);
+  --active-solid:#1d2d63;
+  /* خاصة بالهوية */
+  --night:#0a1128;          /* أعمق كحلي: القائمة الجانبية وشاشات الدخول */
+  --night-raised:#121c40;   /* بطاقة فوق الليل */
+  --copper:#e8b06a;         /* النحاسي المضيء فوق الكحلي (نص/أيقونات/خطوط) — 9.6:1 على --night */
+  --copper-strong:#d99a4e;  /* زر نحاسي */
+  --on-copper:#0a1128;
+  --radius-sm:8px;
+  --radius:12px;
+  --radius-lg:18px;
+  --font-arabic:"Readex Pro","Tajawal","IBM Plex Sans Arabic","Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+  --font-display:"Reem Kufi","Readex Pro","Tajawal",sans-serif;
+  --star-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg fill='none' stroke='%23e8b06a' stroke-opacity='.11' stroke-width='1'%3E%3Crect x='31' y='31' width='34' height='34'/%3E%3Crect x='31' y='31' width='34' height='34' transform='rotate(45 48 48)'/%3E%3Ccircle cx='48' cy='48' r='8'/%3E%3Cpath d='M0 48h24M72 48h24M48 0v24M48 72v24'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* النسخة الأنثوية من الليل: نفس الكحلي العميق بصبغة بنفسجية خفيفة، والنحاسي يصير وردياً هادئاً. */
+html.section-annual.theme-rose{
+  --green-950:#140f2c;
+  --green-900:#1e1640;
+  --green-800:#3d2763;
+  --green-700:#5a3a86;
+  --green-600:#7a52a8;
+  --green-100:#ebe3f5;
+  --green-50:#f6f2fb;
+  --gold:#c56f90;
+  --gold-600:#94385c;
+  --gold-soft:#f9e6ee;
+  --ink:#1a1530;
+  --ink-soft:#352d50;
+  --muted:#635a7e;
+  --faint:#a39cb8;
+  --caption:#574f72;
+  --line:#e6e1ef;
+  --line-soft:#f1eef7;
+  --canvas:#f6f4fa;
+  --shadow-rgb:24,14,46;
+  --overlay-rgb:12,6,26;
+  --accent-rgb:90,58,134;
+  --on-brand-soft:#d6cce8;
+  --on-brand-muted:#bcb0d6;
+  --on-brand-faint:#a596c4;
+  --control-border:#d6cfe4;
+  --control-border-hover:#c0b6d6;
+  --active-solid:#3d2763;
+  --night:#140f2c;
+  --night-raised:#1f1842;
+  --copper:#eda7c1;
+  --copper-strong:#e08aab;
+  --on-copper:#140f2c;
+  --star-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg fill='none' stroke='%23eda7c1' stroke-opacity='.11' stroke-width='1'%3E%3Crect x='31' y='31' width='34' height='34'/%3E%3Crect x='31' y='31' width='34' height='34' transform='rotate(45 48 48)'/%3E%3Ccircle cx='48' cy='48' r='8'/%3E%3Cpath d='M0 48h24M72 48h24M48 0v24M48 72v24'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* الوضع الداكن — ليل كامل. */
+html.section-annual.theme-dark{
+  --ink:#e7ebf7;
+  --ink-soft:#c3cae0;
+  --muted:#9ba4c2;
+  --faint:#5c6688;
+  --caption:#a9b1cc;
+  --line:#24305a;
+  --line-soft:#1b2649;
+  --surface:#111a38;
+  --canvas:#0a1128;
+  --green-50:#16214a;
+  --green-100:#1e2d60;
+  --green-600:#7f97e6;
+  --green-700:#93a9f0;
+  --green-800:#b4c5ff;
+  --gold:#e8b06a;
+  --gold-soft:#3a2b14;
+  --gold-600:#ecb877;
+  --blue-soft:#14283a;
+  --red-soft:#3a2020;
+  --red:#e58c8c;
+  --control-border:#2e3c6c;
+  --control-border-hover:#3d4e84;
+  --accent-on-surface:#b4c5ff;
+  --accent-rgb:127,151,230;
+  --overlay-rgb:2,4,12;
+  --active-solid:#2b3f80;
+  --night:#070c1e;
+  --night-raised:#111a38;
+  /* الأزرار الأساسية والأسطح الصلبة بنص أبيض: أفتح من الخلفية حتى تبان (كانت #0f1a3d تذوب بخلفية الليل) */
+  --green-900:#24356f;
+}
+html.section-annual.theme-rose.theme-dark{
+  --ink:#ece8f6;
+  --ink-soft:#cdc6e0;
+  --muted:#a69dc0;
+  --faint:#655c86;
+  --caption:#b2a9cc;
+  --line:#2f2754;
+  --line-soft:#241e46;
+  --surface:#18123a;
+  --canvas:#0f0b24;
+  --green-50:#221a4a;
+  --green-100:#2e2360;
+  --green-600:#a98ae0;
+  --green-700:#bba0ec;
+  --green-800:#d2bdfa;
+  --gold:#eda7c1;
+  --gold-soft:#3d1f2c;
+  --gold-600:#f0b3ca;
+  --control-border:#3a2f68;
+  --control-border-hover:#4a3e80;
+  --accent-on-surface:#d2bdfa;
+  --accent-rgb:169,138,224;
+  --overlay-rgb:4,2,12;
+  --active-solid:#4a2f78;
+  --night:#0b0820;
+  --night-raised:#18123a;
+  --green-900:#3d2a6e;
+}
+
+/* 2. الخطوط */
+html.section-annual body{font-size:14px;line-height:1.7}
+/* «ريم كوفي» للعناوين الكبيرة فقط — بالأحجام الصغيرة يصعب قراءته، فالعناوين الصغيرة ترجع لـReadex Pro. */
+html.section-annual h1,html.section-annual h2{font-family:var(--font-display);font-weight:600;letter-spacing:0}
+html.section-annual h3{font-weight:600}
+html.section-annual .topbar h2,
+html.section-annual .modal-head h2,
+html.section-annual .committee-alerts-head h2,
+html.section-annual .committee-topbar h1,
+html.section-annual .trial-standalone-topbar b{font-family:var(--font-arabic);font-weight:700}
+html.section-annual table{font-size:13px}
+html.section-annual th{font-weight:600}
+html.section-annual .eyebrow{color:var(--gold-600);font-weight:600;letter-spacing:.01em}
+html.section-annual .eyebrow.light{color:var(--copper)}
+html.section-annual input,html.section-annual select,html.section-annual textarea{border-radius:10px}
+
+/* 3. الأزرار */
+html.section-annual .primary-btn{border-radius:12px}
+html.section-annual .secondary-btn,html.section-annual .danger-btn{border-radius:12px}
+html.section-annual .primary-btn:disabled{background:#a7aec3}
+html.section-annual :focus-visible{outline-color:var(--gold)}
+
+/* 4. هيكل اللوحة: قائمة جانبية ليلية بنقشة النجمة الثمانية */
+html.section-annual .sidebar{background:var(--night) var(--star-pattern);background-size:96px 96px;border-left:1px solid rgba(255,255,255,.04)}
+html.section-annual .sidebar-logo{border-radius:14px;border-bottom:3px solid var(--copper);padding:9px}
+html.section-annual .sidebar-brand b{font-size:12.5px;font-weight:600;color:#fff}
+html.section-annual .nav-item{border-radius:12px}
+html.section-annual .nav-item.active{background:rgba(232,176,106,.12);color:#fff;box-shadow:inset -3px 0 var(--copper)}
+html.section-annual.theme-rose .nav-item.active{background:rgba(237,167,193,.12)}
+html.section-annual .nav-item.active svg{color:var(--copper)}
+html.section-annual .topbar h2{font-size:17px}
+
+/* 5. بانر الواجهة الرئيسية */
+html.section-annual .welcome-band{background:var(--night) var(--star-pattern);background-size:96px 96px;border:1px solid rgba(232,176,106,.18)}
+html.section-annual .welcome-band:after{border:1px solid rgba(232,176,106,.22);border-radius:50%;width:360px;height:360px;left:-120px;bottom:-200px;box-shadow:0 0 0 40px rgba(232,176,106,.04),0 0 0 80px rgba(232,176,106,.025)}
+html.section-annual .welcome-band h1{font-size:32px}
+html.section-annual .welcome-band .eyebrow,html.section-annual .welcome-band>div>span:first-child{color:var(--copper)}
+html.section-annual .welcome-logo{border-radius:16px;border-bottom:4px solid var(--copper)}
+
+/* حلقة نسبة النجاح «الكل» بالنحاسي حتى لا تشبه حلقة الذكور الزرقاء */
+html.section-annual .pass-rate-ring[data-tone="all"]:not(.is-empty){--ring-color:var(--gold);--ring-track:var(--gold-soft)}
+/* بالنسخة الأنثوية اللون المميز وردي = لون حلقة «إناث»، فحلقة «الكل» بالبنفسجي */
+html.section-annual.theme-rose .pass-rate-ring[data-tone="all"]:not(.is-empty){--ring-color:var(--green-700);--ring-track:var(--green-50)}
+
+/* 6. شاشة التحميل */
+html.section-annual .loading-screen{background:radial-gradient(70% 60% at 50% 35%,rgba(232,176,106,.10),transparent 70%),var(--star-pattern),var(--night);background-size:auto,96px 96px,auto}
+
+/* 7. شاشات الدخول (البوابة، دخول الفرع، الإعداد المحلي، دخول المحلي) — ليلية دائماً بالوضعين.
+   تُعاد تعريف رموز الألوان داخلها فقط، فكل ما بداخلها (حقول، أزرار، روابط) يأخذ ألوان الليل تلقائياً. */
+html.section-annual .auth-screen:not(.trial-standalone-screen){
+  --ink:#eef1fa;
+  --ink-soft:#c9d0e6;
+  --muted:#a3acc9;
+  --faint:#67729a;
+  --caption:#a3acc9;
+  --line:#26335f;
+  --line-soft:#1d2850;
+  --surface:var(--night-raised);
+  --canvas:var(--night);
+  --green-50:#18234d;
+  --green-100:#213063;
+  --green-600:#8aa0ea;
+  --green-700:var(--copper);
+  --green-800:var(--copper);
+  --gold-soft:#33260f;
+  --gold-600:var(--copper);
+  --control-border:#2d3b6d;
+  --control-border-hover:#3e4f88;
+  --red:#ef9a9a;
+  --red-soft:#3a2020;
+  --accent-rgb:232,176,106;
+  background:radial-gradient(55% 45% at 85% 0%,rgba(232,176,106,.12),transparent 70%),radial-gradient(50% 40% at 0% 100%,rgba(120,140,220,.10),transparent 70%),var(--star-pattern),var(--night);
+  background-size:auto,auto,96px 96px,auto;
+  color:var(--ink);
+}
+html.section-annual.theme-rose .auth-screen:not(.trial-standalone-screen){--gold-soft:#3a1d2a;--accent-rgb:237,167,193}
+html.section-annual .auth-screen:not(.trial-standalone-screen) .primary-btn{background:var(--copper-strong);color:var(--on-copper);font-weight:700}
+html.section-annual .auth-screen:not(.trial-standalone-screen) .primary-btn:hover{background:var(--copper)}
+html.section-annual .auth-screen:not(.trial-standalone-screen) .secondary-btn{background:transparent;color:var(--ink);border-color:var(--control-border)}
+html.section-annual .auth-screen:not(.trial-standalone-screen) .secondary-btn:hover{background:var(--green-50);border-color:var(--copper)}
+html.section-annual .auth-screen:not(.trial-standalone-screen) input{background:#0c1430;color:var(--ink)}
+html.section-annual.theme-rose .auth-screen:not(.trial-standalone-screen) input{background:#110c28}
+html.section-annual .auth-screen:not(.trial-standalone-screen) input:focus{border-color:var(--copper);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.18)}
+html.section-annual .auth-screen:not(.trial-standalone-screen) .eyebrow{color:var(--copper)}
+
+/* بطاقة الدخول */
+html.section-annual .login-card{border:1px solid var(--line);border-top:3px solid var(--copper);border-radius:24px;box-shadow:0 30px 80px rgba(0,0,0,.45);background:var(--night-raised)}
+html.section-annual .login-card h1{font-size:28px;margin-bottom:var(--sp-5)}
+html.section-annual .login-card>p{color:var(--copper);font-size:12.5px;font-weight:500}
+html.section-annual .login-card .auth-logo,html.section-annual .gateway-intro .auth-logo{background:radial-gradient(closest-side,rgba(255,255,255,.95),rgba(255,255,255,.85) 70%,rgba(255,255,255,0));border-radius:50%;padding:10px}
+/* رمز اللجنة و PIN: حقول كبيرة وواضحة متل قفل الجوال */
+/* plaintext: الرمز المكتوب (L01) يظهر من اليسار، والتلميح العربي يبقى صحيح الاتجاه */
+html.section-annual #committeeLoginCode,html.section-annual #subAdminLoginCode{height:54px;font-size:20px;font-weight:600;letter-spacing:.12em;text-align:center;unicode-bidi:plaintext}
+html.section-annual #committeeLoginPin,html.section-annual #subAdminLoginPin,html.section-annual #loginPin,html.section-annual #setupPin{height:54px;font-size:22px;letter-spacing:.45em;text-align:center}
+html.section-annual #committeeLoginCode::placeholder,html.section-annual #subAdminLoginCode::placeholder{letter-spacing:.02em;font-size:14px;font-weight:400}
+html.section-annual #setupPin::placeholder{letter-spacing:0;font-size:13px}
+html.section-annual .login-card .text-login-btn{color:var(--copper)}
+html.section-annual .login-mode-links{border-top:1px solid var(--line);padding-top:14px}
+html.section-annual .login-card small{color:var(--muted)}
+html.section-annual .gateway-back-button{background:rgba(255,255,255,.04);border-color:var(--line);color:var(--ink)}
+html.section-annual .gateway-back-button:hover{background:rgba(255,255,255,.08);border-color:var(--copper)}
+html.section-annual .diwan-jump{background:rgba(255,255,255,.05);border-color:rgba(232,176,106,.45);color:var(--ink)}
+
+/* البوابة */
+html.section-annual .gateway-screen{background:radial-gradient(55% 45% at 85% 0%,rgba(232,176,106,.12),transparent 70%),radial-gradient(50% 40% at 0% 100%,rgba(120,140,220,.10),transparent 70%),var(--star-pattern),var(--night);background-size:auto,auto,96px 96px,auto}
+html.section-annual .gateway-card{background:transparent;box-shadow:none;padding:24px 8px}
+html.section-annual .gateway-intro h1{font-size:clamp(28px,4.4vw,44px);line-height:1.35}
+html.section-annual .gateway-intro>span.eyebrow{display:inline-block;padding:5px 14px;border:1px solid rgba(232,176,106,.35);border-radius:999px;font-size:12px}
+html.section-annual .gateway-option{background:var(--night-raised);border:1px solid var(--line);border-radius:22px;transition:border-color var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease)}
+html.section-annual .gateway-option:hover{border-color:rgba(232,176,106,.5);transform:translateY(-2px)}
+html.section-annual .gateway-option.koura-option{border-color:rgba(232,176,106,.45);box-shadow:0 0 0 1px rgba(232,176,106,.12),0 24px 60px rgba(0,0,0,.35)}
+/* فرع الكورة (النظام الرسمي) بعرض كامل فوق، والمحلي والتجريبي جنب بعض تحته */
+@media(min-width:761px){
+  html.section-annual .gateway-options[data-section="annual"] .koura-option{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr minmax(220px,300px);align-items:center;gap:20px;padding:28px}
+  html.section-annual .gateway-options[data-section="annual"] .koura-option h2{font-size:28px}
+  html.section-annual .gateway-options[data-section="annual"] .koura-option .gateway-icon{width:64px;height:64px;border-radius:18px}
+  html.section-annual .gateway-options[data-section="annual"] .koura-option .gateway-icon svg{width:30px;height:30px}
+  html.section-annual .gateway-options[data-section="annual"] .koura-option .primary-btn{height:52px;font-size:15px}
+}
+html.section-annual .gateway-option>div>span{color:var(--copper);font-weight:600}
+html.section-annual .gateway-icon{background:rgba(232,176,106,.12);color:var(--copper);border:1px solid rgba(232,176,106,.25)}
+html.section-annual.theme-rose .gateway-icon{background:rgba(237,167,193,.12);border-color:rgba(237,167,193,.25)}
+html.section-annual .gateway-option small{color:var(--muted)}
+html.section-annual .gateway-card>.developer-credit{border-top-color:var(--line)}
+html.section-annual .install-app-btn{background:transparent;color:var(--copper);border-color:rgba(232,176,106,.45)}
+
+/* الإعداد المحلي (لوحة بجزأين) */
+html.section-annual .auth-panel{background:var(--night-raised);border:1px solid var(--line);border-radius:24px;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+html.section-annual .auth-brand{background:var(--star-pattern),linear-gradient(165deg,#16224f,var(--night));background-size:96px 96px,auto;border-left:1px solid var(--line)}
+html.section-annual .auth-brand:after{display:none}
+html.section-annual .auth-brand p{color:var(--copper)}
+html.section-annual .auth-facts b{color:var(--copper);font-family:var(--font-display)}
+
+/* 8. شاشة اللجنة */
+html.section-annual .committee-topbar{background:var(--night) var(--star-pattern);background-size:96px 96px;border-bottom:2px solid var(--copper)}
+html.section-annual .committee-topbar h1{font-size:22px}
+
+/* 9. الاختبار التجريبي المستقل */
+/* كانت قاعدة توسيط شاشات الدخول (.auth-screen{display:grid;place-items:center}) تلتقط هذه الصفحة أيضاً، فيظهر
+   شريطها العلوي ضيقاً بالمنتصف وخلفيتها داكنة على الهاتف — هي صفحة عادية بعرض كامل. */
+html.section-annual .auth-screen.trial-standalone-screen{display:block;min-height:100vh;padding:0;background:var(--canvas)}
+html.section-annual .auth-screen.trial-standalone-screen.hidden{display:none!important}
+html.section-annual .trial-standalone-topbar{width:100%;background:var(--night) var(--star-pattern);background-size:96px 96px;border-bottom:2px solid var(--copper)}
+
+/* ملفات PDF (ورقة المواضع/النتيجة): ورق أبيض دائماً — بالوضع الداكن كانت تأخذ نصوصاً فاتحة فتبهت فوق الأبيض.
+   نعيد رموز الوضع الفاتح داخل نسخة التصدير فقط. */
+html.section-annual .pdf-export-sheet{
+  --ink:#121a33;--ink-soft:#2c3553;--muted:#5b6380;--faint:#9aa1b8;--caption:#505874;
+  --line:#e0e4ee;--line-soft:#edf0f6;--surface:#fff;--canvas:#f3f5fa;
+  --green-50:#f1f3fa;--green-100:#e1e6f5;--green-600:#3c56a3;--green-700:#2b3f80;--green-800:#1d2d63;--green-900:#0f1a3d;
+  --gold-soft:#f8ecd9;--gold-600:#875718;--red:#a13c3c;--red-soft:#f8e9e9;--blue-soft:#e2eff4;
+  color:var(--ink);
+}
+html.section-annual.theme-rose .pdf-export-sheet{
+  --ink:#1a1530;--ink-soft:#352d50;--muted:#635a7e;--caption:#574f72;--line:#e6e1ef;--line-soft:#f1eef7;
+  --green-50:#f6f2fb;--green-100:#ebe3f5;--green-600:#7a52a8;--green-700:#5a3a86;--green-800:#3d2763;--green-900:#1e1640;
+  --gold-soft:#f9e6ee;--gold-600:#94385c;
+}
+
+/* الإشعار المنبثق: كان لونه var(--ink) فيصير فاتحاً بنص أبيض بالوضع الداكن (غير مقروء) — ليلي ثابت بالوضعين */
+html.section-annual .toast{background:var(--night);color:#fff;border:1px solid rgba(232,176,106,.35);border-radius:14px}
+
+/* 10. الوضع الداكن: القائمة الجانبية أعمق من الخلفية حتى لا تذوب فيها */
+html.section-annual.theme-dark .sidebar{border-left-color:var(--line)}
+html.section-annual.theme-dark .welcome-band{border-color:var(--line)}

@@ -34,7 +34,8 @@
 - **`app.js`** (نحو 3200 سطر، معظمها أسطر طويلة مكثّفة) يحوي كل منطق الواجهة والحسابات. **`cloud.js`** طبقة الاتصال بـ Supabase (كائنان عامان: `window.CloudCompetition` للمسابقة السنوية و`window.DiwanCompetition` لديوان الحفاظ). **`styles.css`** نظام تصميم كامل بمتغيرات CSS.
 - **الخلفية (Backend)**: Supabase (PostgreSQL + Auth + Edge Functions). كل الأمان على مستوى قاعدة البيانات (Row Level Security + دوال `SECURITY DEFINER`)، لا على منطق الواجهة.
 - مكتبات خارجية مجمَّعة **محلياً** في `vendor/` (بلا CDN، ليعمل بلا اتصال): `supabase.js`، `lucide.min.js` (أيقونات)، `xlsx.full.min.js` (Excel)، `jspdf.umd.min.js` + `html2canvas.min.js` (PDF). تُحمَّل مكتبات PDF/Excel عند الحاجة فقط (`ensurePdfLibraries` / `ensureXlsx`).
-- خط **Tajawal** من Google Fonts. اتجاه الصفحة RTL، اللغة العربية، مع `manifest.webmanifest` (وضع standalone، لون الثيم `#164c3b`).
+- اتجاه الصفحة RTL، اللغة العربية، مع `manifest.webmanifest` (وضع standalone، لون الثيم `#0a1128`).
+- **هوية المسابقة السنوية «ليل المسابقة»** (الإصدار الثاني، 2026-11-24) في ملف مستقل `theme-night.css` يُحمَّل بعد `styles.css`، وكل قواعده مقيّدة بـ`html.section-annual` فلا يمس الديوان: كحلي ليلي + نحاسي مع نقشة نجمة ثمانية خفيفة (القائمة الجانبية، بانر الواجهة، رؤوس اللجنة والاختبار التجريبي)؛ **شاشات الدخول** (البوابة، دخول الفرع، الإعداد والدخول المحلي) ليلية بالوضعين وزرها الأساسي نحاسي، وحقلا رمز اللجنة والـPIN كبيران بالمنتصف؛ الوضع العادي فاتح بإطار كحلي والداكن ليل كامل. **الخطوط محلية** (`assets/fonts`، رخصة SIL OFL): **Readex Pro** للواجهة و**Reem Kufi** للعناوين الكبيرة فقط (h1/h2، والصغيرة كالشريط العلوي ورؤوس النوافذ ترجع لـReadex). **حسابات/لجان الإناث** بنسخة أنثوية من الليل (`html.section-annual.theme-rose`: كحلي بصبغة بنفسجية، ووردي بدل النحاسي). نسخة تصدير PDF تُجبر على ألوان الورق الفاتحة حتى بالوضع الداكن. حذف سطر `theme-night.css` من `index.html` يعيد الهوية الخضراء السابقة كما كانت. قسم الديوان يبقى بخط **Tajawal** (Google Fonts) وثيمه الأخضر.
 - **وضع فاتح/داكن** (`setColorMode`) وشريط جانبي قابل للطي (`toggleSidebar`) ومتجاوب مع الجوال (نقطة كسر 780px).
 - التصدير: Excel عبر SheetJS، وPDF عبر `html2canvas` (يرسم HTML خارج الشاشة) ثم `jsPDF`.
 
@@ -342,6 +343,7 @@ index.html            كل الشاشات (بوابة، إعداد، دخول، 
 app.js                منطق الواجهة والحسابات (المتسابقون، السحب، التقييم، ديوان الحفاظ، التصدير…)
 cloud.js              طبقة Supabase: CloudCompetition + DiwanCompetition
 styles.css            نظام التصميم (متغيرات CSS، وضع داكن، استجابة، قوالب PDF)
+theme-night.css       هوية «ليل المسابقة» للمسابقة السنوية فقط (html.section-annual) + خطوطها المحلية
 supabase/*.sql        ~45 ملف هجرة بترتيب تنفيذ محدد
 supabase/functions/   auto-backup , password-reset (Edge Functions)
 data/                 quran.json + بيانات الأسطر (تُحمَّل عند الحاجة)
