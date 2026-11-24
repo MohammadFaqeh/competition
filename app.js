@@ -48,6 +48,11 @@ let state = loadState();
 const DIWAN_STORAGE_KEY = "diwanAlHifadh.v1";
 let diwanState = loadDiwanState();
 let diwanStateLoaded = false;
+// حالة تحميل نتائج اللجان من الخادم (idle/ready/error): الجولات المحفوظة تُرسم فوراً من نسخة الجهاز، فبدون هذا كانت أرقام
+// الأرشيف/الجولة/لوحة الإنجاز تظهر أصفاراً حتى يكتمل تنزيل النتائج (أو تبقى أصفاراً إن فشل) — الآن «جارٍ تحميل النتائج…».
+let diwanSessionsState = "idle";
+function diwanResultsReady(){return operationMode!=="cloud"||!cloudEnabled||diwanSessionsState==="ready"}
+function diwanResultsPendingText(){return diwanSessionsState==="error"?"تعذر تحميل النتائج — حدّث الصفحة":"جارٍ تحميل النتائج…"}
 // صفحة المرحلة المفتوحة بلوحة ديوان الحفاظ (null = اللوحة الرئيسية بصناديق الملخّص فقط).
 let diwanOpenStage = null;
 // اختبار تجريبي: لحظي بالكامل، localStorage فقط بلا أي مزامنة سحابية — يعمل بأي وضع تشغيل، وحساب
@@ -266,10 +271,10 @@ async function ensureDiwanStateLoaded(){
       const [remote,sessions]=await Promise.all([window.DiwanCompetition.loadState(),window.DiwanCompetition.listSessions()]);
       diwanState={...defaultDiwanState(),...remote.payload};
       window.DiwanCompetition.markAdminKnownIds(diwanState.participants,diwanState.draws);
-      diwanAdminSessions=applyDiwanResultOverrides(sessions);
+      diwanAdminSessions=applyDiwanResultOverrides(sessions);diwanSessionsState="ready";
       mergeFinalDiwanSessionsIntoState(diwanAdminSessions);
       safeSetItem(DIWAN_STORAGE_KEY,JSON.stringify(diwanState));
-    }catch(error){diwanStateLoaded=false;toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
+    }catch(error){diwanStateLoaded=false;diwanSessionsState="error";toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
   }else if(isDiwanCloudStaff()){
     // لا نعرض أبداً نسخة الجهاز المحلية (قد تكون بيانات الإدارة كاملة بكل الأجناس) — فقط ما يرجعه الخادم لهذا الحساب.
     diwanState=defaultDiwanState();diwanAdminSessions=[];
@@ -277,9 +282,9 @@ async function ensureDiwanStateLoaded(){
       const [remote,sessions]=await Promise.all([window.DiwanCompetition.loadViewerState(),window.DiwanCompetition.listViewerSessions()]);
       diwanState={...defaultDiwanState(),...remote.payload};
       window.DiwanCompetition.markAdminKnownIds(diwanState.participants,diwanState.draws);
-      diwanAdminSessions=applyDiwanResultOverrides(sessions);
+      diwanAdminSessions=applyDiwanResultOverrides(sessions);diwanSessionsState="ready";
       mergeFinalDiwanSessionsIntoState(diwanAdminSessions);
-    }catch(error){diwanStateLoaded=false;toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
+    }catch(error){diwanStateLoaded=false;diwanSessionsState="error";toast(`تعذر تحميل بيانات ديوان الحفاظ: ${error.message}`)}
   }
 }
 // آخر سحب للمشارك بمرحلته الحالية تحديداً — قد يملك المشارك سحوباً أقدم من مراحل سابقة (نجح
@@ -782,7 +787,7 @@ async function submitLoginRecoveryReset(event,kind,identifier){
 async function committeeLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#committeeLoginError");const originalHtml=button.innerHTML;button.disabled=true;button.textContent="جارٍ التحقق من البيانات...";errorBox.classList.add("hidden");showBusyOverlay("جارٍ تسجيل الدخول...");try{const context=await window.CloudCompetition.signInCommittee($("#committeeLoginCode").value.trim(),$("#committeeLoginPin").value);$("#committeeLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{hideBusyOverlay();button.disabled=false;button.innerHTML=originalHtml}}
 function showCloudLoginMode(mode){const committee=mode==="committee",admin=mode==="admin",subAdmin=mode==="subAdmin";$("#committeeLoginForm").classList.toggle("hidden",!committee);$(".login-mode-links").classList.toggle("hidden",!committee);$("#cloudLoginForm").classList.toggle("hidden",!admin);$("#subAdminLoginForm").classList.toggle("hidden",!subAdmin);$("#cloudLoginTitle").textContent=admin?"دخول إدارة المسابقة":subAdmin?"دخول مسؤول فرعي":"دخول لجنة الاختبار";$(admin?"#cloudLoginEmail":subAdmin?"#subAdminLoginCode":"#committeeLoginCode").focus()}
 async function subAdminLogin(event){event.preventDefault();const button=event.submitter,errorBox=$("#subAdminLoginError");const originalHtml=button.innerHTML;button.disabled=true;button.textContent="جارٍ التحقق من البيانات...";errorBox.classList.add("hidden");showBusyOverlay("جارٍ تسجيل الدخول...");try{const context=await window.CloudCompetition.signInSubAdmin($("#subAdminLoginCode").value.trim(),$("#subAdminLoginPin").value);$("#subAdminLoginPin").value="";await enterCloudContext(context)}catch(error){errorBox.textContent=error.message;errorBox.classList.remove("hidden")}finally{hideBusyOverlay();button.disabled=false;button.innerHTML=originalHtml}}
-async function cloudLogout(){stopCommitteeAutoRefresh();stopAdminAutoRefresh();stopMonitorPoll();stopIssueReportsPoll();stopMemberPositionSync();clearTimeout(idleLogoutTimer);sessionStorage.removeItem(ACTIVE_MODE_KEY);showBusyOverlay("جارٍ تسجيل الخروج...");try{await window.CloudCompetition.signOut()}catch(error){console.warn("Sign out failed",error)}finally{hideBusyOverlay()}activeCloudSession=null;committeeSessions=[];cloudStartup={enabled:cloudEnabled,context:null};diwanStateLoaded=false;diwanAdminSessions=[];
+async function cloudLogout(){stopCommitteeAutoRefresh();stopAdminAutoRefresh();stopMonitorPoll();stopIssueReportsPoll();stopMemberPositionSync();clearTimeout(idleLogoutTimer);sessionStorage.removeItem(ACTIVE_MODE_KEY);showBusyOverlay("جارٍ تسجيل الخروج...");try{await window.CloudCompetition.signOut()}catch(error){console.warn("Sign out failed",error)}finally{hideBusyOverlay()}activeCloudSession=null;committeeSessions=[];cloudStartup={enabled:cloudEnabled,context:null};diwanStateLoaded=false;diwanAdminSessions=[];diwanSessionsState="idle";
   // تصفير صريح لبقايا لجنة سابقة على نفس الجهاز (كشك مشترك) — بدونه ممكن اللجنة التالية تشوف
   // للحظة بيانات اللجنة السابقة بشاشة ديوان الحفاظ قبل ما يكتمل التحديث الفعلي.
   activeDiwanCloudSession=null;diwanCommitteeSessions=[];diwanCommitteeScopedState=defaultDiwanState();diwanCommitteeStudentsPage=1;diwanCommitteeStudentsPageSignature="";
@@ -3305,6 +3310,11 @@ function renderDiwanRound(){
   $("#diwanRoundCloseBtn")?.classList.toggle("hidden",!writer);
   renderDiwanRoundsArchive();
   if(!round)return;
+  if(!diwanResultsReady()){
+    $("#diwanRoundName").textContent=round.name;$("#diwanRoundSince").textContent=`بدأت ${DIWAN_ROUND_DATE.format(new Date(round.startedAt))}`;$("#diwanRoundTotal").textContent=diwanResultsPendingText();
+    ["#diwanRoundTodo","#diwanRoundReady","#diwanRoundDone"].forEach(id=>{const el=$(id);if(el)el.textContent="…"});
+    $("#diwanRoundList")?.classList.add("hidden");return;
+  }
   const rows=diwanState.participants.map(p=>({p,st:diwanRoundStatus(p,round)}));
   const count=(key,sub)=>rows.filter(r=>r.st.key===key&&(!sub||r.st.sub===sub)).length;
   const todo=count("todo"),ready=count("ready"),done=count("done"),total=todo+ready+done;
@@ -3382,6 +3392,11 @@ function renderDiwanStats(){
   const current=select?.value||"all";
   if(select){select.innerHTML=`<option value="all">كل الجولات</option>${rounds.map(r=>`<option value="${escapeAttr(r.id)}">${escapeHtml(r.name)}${r.closedAt?"":" (الحالية)"}</option>`).join("")}`;select.value=rounds.some(r=>r.id===current)?current:"all"}
   const round=select?.value&&select.value!=="all"?rounds.find(r=>r.id===select.value):null;
+  if(!diwanResultsReady()){
+    const wait=`<li class="diwan-rank-empty">${diwanResultsPendingText()}</li>`;
+    $("#diwanStatsTiles").innerHTML=`<p class="diwan-stage-empty">${diwanResultsPendingText()}</p>`;$("#diwanRankJuz").innerHTML=wait;$("#diwanRankAvg").innerHTML=wait;
+    $("#diwanRankRoundPanel")?.classList.add("hidden");$("#diwanCentersBody").innerHTML=`<tr><td colspan="5" class="diwan-stage-empty">${diwanResultsPendingText()}</td></tr>`;return;
+  }
   const data=diwanStatsData(round),t=data.totals;
   const tile=(icon,label,value,hint)=>`<article class="diwan-stats-tile"><i data-lucide="${icon}"></i><div><span>${label}</span><b>${value}</b>${hint?`<small>${hint}</small>`:""}</div></article>`;
   $("#diwanStatsTiles").innerHTML=[
@@ -3404,7 +3419,9 @@ function renderDiwanRoundsArchive(){
   const panel=$("#diwanRoundsArchive"),box=$("#diwanRoundsArchiveList");if(!panel||!box)return;
   const closed=diwanRounds().filter(r=>r.closedAt).sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt));
   panel.classList.toggle("hidden",!closed.length);
+  const ready=diwanResultsReady();
   box.innerHTML=closed.map(r=>{
+    if(!ready)return `<article class="diwan-archive-row"><div><b>${escapeHtml(r.name)}</b><small>${DIWAN_ROUND_DATE.format(new Date(r.startedAt))} — ${DIWAN_ROUND_DATE.format(new Date(new Date(r.closedAt).getTime()-1))}</small></div><div class="diwan-archive-stats"><span>${diwanResultsPendingText()}</span></div><div class="diwan-archive-actions"></div></article>`;
     const sessions=diwanRoundSessions(r),kinds=sessions.map(x=>DIWAN_ROUND_RESULT_KIND(diwanSessionResultText(x,diwanState.draws.find(d=>d.id===x.draw_id))));
     const n=k=>kinds.filter(x=>x===k).length,people=new Set(sessions.map(x=>x.participant_id)).size;
     return `<article class="diwan-archive-row"><div><b>${escapeHtml(r.name)}</b><small>${DIWAN_ROUND_DATE.format(new Date(r.startedAt))} — ${DIWAN_ROUND_DATE.format(new Date(new Date(r.closedAt).getTime()-1))}</small></div><div class="diwan-archive-stats"><span>${formatNumber(people)} امتحنت</span><span class="is-passed">${formatNumber(n("passed"))} نجاح</span><span class="is-failed">${formatNumber(n("failed")+n("incomplete"))} لم تنجح</span>${n("withdrawn")?`<span>${formatNumber(n("withdrawn"))} انسحاب</span>`:""}</div><div class="diwan-archive-actions"><button type="button" class="secondary-btn" data-round-docs="${escapeAttr(r.id)}"${sessions.length?"":" disabled"}><i data-lucide="file-down"></i> الوثائق</button><button type="button" class="secondary-btn" data-round-excel="${escapeAttr(r.id)}"${sessions.length?"":" disabled"}><i data-lucide="file-spreadsheet"></i> النتائج</button></div></article>`;
