@@ -546,7 +546,7 @@ function bindEvents(){
   $("#setupForm").addEventListener("submit",setupApp);
   $("#loginForm").addEventListener("submit",login);
   $("#logoutBtn").addEventListener("click",logout);
-  $("#menuBtn").addEventListener("click",toggleSidebar);
+  $("#menuBtn").addEventListener("click",toggleSidebar);setupLayoutB();
   $$("[data-view]").forEach(btn=>btn.addEventListener("click",()=>navigate(btn.dataset.view)));
   $$("[data-go]").forEach(btn=>btn.addEventListener("click",()=>navigate(btn.dataset.go)));
   $("#addParticipantBtn").addEventListener("click",()=>openParticipantModal());
@@ -620,8 +620,8 @@ function bindEvents(){
   $("#drawPartsEditBtn").addEventListener("click",openDrawPartsEditor);
   $("#drawPartsSaveBtn").addEventListener("click",saveDrawParticipantParts);
   $("#drawPartsCancelBtn").addEventListener("click",closeDrawPartsEditor);
-  $("#scoreComparisonSearch").addEventListener("input",renderScoreComparisonTable);
-  $("#scoreComparisonCommitteeFilter").addEventListener("change",renderScoreComparisonTable);
+  $("#scoreComparisonSearch").addEventListener("input",()=>{scoreComparisonPage=1;renderScoreComparisonTable()});
+  $("#scoreComparisonCommitteeFilter").addEventListener("change",()=>{scoreComparisonPage=1;renderScoreComparisonTable()});
   $("#refreshScoreComparisonBtn").addEventListener("click",async()=>{if(await renderScoreComparison())toast("تم تحديث البيانات بنجاح")});
   $("#deleteAllScoreComparisonBtn").addEventListener("click",confirmDeleteAllScoreComparisonRows);
   $("#committeeBreakdownGender").addEventListener("change",()=>{committeeBreakdownGender=$("#committeeBreakdownGender").value;renderCommitteeBreakdownBody()});
@@ -736,10 +736,33 @@ const MOBILE_BREAKPOINT=780;
 function toggleSidebar(){if(window.innerWidth<=MOBILE_BREAKPOINT){$(".sidebar").classList.toggle("open");return}const collapsed=$("#app").classList.toggle("sidebar-collapsed");safeSetItem(SIDEBAR_COLLAPSED_KEY,collapsed?"1":"0");syncSidebarTooltips(collapsed)}
 function restoreSidebarState(){if(window.innerWidth<=MOBILE_BREAKPOINT)return;const collapsed=localStorage.getItem(SIDEBAR_COLLAPSED_KEY)==="1";$("#app").classList.toggle("sidebar-collapsed",collapsed);syncSidebarTooltips(collapsed)}
 // بالشريط المطوي تختفي أسماء الصفحات وتبقى الأيقونات — الاسم يظهر كتلميح عند المرور.
-function syncSidebarTooltips(collapsed){$$(".sidebar .nav-item").forEach(item=>{const label=item.querySelector("span")?.textContent.trim();if(collapsed&&label)item.title=label;else item.removeAttribute("title")})}
+function syncSidebarTooltips(collapsed){const titled=collapsed||layoutBActive();$$(".sidebar .nav-item").forEach(item=>{const label=item.querySelector("span")?.textContent.trim();if(titled&&label)item.title=label;else item.removeAttribute("title")})}
 function applyModeBranding(){const local=operationMode==="local";$("#setupBrandLine").textContent=local?"استخدام محلي مستقل · بياناتك تبقى على هذا الجهاز":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#localLoginBrandLine").textContent=local?"استخدام محلي مستقل · لا يتم إرسال البيانات":"جمعية المحافظة على القرآن الكريم | فرع الكورة";$("#sidebarBrandTitle").textContent=local?"منصة إدارة المسابقات القرآنية":"جمعية المحافظة على القرآن الكريم";$("#sidebarBrandSubtitle").textContent=local?"وضع محلي مستقل":"فرع الكورة | المسابقة السنوية";if(APP_SECTION==="diwan"){$("#sidebarBrandTitle").textContent="ديوان الحفاظ";$("#sidebarBrandSubtitle").textContent="جمعية المحافظة على القرآن الكريم | فرع الكورة"}}
 // ديوان الحفاظ خاص بفرع الكورة — مخفي تماماً بالوضع المحلي (القائمة عبر CSS بـ.local-branch-app، والتنقل المباشر يُحوَّل للنظرة العامة).
 const LOCAL_HIDDEN_VIEWS=new Set(["diwan","diwanStudents","diwanStats"]);
+// تقسيمة «ب» (layout-b.css): عناصرها (البحث السريع، شارة الحساب، الشريط السفلي) موجودة بالـHTML دائماً لكنها مخفية إلا مع html.layout-b.
+// التفضيل محلي بهذا الجهاز فقط (الافتراضي: الجديد)، ويُقرأ بسكربت رأس index.html قبل الرسم؛ «الكلاسيكي» يرجّع الشكل القديم كما هو.
+const ADMIN_LAYOUT_KEY="competition-admin-layout";
+function layoutBActive(){return document.documentElement?.classList?.contains?.("layout-b")===true}
+function syncAdminLayoutPref(){const toggle=$("#settingsAdminLayoutB");if(toggle)toggle.checked=layoutBActive()}
+function setAdminLayout(mode){if(APP_SECTION!=="annual")return;const classic=mode==="classic";safeSetItem(ADMIN_LAYOUT_KEY,classic?"classic":"b");document.documentElement.classList.toggle("layout-b",!classic);$(".sidebar")?.classList.remove("open");syncAdminLayoutPref();syncSidebarTooltips($("#app")?.classList.contains("sidebar-collapsed"));syncTopViewTitle();if(!classic&&state?.config)renderHomeSmart();toast(classic?"رجعت اللوحة للشكل الكلاسيكي":"تم تفعيل الشكل الجديد")}
+function syncTopViewTitle(view){const title=$("#topViewTitle");if(title){view=view||$(".view.active-view")?.id?.replace(/View$/,"");const label=view?$(`.sidebar .nav-item[data-view="${view}"] span`):null;title.textContent=label?label.textContent.trim():""}const greeting=($("#topAdminGreeting")?.textContent||"").trim(),name=greeting.startsWith("أهلاً،")?greeting.slice(6).trim():(operationMode==="local"?(state?.config?.adminName||"المشرف"):"الإدارة");syncParticipantFiltersBadge();const nameEl=$("#topAccountName"),initialEl=$("#topAccountInitial");if(nameEl)nameEl.textContent=name;if(initialEl)initialEl.textContent=name.replace(/^ال/,"").charAt(0)}
+const normalizeQuickSearch=text=>String(text||"").replace(/[ً-ْـ]/g,"").replace(/[أإآ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").toLowerCase().trim();
+// البحث السريع بالشريط العلوي: اسم صفحة (مثل «السحب») يفتحها، وغير ذلك يفتح «المتسابقون» مفلترةً بالنص (اسم/رقم جلوس/مركز).
+function runQuickSearch(raw){const query=String(raw||"").trim();if(!query)return;const normalized=normalizeQuickSearch(query);const page=normalized.length>=2&&!/^\d+$/.test(normalized)?$$(".sidebar .nav-item[data-view]").find(item=>!item.classList.contains("hidden")&&!inOtherSection(item)&&!(operationMode==="local"&&LOCAL_HIDDEN_VIEWS.has(item.dataset.view))&&[item.querySelector("span")?.textContent,item.dataset.short].some(label=>normalizeQuickSearch(label).includes(normalized))):null;if(page)navigate(page.dataset.view);else{navigate("participants");const input=$("#participantSearch");if(input){input.value=query;input.dispatchEvent(new Event("input",{bubbles:true}))}}const box=$("#quickSearchInput");if(box){box.value="";box.blur()}}
+function setupLayoutB(){
+  $("#quickSearchForm")?.addEventListener("submit",event=>{event.preventDefault();runQuickSearch($("#quickSearchInput").value)});
+  $("#quickSearchPhoneBtn")?.addEventListener("click",()=>{navigate("participants");$("#participantSearch")?.focus()});
+  $("#bottomNavMore")?.addEventListener("click",()=>$(".sidebar").classList.toggle("open"));
+  $("#settingsAdminLayoutB")?.addEventListener("change",event=>setAdminLayout(event.target.checked?"b":"classic"));
+  document.addEventListener("keydown",event=>{if(event.key!=="/"||!layoutBActive()||$("#app").classList.contains("hidden")||!$("#modal").classList.contains("hidden"))return;const target=event.target;if(target&&(target.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)))return;const box=$("#quickSearchInput");if(!box||!box.offsetParent)return;event.preventDefault();box.focus()});
+  const filterIds=["participantFilter","participantGenderFilter","participantCenterFilter","participantLevelFilter","participantCommitteeFilter"];
+  filterIds.forEach(id=>$("#"+id)?.addEventListener("change",syncParticipantFiltersBadge));
+  $("#participantFiltersBtn")?.addEventListener("click",()=>{const tools=$("#participantFiltersBtn").closest(".table-tools");const open=tools.classList.toggle("filters-open");$("#participantFiltersBtn").setAttribute("aria-expanded",String(open))});
+  syncAdminLayoutPref();
+}
+// زر «فلترة» (جوال، تقسيمة «ب»): الفلاتر مطوية خلفه، والشارة تعرض عدد الفلاتر المفعّلة حتى لا تُنسى فلترة مخفية.
+function syncParticipantFiltersBadge(){const badge=$("#participantFiltersBadge");if(!badge)return;const count=["participantFilter","participantGenderFilter","participantCenterFilter","participantLevelFilter","participantCommitteeFilter"].filter(id=>{const el=$("#"+id);return el&&el.value&&el.value!=="all"}).length;badge.textContent=count?formatNumber(count):"";badge.classList.toggle("hidden",!count)}
 // الأقسام التي تعتمد على النظام السحابي تبقى ظاهرة بالوضع المحلي (للتعريف بها)، مع ملاحظة أنها متوفرة عبر فرع الكورة.
 const LOCAL_CLOUD_ONLY_FEATURES={monitorView:"المراقبة الحية للجان",examDurationView:"مدة الاختبار داخل كل لجنة",analyticsView:"أداء كل لجنة ومقارنة علامات الرئيس والعضو",settingsView:"إدارة اللجان وحسابات المسؤولين والصلاحيات وطلبات DR وسجل النشاط"};
 function renderLocalCloudNotices(){Object.entries(LOCAL_CLOUD_ONLY_FEATURES).forEach(([viewId,feature])=>{const view=$("#"+viewId);if(!view)return;const existing=view.querySelector(".local-cloud-notice");if(operationMode!=="local"){existing?.remove();return}if(existing)return;view.querySelector(".page-head")?.insertAdjacentHTML("afterend",`<div class="local-mode-notice local-cloud-notice"><i data-lucide="info"></i><div><b>متوفرة عبر فرع الكورة</b><span>${escapeHtml(feature)}: تعمل بالكامل عند الدخول عبر «فرع الكورة (النظام الرسمي)»، وفي الاستخدام المحلي تكون غير متاحة أو محدودة.</span></div></div>`)});lucide.createIcons()}
@@ -968,9 +991,13 @@ function filteredScoreComparisonRows(){
   const committeeFilter=$("#scoreComparisonCommitteeFilter")?.value||"all";
   return scoreComparisonRows.filter(row=>(!query||row.name.toLowerCase().includes(query))&&(committeeFilter==="all"||row.committeeId===committeeFilter));
 }
+// تقسيمة «ب»: الجدول بصفحات من 50 سجلاً (قد يصل لمئات السجلات من دورة سابقة)؛ الكلاسيكي يبقى قائمة واحدة كما كان.
+let scoreComparisonPage=1;
+const SCORE_COMPARISON_PAGE_SIZE=50;
 function renderScoreComparisonTable(){
   const box=$("#scoreComparisonTable");if(!box)return;
-  const rows=filteredScoreComparisonRows();
+  const allRows=filteredScoreComparisonRows();let rows=allRows;
+  if(layoutBActive()){const totalPages=Math.max(1,Math.ceil(allRows.length/SCORE_COMPARISON_PAGE_SIZE));scoreComparisonPage=Math.min(Math.max(1,scoreComparisonPage),totalPages);rows=allRows.slice((scoreComparisonPage-1)*SCORE_COMPARISON_PAGE_SIZE,scoreComparisonPage*SCORE_COMPARISON_PAGE_SIZE);renderPagerTabs("scoreComparisonPager",scoreComparisonPage,totalPages,page=>{scoreComparisonPage=page;renderScoreComparisonTable();$("#scoreComparisonPanel")?.scrollIntoView({block:"start"})})}else{const pager=$("#scoreComparisonPager");if(pager)pager.innerHTML=""}
   box.innerHTML=rows.length?rows.map(row=>`<tr><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.committeeName)}</td><td>${row.chairmanScore!=null?formatAssessmentNumber(row.chairmanScore):"—"}</td><td>${row.memberScore!=null?formatAssessmentNumber(row.memberScore):"—"}</td><td>${row.finalScore!=null?formatAssessmentNumber(row.finalScore):"—"}</td><td><button type="button" class="compact-btn danger-compact" data-delete-score-comparison="${row.participantId}" data-name="${escapeAttr(row.name)}"><i data-lucide="trash-2"></i> حذف السجل</button></td></tr>`).join(""):`<tr><td colspan="6" class="table-empty">لا توجد بيانات مطابقة</td></tr>`;
   $$(`[data-delete-score-comparison]`).forEach(button=>button.onclick=async()=>{
     const participantId=button.dataset.deleteScoreComparison,name=button.dataset.name;
@@ -1457,7 +1484,7 @@ async function startCommitteeExam(participantId){const participant=state.partici
     }else toast(error.message);
     await renderCommitteeWorkspace()
   }}
-function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View")||(operationMode==="local"&&LOCAL_HIDDEN_VIEWS.has(view))||!viewAllowedInSection(view))view=sectionDefaultView();safeSetItem(currentViewKey(),view==="demo"?"dashboard":view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants"){if(!ui&&$("#participantSearch"))$("#participantSearch").value="";renderParticipants()}if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();renderCommitteeBreakdown();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="diwanStudents"){ensureDiwanStateLoaded().then(renderDiwanStudents);renderDiwanStudents()}if(view==="diwanStats"){ensureDiwanStateLoaded().then(renderDiwanStats);renderDiwanStats()}if(view==="diwan"){diwanOpenStage=null;const persistedDiwanFilters=loadDiwanPersistedParticipantFilters();restoreListControls(persistedDiwanFilters);diwanStatusSelection=Array.isArray(persistedDiwanFilters.diwanStatusSelection)?persistedDiwanFilters.diwanStatusSelection:[];ensureDiwanStateLoaded().then(renderDiwanParticipants);renderDiwanParticipants()}if(view==="monitor")renderMonitorView();if(view==="demo")window.DemoMode?.start();else window.DemoMode?.stop();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
+function navigate(view,{historyMode="push",ui=null}={}){if(!$("#"+view+"View")||(operationMode==="local"&&LOCAL_HIDDEN_VIEWS.has(view))||!viewAllowedInSection(view))view=sectionDefaultView();safeSetItem(currentViewKey(),view==="demo"?"dashboard":view);if(ui)restoreListControls(ui);$$(`.view`).forEach(v=>v.classList.toggle("active-view",v.id===`${view}View`));$$(`[data-view]`).forEach(b=>b.classList.toggle("active",b.dataset.view===view));$(".sidebar").classList.remove("open");syncTopViewTitle(view);if(view!=="monitor")stopMonitorPoll();if(view==="draw"){refreshDrawParticipants();const count=$("#availableCount");if(count&&!integrity.valid)count.textContent="تُجهّز بيانات القرآن عند السحب"}if(view==="participants"){if(!ui&&$("#participantSearch"))$("#participantSearch").value="";renderParticipants()}if(view==="history")renderHistory();if(view==="examDuration")renderExamDurations();if(view==="analytics"){renderAnalytics();renderCommitteeBreakdown();if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition.context?.kind))renderScoreComparison()}if(view==="diwanStudents"){ensureDiwanStateLoaded().then(renderDiwanStudents);renderDiwanStudents()}if(view==="diwanStats"){ensureDiwanStateLoaded().then(renderDiwanStats);renderDiwanStats()}if(view==="diwan"){diwanOpenStage=null;const persistedDiwanFilters=loadDiwanPersistedParticipantFilters();restoreListControls(persistedDiwanFilters);diwanStatusSelection=Array.isArray(persistedDiwanFilters.diwanStatusSelection)?persistedDiwanFilters.diwanStatusSelection:[];ensureDiwanStateLoaded().then(renderDiwanParticipants);renderDiwanParticipants()}if(view==="monitor")renderMonitorView();if(view==="demo")window.DemoMode?.start();else window.DemoMode?.stop();if(historyMode!=="none")recordBrowserRoute({surface:"admin",view},{replace:historyMode==="replace"});requestAnimationFrame(()=>window.scrollTo(0,ui?.scrollY||0));lucide.createIcons()}
 function renderAll(){enforceWithdrawnZeroScore(state.participants);renderDashboard();renderParticipants();renderHistory();refreshDrawParticipants();renderAnalytics();lucide.createIcons()}
 
 // "ممتحن" = علامة حقيقية > صفر. المنسحب علامته صفر دائماً (enforceWithdrawnZeroScore) فلا يُحسب ممتحناً حتى لو انسحب بعد اعتماد علامته.
@@ -1510,6 +1537,96 @@ function renderDashboard(){
   renderPassRateRing("passRateFRing","passRateF",passRateOf(byGender(scoped,"أنثى")));
   renderLevelBreakdown(total);
   renderDashboardDateFilterUi();
+  renderHomeSmart();
+}
+// ===== الرئيسية الذكية (تقسيمة «ب» فقط — مخفية بالكلاسيكي) =====
+// كل شيء محسوب من نفس بيانات الدورة المحمّلة (state) بدون أي طلب إضافي للخادم، فتعمل بالوضعين السحابي والمحلي.
+// المرحلة الحالية: التسجيل ← السحب ← الاختبار ← النتائج. و«يوم الاختبار» (موعد العدّاد اليوم، أو صار فيه تصحيح اليوم)
+// يبدّل قائمة «ابدأ الدورة» بمتابعة حيّة لتقدّم اللجان، وتتحدّث مع كل تحديث للبيانات (renderDashboard).
+function homeTodayKey(now=new Date()){return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`}
+function homeCanUse(selector){const el=$(selector);return Boolean(el&&!el.classList.contains("hidden")&&!el.closest(".hidden"))}
+function homeRelativeTime(iso){const d=new Date(iso);if(Number.isNaN(d.getTime()))return "";const time=new Intl.DateTimeFormat("ar-JO",{hour:"numeric",minute:"2-digit",numberingSystem:"latn"}).format(d);return homeTodayKey(d)===homeTodayKey()?time:`${new Intl.DateTimeFormat("ar-JO",{day:"numeric",month:"short",numberingSystem:"latn"}).format(d)} · ${time}`}
+function homeCommitteeNameOf(participant,committees){const done=resultCommitteeName(participant);if(done)return done;if(!committees.length)return "";try{return resolveParticipantCommittee(participant,committees).currentCommittee?.name||""}catch(error){return ""}}
+function homeSmartModel(now=new Date()){
+  const all=state.participants||[],active=all.filter(p=>!p.withdrawn);
+  const drawIds=new Set((state.draws||[]).filter(d=>d.participantId).map(d=>d.participantId));
+  const graded=active.filter(p=>Number.isFinite(p.score)),drawn=active.filter(p=>drawIds.has(p.id)||Number.isFinite(p.score));
+  const passed=graded.filter(p=>p.score>=PASS_SCORE);
+  const countdown=state.config?.examCountdown||{},days=countdown.enabled?examCountdownDaysLeft(countdown.date,now):null;
+  const todayKey=homeTodayKey(now),gradedToday=graded.filter(p=>isParticipantGradedOn(p,todayKey));
+  const complete=active.length>0&&graded.length>=active.length;
+  const phase=!all.length?0:complete?3:(graded.length>0||days===0)?2:1;
+  return {all,active,drawn,graded,passed,days,countdown,gradedToday,examDay:!complete&&(days===0||gradedToday.length>0),phase};
+}
+function renderHomeSmart(){
+  const box=$("#homeSmart");if(!box||APP_SECTION!=="annual"||!layoutBActive())return;syncTopViewTitle();
+  const m=homeSmartModel(),n=formatNumber,hour=new Date().getHours();
+  const name=($("#topAccountName")?.textContent||"").trim();
+  const greeting=`${hour<12?"صباح الخير":"مساء الخير"}${name?`، ${escapeHtml(name)}`:""}`;
+  const phaseNames=["التسجيل","السحب","الاختبار","النتائج"];
+  const nextStep=[
+    "الخطوة التالية: أضف المتسابقين أو استورد ملف Excel.",
+    `تم السحب لـ ${n(m.drawn.length)} من ${n(m.active.length)} متسابق.`,
+    `تم اختبار ${n(m.graded.length)} من ${n(m.active.length)} متسابق${m.gradedToday.length?` — منهم ${n(m.gradedToday.length)} اليوم`:""}.`,
+    "اكتملت علامات كل المتسابقين — بقي تصدير النتائج والشهادات."][m.phase];
+  const examDateText=m.days!==null&&EXAM_DATE_RE.test(m.countdown.date||"")?new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",numberingSystem:"latn"}).format(new Date(`${m.countdown.date}T00:00:00`)):"";
+  const countdownHtml=m.days===null||m.days<0?"":m.days===0
+    ?`<div class="home-countdown is-today"><b>اليوم</b><span><strong>يوم الاختبار</strong><small>${escapeHtml(examDateText)}</small></span></div>`
+    :`<div class="home-countdown"><b>${n(m.days)}</b><span><strong>${m.days===1?"يوم":m.days===2?"يومان":escapeHtml(examCountdownUnit(m.days))} على الاختبار</strong><small>${escapeHtml(examDateText)}</small></span></div>`;
+  const phaseSubs=[`${n(m.all.length)} متسابق`,m.all.length?`${n(m.drawn.length)} من ${n(m.active.length)}`:"لم يبدأ",m.graded.length?`${n(m.graded.length)} من ${n(m.active.length)}`:"لم يبدأ",m.phase===3?`${n(m.passed.length)} ناجح`:"—"];
+  const track=phaseNames.map((label,i)=>{const s=i<m.phase||(m.phase===3&&i===3)?"done":i===m.phase?"current":"next";return `<li class="home-phase" data-state="${s}"><span class="home-phase-dot">${s==="done"?`<i data-lucide="check"></i>`:i+1}</span><span class="home-phase-text"><b>${label}</b><small>${phaseSubs[i]}</small></span></li>`}).join("");
+  const action=(key,label,primary)=>`<button type="button" class="${primary?"primary-btn":"secondary-btn"} compact" data-home-action="${key}">${label}</button>`;
+  let mainCard;
+  if(m.examDay){
+    const committees=operationMode==="cloud"?((window.CloudCompetition?.context?.kind==="subAdmin"?subAdminCommittees:cloudCommittees)||[]).filter(c=>c.active!==false):[];
+    const groups=new Map();
+    for(const p of m.active){const key=homeCommitteeNameOf(p,committees)||"بدون لجنة";if(!groups.has(key))groups.set(key,{total:0,done:0,today:0});const g=groups.get(key);g.total++;if(Number.isFinite(p.score))g.done++;if(isParticipantGradedOn(p,homeTodayKey()))g.today++}
+    const rows=[...groups.entries()].sort((a,b)=>a[0]==="بدون لجنة"?1:b[0]==="بدون لجنة"?-1:a[0].localeCompare(b[0],"ar",{numeric:true}));
+    const passedToday=m.gradedToday.filter(p=>p.score>=PASS_SCORE).length,realToday=m.gradedToday.filter(isRealExam).length;
+    mainCard=`<section class="panel home-card home-live" aria-labelledby="homeLiveTitle">
+      <div class="home-card-head"><h3 id="homeLiveTitle"><span class="home-live-dot" aria-hidden="true"></span>يوم الاختبار — متابعة مباشرة</h3>${action("monitor","المراقبة الحية",true)}</div>
+      <div class="home-live-stats"><div><b>${n(m.gradedToday.length)}</b><span>اختُبروا اليوم</span></div><div><b>${n(Math.max(0,m.active.length-m.graded.length))}</b><span>باقي بالدورة</span></div><div><b>${realToday?formatPct(passedToday/realToday*100):"—"}</b><span>نسبة النجاح اليوم</span></div></div>
+      <ul class="home-committees">${rows.map(([label,g])=>{const pct=g.total?Math.round(g.done/g.total*100):0;return `<li><span class="home-committee-name">${escapeHtml(label)}</span><span class="home-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${g.total}" aria-valuenow="${g.done}" aria-label="${escapeAttr(label)}"><span style="width:${pct}%"></span></span><small>${n(g.done)}/${n(g.total)}${g.today?` · اليوم ${n(g.today)}`:""}</small></li>`}).join("")||`<li class="home-empty">لا يوجد متسابقون بعد.</li>`}</ul>
+    </section>`;
+  }else{
+    const steps=[];
+    steps.push({done:m.all.length>0,icon:"users",title:"المتسابقون",sub:m.all.length?`${n(m.all.length)} متسابق مسجّل`:"لا يوجد متسابقون بعد — استورد ملف Excel أو أضفهم يدوياً",btn:m.all.length?action("participants","عرض"):homeCanUse("#importParticipantsBtn")?action("import","استيراد Excel",true):action("add","متسابق جديد",true)});
+    if(operationMode==="cloud"&&["admin","supervisor"].includes(window.CloudCompetition?.context?.kind)){const activeCommittees=(cloudCommittees||[]).filter(c=>c.active!==false).length;steps.push({done:activeCommittees>0,icon:"users-round",title:"لجان الاختبار",sub:activeCommittees?`${n(activeCommittees)} لجنة مفعّلة`:"لا توجد لجان مفعّلة بعد",btn:action("committees",activeCommittees?"إدارة":"إضافة لجنة",!activeCommittees)})}
+    steps.push({done:m.active.length>0&&m.drawn.length>=m.active.length,icon:"sparkles",title:"السحب",sub:m.active.length?`${n(m.drawn.length)} من ${n(m.active.length)} تم سحب مواضعهم`:"يبدأ بعد إضافة المتسابقين",btn:action("draw",m.drawn.length<m.active.length&&m.all.length?"إجراء السحب":"عرض",m.all.length>0&&m.drawn.length<m.active.length)});
+    if(homeCanUse('.sidebar [data-view="settings"]'))steps.push({done:Boolean(m.countdown.enabled&&EXAM_DATE_RE.test(m.countdown.date||"")),icon:"calendar-clock",title:"موعد الاختبار",sub:m.countdown.enabled&&examDateText?`${examDateText} · العدّاد ظاهر على شاشات الدخول`:"حدّده ليظهر «باقي X أيام» للّجان",btn:action("settings",m.countdown.enabled?"تعديل":"تحديد")});
+    const doneCount=steps.filter(s=>s.done).length;
+    mainCard=`<section class="panel home-card" aria-labelledby="homeStartTitle">
+      <div class="home-card-head"><h3 id="homeStartTitle">${m.phase===0?"ابدأ الدورة":"تجهيز الدورة"}</h3><small>${n(doneCount)} من ${n(steps.length)} مكتملة</small></div>
+      <div class="home-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${steps.length}" aria-valuenow="${doneCount}" aria-label="تقدّم تجهيز الدورة"><span style="width:${steps.length?Math.round(doneCount/steps.length*100):0}%"></span></div>
+      <ul class="home-steps">${steps.map(s=>`<li class="home-step${s.done?" is-done":""}"><span class="home-step-icon"><i data-lucide="${s.done?"check":s.icon}"></i></span><span class="home-step-text"><b>${s.title}</b><small>${escapeHtml(s.sub)}</small></span>${s.btn}</li>`).join("")}</ul>
+    </section>`;
+  }
+  const quick=[["add","user-plus","متسابق جديد",homeCanUse("#addParticipantBtn")],["import","file-up","استيراد Excel",homeCanUse("#importParticipantsBtn")],["draw","sparkles","إجراء السحب",true],["export","sheet","النتائج Excel",m.graded.length>0]].filter(q=>q[3]);
+  const events=[...(state.draws||[]).filter(d=>d.createdAt).map(d=>({at:d.createdAt,dot:"draw",text:`سحب مواضع: ${d.name||"متسابق"}`})),...(state.participants||[]).filter(p=>p.gradedAt&&Number.isFinite(p.score)&&!p.withdrawn).map(p=>({at:p.gradedAt,dot:p.score>=PASS_SCORE?"pass":"fail",text:`علامة ${p.name}: ${formatNumber(p.score)}`}))].filter(e=>!Number.isNaN(new Date(e.at).getTime())).sort((a,b)=>new Date(b.at)-new Date(a.at)).slice(0,5);
+  box.innerHTML=`<section class="home-hero">
+      <div class="home-hero-text"><span class="home-hero-eyebrow">${escapeHtml(state.config?.competitionName||"المسابقة السنوية")}</span><h1>${greeting}</h1><p>الدورة الآن في مرحلة <b>${phaseNames[m.phase]}</b> — ${escapeHtml(nextStep)}</p></div>
+      ${countdownHtml}
+    </section>
+    <ol class="home-phases" aria-label="مراحل الدورة">${track}</ol>
+    <div class="home-grid">
+      ${mainCard}
+      <div class="home-side">
+        ${quick.length?`<section class="panel home-card"><div class="home-card-head"><h3>إجراءات سريعة</h3></div><div class="home-quick">${quick.map(([key,icon,label])=>`<button type="button" class="home-quick-btn" data-home-action="${key}"><span><i data-lucide="${icon}"></i></span>${label}</button>`).join("")}</div></section>`:""}
+        <section class="panel home-card"><div class="home-card-head"><h3>آخر النشاط</h3><button type="button" class="link-btn" data-home-action="history">سجل السحوبات</button></div>
+          <ul class="home-feed">${events.map(e=>`<li><span class="home-feed-dot" data-kind="${e.dot}"></span><span class="home-feed-text">${escapeHtml(e.text)}</span><small>${escapeHtml(homeRelativeTime(e.at))}</small></li>`).join("")||`<li class="home-empty">لا يوجد نشاط بعد — يظهر هنا آخر سحب وآخر علامة.</li>`}</ul>
+        </section>
+      </div>
+    </div>`;
+  $$("[data-home-action]",box).forEach(button=>button.addEventListener("click",()=>runHomeAction(button.dataset.homeAction)));
+  lucide.createIcons();
+}
+function runHomeAction(key){
+  if(key==="add")return $("#addParticipantBtn")?.click();
+  if(key==="import")return $("#csvInput")?.click();
+  if(key==="export")return $("#exportResultsBtn")?.click();
+  if(key==="committees"){navigate("settings");return $('[data-settings-tab="committees"]')?.click()}
+  if(key==="settings"){navigate("settings");$('[data-settings-tab="general"]')?.click();return $("#settingsExamCountdown")?.closest("label")?.scrollIntoView({block:"center"})}
+  navigate(key);
 }
 function renderLevelBreakdown(total){
   const UNRESOLVED="__unresolved__";

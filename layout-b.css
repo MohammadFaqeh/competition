@@ -1,0 +1,260 @@
+/* =====================================================================
+   تقسيمة «ب» للوحة إدارة المسابقة السنوية
+   - شاشة كبيرة: القائمة الجانبية تصير شريط أيقونات ضيّق بتسميات قصيرة (data-short).
+   - شريط علوي: اسم الصفحة الحالية + بحث سريع («/») + التاريخ + الوضع الداكن + شارة الحساب.
+   - جوال: شريط سفلي بخمسة أزرار بدل زر ☰ (و«المزيد» يفتح القائمة الكاملة كما كانت).
+   كل القواعد مقيّدة بـ html.layout-b (يضيفه سكربت رأس index.html للسنوية فقط ما لم يُختر «الكلاسيكي» بالإعدادات)،
+   فحذف الصنف يرجّع الشكل القديم كما هو. عناصر التقسيمة الجديدة مخفية افتراضياً أدناه.
+   ===================================================================== */
+
+.top-view-title,.quick-search,.quick-search-phone,.top-account-chip,.bottom-nav{display:none}
+
+/* ---------- الشريط العلوي (كل المقاسات) ---------- */
+html.layout-b .menu-btn{display:none}
+html.layout-b .topbar{height:72px;gap:18px}
+html.layout-b .topbar-title{display:flex;flex-direction:column;min-width:0;flex:0 1 auto}
+html.layout-b #topAdminGreeting{display:none}
+html.layout-b .topbar-title h2{order:-1;margin:0;font-family:var(--font-arabic);font-size:11.5px;font-weight:600;color:var(--gold-600);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
+html.layout-b .top-view-title{display:block;font-family:var(--font-display,inherit);font-size:22px;font-weight:600;line-height:1.25;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.layout-b .topbar-actions{margin-right:0}
+
+html.layout-b .quick-search{display:flex;align-items:center;gap:10px;flex:1 1 auto;max-width:460px;margin-inline:auto;height:42px;padding:0 14px;border:1px solid var(--control-border);border-radius:12px;background:var(--canvas);color:var(--muted);transition:border-color var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
+html.layout-b .quick-search:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.16)}
+html.layout-b .quick-search svg{width:18px;height:18px;flex-shrink:0}
+html.layout-b .quick-search input{flex:1;min-width:0;height:100%;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;outline:none;font:inherit;font-size:13px;color:var(--ink)}
+html.layout-b .quick-search input::-webkit-search-cancel-button{display:none}
+html.layout-b .quick-search kbd{font:inherit;font-size:11px;line-height:1.6;border:1px solid var(--control-border);border-radius:6px;padding:0 7px;background:var(--surface);color:var(--muted)}
+
+html.layout-b .top-account-chip{display:inline-flex;align-items:center;gap:8px;padding:3px 3px 3px 12px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;font-weight:600;color:var(--ink);max-width:190px;flex-shrink:0}
+html.layout-b .top-account-chip b{width:32px;height:32px;border-radius:50%;background:var(--night,var(--green-950));color:var(--copper,#fff);display:grid;place-items:center;font-size:14px;font-weight:700;flex-shrink:0}
+html.layout-b .top-account-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- شاشة كبيرة: شريط الأيقونات ---------- */
+@media(min-width:781px){
+  html.layout-b .sidebar,html.layout-b #app.sidebar-collapsed .sidebar{width:92px;padding:14px 10px;overflow:hidden}
+  html.layout-b .workspace,html.layout-b #app.sidebar-collapsed .workspace{margin-right:92px}
+  html.layout-b .sidebar-brand,html.layout-b #app.sidebar-collapsed .sidebar-brand{padding:0 0 12px;border-bottom:0}
+  html.layout-b .sidebar-brand>div{display:none}
+  html.layout-b .sidebar-logo,html.layout-b #app.sidebar-collapsed .sidebar-logo{width:60px;height:60px;padding:5px;border-radius:14px;border-bottom-width:3px}
+  html.layout-b .sidebar nav{padding-top:4px;gap:6px;align-items:center;overflow-x:hidden;scrollbar-width:none}
+  html.layout-b .sidebar nav::-webkit-scrollbar{display:none}
+  html.layout-b .sidebar .nav-item,html.layout-b #app.sidebar-collapsed .nav-item{width:72px;height:auto;min-height:58px;flex-shrink:0;padding:8px 2px 7px;flex-direction:column;justify-content:center;gap:4px;border-radius:14px;text-align:center}
+  html.layout-b .sidebar .nav-item>span{display:none}
+  html.layout-b .sidebar .nav-item::after{content:attr(data-short);font-size:11px;font-weight:500;line-height:1.3;white-space:nowrap}
+  html.layout-b .sidebar .nav-item svg{width:22px;height:22px}
+  html.layout-b .sidebar .nav-item.active{background:rgba(232,176,106,.14);color:var(--copper,#fff);box-shadow:inset -3px 0 var(--copper,var(--gold))}
+  html.layout-b.theme-rose .sidebar .nav-item.active{background:rgba(237,167,193,.14)}
+  html.layout-b .sidebar-footer{display:flex;justify-content:center;padding-top:10px}
+}
+/* شاشات قصيرة (لابتوب 768px ارتفاع): الشريط يتمرّر بدل ما يقصّ الأزرار */
+@media(min-width:781px) and (max-height:700px){
+  html.layout-b .sidebar-logo,html.layout-b #app.sidebar-collapsed .sidebar-logo{width:48px;height:48px;padding:4px}
+  html.layout-b .sidebar .nav-item,html.layout-b #app.sidebar-collapsed .nav-item{min-height:52px;padding-block:6px 5px}
+}
+/* تابلت/لابتوب صغير: الشريط العلوي يضيق */
+@media(min-width:781px) and (max-width:1180px){
+  html.layout-b .top-account-chip{padding:3px}
+  html.layout-b .top-account-chip span{display:none}
+}
+@media(min-width:781px) and (max-width:1023px){
+  html.layout-b .date-chip{display:none}
+  html.layout-b .top-view-title{font-size:19px}
+}
+
+/* ---------- جوال: شريط سفلي ---------- */
+@media(max-width:780px){
+  html.layout-b .topbar{height:62px;min-height:62px;gap:10px}
+  html.layout-b .top-view-title{font-size:18px}
+  html.layout-b .topbar-title h2{font-size:10.5px}
+  html.layout-b .quick-search,html.layout-b .date-chip{display:none}
+  html.layout-b .topbar-actions{margin-right:auto;gap:8px}
+  html.layout-b .quick-search-phone{display:inline-flex}
+  html.layout-b .top-account-chip{padding:0;border:0}
+  html.layout-b .top-account-chip span{display:none}
+  html.layout-b .top-account-chip b{width:34px;height:34px}
+  html.layout-b .color-mode-toggle.docked{position:static;width:36px;height:36px;box-shadow:none;flex-shrink:0}
+
+  html.layout-b .bottom-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch;position:fixed;z-index:18;
+    left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));
+    height:64px;padding:0 4px;border-radius:20px;background:var(--night,var(--green-950));box-shadow:0 12px 30px rgba(10,17,40,.35);border:1px solid rgba(255,255,255,.06)}
+  html.layout-b .bottom-nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;padding:0;border:0;background:transparent;color:#aab4d4;font:inherit;font-size:10.5px;font-weight:500;line-height:1.3;cursor:pointer}
+  html.layout-b .bottom-nav-item svg{width:42px;height:28px;padding:4px 11px;border-radius:10px;box-sizing:border-box;transition:background var(--dur-fast) var(--ease)}
+  html.layout-b .bottom-nav-item span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  html.layout-b .bottom-nav-item.active{color:var(--copper,#fff)}
+  html.layout-b .bottom-nav-item.active svg{background:rgba(232,176,106,.16)}
+  html.layout-b.theme-rose .bottom-nav-item.active svg{background:rgba(237,167,193,.16)}
+  html.layout-b .bottom-nav-item:focus-visible{outline:2px solid var(--copper,#fff);outline-offset:-2px;border-radius:14px}
+  html.layout-b .bottom-nav-item.hidden{display:none}
+
+  html.layout-b footer{padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+  html.layout-b .toast{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+}
+html.layout-b body.exam-fullscreen .bottom-nav,html.layout-b.demo-presenting .bottom-nav{display:none!important}
+
+/* ---------- الرئيسية الذكية (المرحلة 2) + وضع يوم الاختبار (المرحلة 5) ---------- */
+.home-smart{display:none}
+html.layout-b .home-smart{display:flex;flex-direction:column;gap:16px;margin-bottom:18px}
+html.layout-b #dashboardView>.welcome-band{display:none}
+html.layout-b .home-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:22px 26px;border-radius:20px;color:#eef1fa;
+  background:var(--night,var(--green-950)) var(--star-pattern,none);background-size:96px 96px;border:1px solid rgba(232,176,106,.2)}
+html.layout-b .home-hero-text{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 320px}
+html.layout-b .home-hero-eyebrow{font-size:12px;font-weight:600;color:var(--copper,#e8b06a)}
+html.layout-b .home-hero h1{margin:0;font-family:var(--font-display,inherit);font-size:28px;font-weight:600;line-height:1.3;color:#fff;text-wrap:balance}
+html.layout-b .home-hero p{margin:0;font-size:13.5px;line-height:1.8;color:#c5cde6;max-width:62ch}
+html.layout-b .home-hero p b{color:#fff}
+html.layout-b .home-countdown{display:flex;align-items:center;gap:12px;padding:10px 16px 10px 12px;border:1px solid rgba(232,176,106,.4);border-radius:14px;background:rgba(232,176,106,.08);flex-shrink:0}
+html.layout-b .home-countdown>b{min-width:54px;height:48px;padding:0 8px;border-radius:10px;background:var(--copper-strong,#d99a4e);color:#0a1128;display:grid;place-items:center;font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+html.layout-b .home-countdown.is-today>b{font-size:17px}
+html.layout-b .home-countdown span{display:flex;flex-direction:column;line-height:1.5}
+html.layout-b .home-countdown strong{font-size:14px;color:#fff}
+html.layout-b .home-countdown small{font-size:11.5px;color:#c5cde6}
+
+html.layout-b .home-phases{list-style:none;margin:0;padding:16px 22px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+html.layout-b .home-phase{display:flex;align-items:center;gap:12px;min-width:0;position:relative}
+html.layout-b .home-phase:not(:last-child)::after{content:"";flex:1;height:2px;border-radius:2px;background:var(--line);min-width:12px}
+html.layout-b .home-phase[data-state="done"]:not(:last-child)::after{background:var(--gold)}
+html.layout-b .home-phase-dot{width:38px;height:38px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;border:1.5px solid var(--control-border);color:var(--muted);background:var(--surface)}
+html.layout-b .home-phase-dot svg{width:18px;height:18px}
+html.layout-b .home-phase[data-state="current"] .home-phase-dot{background:var(--gold);border-color:var(--gold);color:#fff}
+html.layout-b .home-phase[data-state="done"] .home-phase-dot{background:var(--gold-soft);border-color:transparent;color:var(--gold-600)}
+html.layout-b .home-phase-text{display:flex;flex-direction:column;min-width:0}
+html.layout-b .home-phase-text b{font-size:14px;color:var(--ink)}
+html.layout-b .home-phase[data-state="next"] .home-phase-text b{color:var(--muted)}
+html.layout-b .home-phase-text small{font-size:12px;color:var(--caption);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+html.layout-b .home-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+html.layout-b .home-side{display:flex;flex-direction:column;gap:16px;min-width:0}
+html.layout-b .home-card{display:flex;flex-direction:column;gap:12px;margin:0;min-width:0}
+html.layout-b .home-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+html.layout-b .home-card-head h3{margin:0;font-family:var(--font-display,inherit);font-size:19px;font-weight:600;display:flex;align-items:center;gap:8px}
+html.layout-b .home-card-head small{font-size:12px;color:var(--caption)}
+html.layout-b .home-card .link-btn{border:0;background:none;padding:0;font:inherit;font-size:12.5px;font-weight:600;color:var(--gold-600);cursor:pointer}
+html.layout-b .home-card .link-btn:hover{text-decoration:underline}
+html.layout-b .home-progress{height:6px;border-radius:6px;background:var(--line-soft);overflow:hidden}
+html.layout-b .home-progress span{display:block;height:100%;border-radius:6px;background:var(--gold);transition:width var(--dur-med) var(--ease)}
+html.layout-b .home-steps,html.layout-b .home-feed,html.layout-b .home-committees{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+html.layout-b .home-steps{gap:10px}
+html.layout-b .home-step{display:flex;align-items:center;gap:14px;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+html.layout-b .home-step.is-done{background:var(--canvas)}
+html.layout-b .home-step-icon{width:36px;height:36px;flex-shrink:0;border-radius:10px;display:grid;place-items:center;background:var(--green-50);color:var(--green-800)}
+html.layout-b .home-step.is-done .home-step-icon{background:rgba(23,98,63,.12);color:#17623f}
+html.layout-b.theme-dark .home-step.is-done .home-step-icon{background:rgba(111,211,159,.14);color:#6fd39f}
+html.layout-b .home-step-icon svg{width:18px;height:18px}
+html.layout-b .home-step-text{flex:1;display:flex;flex-direction:column;min-width:0}
+html.layout-b .home-step-text b{font-size:14px}
+html.layout-b .home-step-text small{font-size:12px;color:var(--caption);line-height:1.6}
+html.layout-b .home-step .compact{min-height:38px;height:auto;padding:6px 16px;font-size:13px;flex-shrink:0;white-space:nowrap}
+
+html.layout-b .home-quick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+html.layout-b .home-quick-btn{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--canvas);color:var(--ink);font:inherit;font-size:13px;font-weight:600;text-align:right;cursor:pointer;min-width:0;transition:border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
+html.layout-b .home-quick-btn:hover{border-color:var(--gold);background:var(--surface)}
+html.layout-b .home-quick-btn>span{width:32px;height:32px;flex-shrink:0;border-radius:9px;background:var(--gold-soft);color:var(--gold-600);display:grid;place-items:center}
+html.layout-b .home-quick-btn svg{width:17px;height:17px}
+
+html.layout-b .home-feed li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line-soft);font-size:13px;min-width:0}
+html.layout-b .home-feed li:first-child{border-top:0}
+html.layout-b .home-feed-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html.layout-b .home-feed small{font-size:11.5px;color:var(--caption);white-space:nowrap}
+html.layout-b .home-feed-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--blue)}
+html.layout-b .home-feed-dot[data-kind="pass"]{background:#2f9a64}
+html.layout-b .home-feed-dot[data-kind="fail"]{background:var(--red)}
+html.layout-b .home-feed-dot[data-kind="draw"]{background:var(--gold)}
+html.layout-b .home-empty{color:var(--caption);font-size:13px;padding:6px 0;border:0!important}
+
+html.layout-b .home-live{border-color:rgba(201,138,61,.45)}
+html.layout-b .home-live-dot{width:10px;height:10px;border-radius:50%;background:#2f9a64;box-shadow:0 0 0 0 rgba(47,154,100,.5);animation:homeLive 1.8s infinite}
+@keyframes homeLive{70%{box-shadow:0 0 0 9px rgba(47,154,100,0)}100%{box-shadow:0 0 0 0 rgba(47,154,100,0)}}
+@media(prefers-reduced-motion:reduce){html.layout-b .home-live-dot{animation:none}}
+html.layout-b .home-live-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+html.layout-b .home-live-stats>div{padding:12px 14px;border-radius:12px;background:var(--canvas);display:flex;flex-direction:column;gap:2px}
+html.layout-b .home-live-stats b{font-size:26px;line-height:1.2;font-variant-numeric:tabular-nums;color:var(--ink)}
+html.layout-b .home-live-stats span{font-size:12px;color:var(--caption)}
+html.layout-b .home-committees{gap:2px}
+html.layout-b .home-committees li{display:grid;grid-template-columns:minmax(90px,1.1fr) minmax(0,2fr) auto;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line-soft);font-size:13px}
+html.layout-b .home-committees li:first-child{border-top:0}
+html.layout-b .home-committee-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html.layout-b .home-bar{height:8px;border-radius:8px;background:var(--line-soft);overflow:hidden}
+html.layout-b .home-bar span{display:block;height:100%;border-radius:8px;background:var(--gold)}
+html.layout-b .home-committees small{font-size:12px;color:var(--caption);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+@media(max-width:1100px){html.layout-b .home-grid{grid-template-columns:1fr}}
+@media(max-width:780px){
+  html.layout-b .home-smart{gap:12px;margin-bottom:12px}
+  html.layout-b .home-hero{padding:16px;border-radius:18px;gap:12px}
+  html.layout-b .home-hero h1{font-size:22px}
+  html.layout-b .home-hero p{font-size:12.5px}
+  html.layout-b .home-countdown{width:100%;padding:8px 10px}
+  html.layout-b .home-countdown>b{min-width:44px;height:40px;font-size:20px}
+  html.layout-b .home-phases{padding:12px 10px;gap:4px}
+  html.layout-b .home-phase{flex-direction:column;gap:4px;text-align:center}
+  html.layout-b .home-phase:not(:last-child)::after{display:none}
+  html.layout-b .home-phase-dot{width:30px;height:30px;font-size:13px}
+  html.layout-b .home-phase-text b{font-size:11.5px}
+  html.layout-b .home-phase-text small{font-size:10.5px}
+  html.layout-b .home-step{flex-wrap:wrap;gap:10px;padding:11px}
+  html.layout-b .home-step .compact{flex:1 1 100%}
+  html.layout-b .home-live-stats b{font-size:21px}
+  html.layout-b .home-committees li{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}
+  html.layout-b .home-bar{grid-column:1/-1;grid-row:2}
+}
+
+/* ---------- صفحة المتسابقين على الجوال (المرحلة 3): فلاتر خلف زر + بطاقات بدل الجدول ---------- */
+.filters-toggle{display:none}
+html.layout-b .home-quick-btn:last-child:nth-child(odd){grid-column:1/-1}
+@media(max-width:780px){
+  html.layout-b #participantsView .table-tools{flex-direction:row;flex-wrap:wrap;align-items:stretch}
+  html.layout-b #participantsView .table-tools .search-box{flex:1 1 calc(100% - 140px);min-width:0;max-width:none}
+  html.layout-b #participantsView .filters-toggle{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;padding-inline:14px;position:relative}
+  html.layout-b #participantsView .filters-toggle[aria-expanded="true"]{border-color:var(--gold);color:var(--gold-600)}
+  html.layout-b .filters-badge{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--gold);color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center;line-height:1}
+  html.layout-b .filters-badge.hidden{display:none}
+  html.layout-b #participantsView .table-tools:not(.filters-open) select{display:none}
+  html.layout-b #participantsView .table-tools.filters-open select{flex:1 1 calc(50% - 5px);width:auto}
+  html.layout-b #participantsView .filter-result-count{flex:1 1 100%}
+
+}
+/* البطاقات بدل الجدول حتى عرض التابلت (الجدول بتسعة أعمدة يضيق تحت 1024px) */
+@media(max-width:1023px){
+  html.layout-b #participantsView .table-wrap{overflow:visible;padding:12px}
+  html.layout-b #participantsView table{min-width:0;display:block}
+  html.layout-b #participantsView thead{display:none}
+  html.layout-b #participantsView tbody{display:flex;flex-direction:column;gap:10px}
+  html.layout-b #participantsView tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+  html.layout-b #participantsView tbody td{display:flex;flex-direction:column;gap:2px;padding:0;border:0;min-width:0;font-size:13px;overflow-wrap:anywhere}
+  html.layout-b #participantsView tbody td::before{font-size:11px;font-weight:600;color:var(--caption)}
+  html.layout-b #participantsView tbody td:nth-child(1){grid-column:2;grid-row:1;align-items:flex-start}
+  html.layout-b #participantsView tbody td:nth-child(1)::before{content:"رقم الجلوس"}
+  html.layout-b #participantsView tbody td:nth-child(2){grid-column:1;grid-row:1;font-size:15px}
+  html.layout-b #participantsView tbody td:nth-child(3)::before{content:"الجنس"}
+  html.layout-b #participantsView tbody td:nth-child(4)::before{content:"المركز"}
+  html.layout-b #participantsView tbody td:nth-child(5)::before{content:"المستوى"}
+  html.layout-b #participantsView tbody td:nth-child(6)::before{content:"اللجنة"}
+  html.layout-b #participantsView tbody td:nth-child(7)::before{content:"الحالة"}
+  html.layout-b #participantsView tbody td:nth-child(8)::before{content:"العلامة / 100"}
+  html.layout-b #participantsView tbody td:nth-child(9){grid-column:1/-1;padding-top:10px;border-top:1px solid var(--line-soft)}
+  html.layout-b #participantsView tbody td:nth-child(9) .row-actions{justify-content:flex-start;flex-wrap:wrap}
+  html.layout-b #participantsView tbody td>*{align-self:flex-start;max-width:100%}
+  html.layout-b #participantsView tbody td .score-input{width:100%;align-self:stretch}
+  html.layout-b #participantsView tbody td.table-empty{grid-column:1/-1;text-align:center;align-items:center}
+  html.layout-b #participantsView tbody td.table-empty::before{content:none}
+  html.layout-b #participantsView tbody tr:has(td.table-empty){display:block;grid-column:1/-1}
+}
+@media(min-width:640px) and (max-width:1023px){
+  html.layout-b #participantsView tbody{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+}
+
+/* ---------- الإعدادات (المرحلة 4): قائمة جانبية بدل التبويبات + بطاقات لجان مضغوطة ---------- */
+@media(min-width:1100px){
+  html.layout-b #settingsView.active-view{display:grid;grid-template-columns:230px minmax(0,1fr);column-gap:24px;align-items:start}
+  html.layout-b #settingsView>*{grid-column:1/-1;width:100%;box-sizing:border-box}
+  html.layout-b #settingsView>#settingsTabs{grid-column:1;display:flex;flex-direction:column;flex-wrap:nowrap;gap:3px;max-width:none;margin:0;padding:8px;position:sticky;top:90px}
+  html.layout-b #settingsView>#settingsTabs button{justify-content:flex-start;width:100%;padding:11px 12px;font-size:13.5px;white-space:normal;text-align:right;position:relative}
+  html.layout-b #settingsView>#settingsTabs button.is-active{background:var(--gold-soft);color:var(--gold-600);box-shadow:inset -3px 0 var(--gold)}
+  html.layout-b #settingsView>#settingsTabs .settings-tab-badge{margin-inline-start:auto}
+  html.layout-b #settingsView>.settings-body{grid-column:2;max-width:none;min-width:0}
+  html.layout-b #committeesList{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+  html.layout-b #committeesList>.committee-empty{grid-column:1/-1}
+  html.layout-b #committeesList .committee-row{height:100%}
+  html.layout-b #committeesList .committee-row-head{flex-wrap:wrap;gap:8px}
+  html.layout-b #committeesList .committee-row-head>div:first-child{flex:1 1 200px;min-width:0}
+}

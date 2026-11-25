@@ -334,6 +334,14 @@ Edge Functions (في `supabase/functions/`): `auto-backup` (نسخة JSON دور
 
 ## 12. الواجهة **[عام]**
 - **شريط جانبي**: نظرة عامة، المتسابقون، إجراء السحب، اختبارات ديوان الحفاظ، سجل السحوبات، مدة الاختبار، مراقبة حية، الإحصاءات، الإعدادات. تُخفى/تُقيَّد بحسب الدور (`applySubAdminRestrictions`, `applySupervisorRestrictions`).
+- **تقسيمة «ب» للوحة إدارة المسابقة السنوية** (2026-11-25، ملف مستقل `layout-b.css` وكل قواعده مقيّدة بـ`html.layout-b`؛ الصنف يضيفه سكربت رأس `index.html` للسنوية فقط ما لم يُختر الكلاسيكي — الديوان لا يتأثر):
+  - **الشاشة الكبيرة**: القائمة الجانبية شريط أيقونات ضيّق بتسميات قصيرة (`data-short`)، وشريط علوي فيه اسم الصفحة الحالية + **بحث سريع** (اسم صفحة يفتحها، وغير ذلك يفتح «المتسابقون» مفلترةً بالنص؛ زر `/` يركّز عليه) + التاريخ + الوضع الداكن + شارة الحساب.
+  - **الجوال**: شريط سفلي بخمسة أزرار (الرئيسية، المتسابقون، السحب، المراقبة، المزيد — «المزيد» يفتح القائمة الكاملة كما كانت).
+  - **الرئيسية الذكية** (`renderHomeSmart`، تحل محل بانر الترحيب بهذه التقسيمة فقط، والأرقام والحلقات تبقى تحتها): ترحيب + عدّاد موعد الاختبار، مراحل الدورة (التسجيل ← السحب ← الاختبار ← النتائج محسوبة من بيانات الدورة: لا متسابقين / لا علامات / علامات ناقصة / اكتملت علامات غير المنسحبين)، قائمة «تجهيز الدورة» بأزرار (المتسابقون، اللجان للمدير/المشرف بالسحابي، السحب، موعد الاختبار)، إجراءات سريعة، وآخر النشاط (آخر السحوبات والعلامات من نفس البيانات).
+  - **وضع يوم الاختبار**: إذا كان موعد العدّاد اليوم أو سُجّلت علامة اليوم (والدورة لم تكتمل) تتحول قائمة التجهيز لمتابعة مباشرة: اختُبروا اليوم، الباقي، نسبة نجاح اليوم، وتقدّم كل لجنة، مع زر «المراقبة الحية». بلا أي طلب إضافي للخادم.
+  - **المتسابقون** (حتى عرض 1023px): بطاقات بدل الجدول، وعلى الجوال الفلاتر خلف زر «فلترة» بشارة عدد الفلاتر المفعّلة.
+  - **الإعدادات** (≥1100px): التبويبات قائمة جانبية ثابتة، وبطاقات اللجان بعمودين. **جدول مقارنة علامات اللجان** بصفحات من 50 سجلاً (بالكلاسيكي يبقى قائمة واحدة).
+  - **الرجوع للقديم**: مفتاح «الشكل الجديد للوحة الإدارة» بالإعدادات ← «هذا الجهاز» (تفضيل محلي `competition-admin-layout`=`classic`)، أو حذف سطر `layout-b.css` من `index.html`. الهيكل القديم لم يُحذف من الـHTML.
 - **شاشة اللجنة** منفصلة: رأس (اسم اللجنة والمستوى والدور)، تبويب السنوية/ديوان الحفاظ، تنبيهات اللجنة، إحصاءات، قائمة المتسابقين بصفحات، وزر تعليمات الاختبار (PDF مرفق `assets/exam-instructions.pdf`).
 - عناصر مشتركة: نوافذ Modal، Toast، قوائم منسدلة، فلاتر بحفظ الحالة، تقسيم صفحات مختصر (`renderPagerTabs`)، حلقة نسبة النجاح، حالة المزامنة، وضع فاتح/داكن، وحفظ آخر شاشة فُتحت، ودعم زر الرجوع في المتصفح (`recordBrowserRoute`).
 - تنسيق الأرقام لاتيني (`numberingSystem:"latn"`) مع نصوص عربية.
@@ -347,6 +355,7 @@ app.js                منطق الواجهة والحسابات (المتساب
 cloud.js              طبقة Supabase: CloudCompetition + DiwanCompetition
 styles.css            نظام التصميم (متغيرات CSS، وضع داكن، استجابة، قوالب PDF)
 theme-night.css       هوية «ليل المسابقة» للمسابقة السنوية فقط (html.section-annual) + خطوطها المحلية
+layout-b.css          تقسيمة «ب» للوحة إدارة السنوية (html.layout-b): شريط أيقونات، بحث سريع، شريط سفلي للجوال، الرئيسية الذكية
 supabase/*.sql        ~45 ملف هجرة بترتيب تنفيذ محدد
 supabase/functions/   auto-backup , password-reset (Edge Functions)
 data/                 quran.json + بيانات الأسطر (تُحمَّل عند الحاجة)
@@ -396,7 +405,7 @@ supabase-config.js    URL المشروع + مفتاح anon العام فقط (ي
 `PASS_SCORE=75` · `DIWAN_PASS_SCORE=85` · `DIWAN_FIVE_PASS_SCORE=90` (`DIWAN_FIVE_PARTS=5`) · `DIWAN_SERIAL_YEAR=2026` · `LEVEL_QUESTIONS={3:3,5:3,7:4,10:5,15:8,20:10,25:13,30:15}` · `ASSESSMENT_RULES={حفظ:2, لغة:2, تجويد:1, تردد:0.2, تغيير موضع:10}` · `TAJWEED_ERROR_CAP=10` · `IDLE_LOGOUT_MS=30 دقيقة` · `LIVE_RECENT_WINDOW_MS=12 ساعة` · مؤقت الموضع 20 ثانية · `DIWAN_FINAL_BANDS` (ثلاثة أثلاث) · `DIWAN_RECOMMENDATION_MAX_POINTS=5` · `DIWAN_RECOMMENDATION_MAX_CHARS=70` · حد تبديل الموضع 2 · قفل الدخول 5 محاولات/15 دقيقة · حفظ الإدارة بعد 450ms · استطلاع الإدارة 9 ثوانٍ / اللجنة 5 / عضو اللجنة 1.5 / المراقبة 4 / البلاغات 6.
 
 ### 15.2 مفاتيح `localStorage` الرئيسية
-`quranCompetition.localBranch.v1` (محلي) · `annualQuranCompetition.v2` (نسخة السحابي) · `diwanAlHifadh.v1` · `trialTest.v1` · `competition-color-mode` · `competition-sidebar-collapsed` · `competition-participant-list-ui` / `competition-diwan-participant-list-ui` (الفلاتر) · `competition-assessment-draft-*` / `diwan-assessment-draft-*` (مسودات التقييم) · `competition-committee-alerts` · `competition-live-autorefresh` · `competition-last-admin-view`.
+`quranCompetition.localBranch.v1` (محلي) · `annualQuranCompetition.v2` (نسخة السحابي) · `diwanAlHifadh.v1` · `trialTest.v1` · `competition-color-mode` · `competition-sidebar-collapsed` · `competition-participant-list-ui` / `competition-diwan-participant-list-ui` (الفلاتر) · `competition-assessment-draft-*` / `diwan-assessment-draft-*` (مسودات التقييم) · `competition-committee-alerts` · `competition-live-autorefresh` · `competition-admin-layout` (`classic` = الشكل الكلاسيكي للوحة السنوية، وغير ذلك = تقسيمة «ب») · `competition-last-admin-view`.
 
 ### 15.3 ملاحظات اتساق وحدود معروفة
 - ملف `README.md` الحالي **قديم**: يذكر 15 ملف SQL من أصل نحو 45 ولا يشرح ديوان الحفاظ ولا المراقبة الحية ولا الاختبار التجريبي. هذا الملف (`SITE-SPEC.md`) هو المرجع الأدق.
