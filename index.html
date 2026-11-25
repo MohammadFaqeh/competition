@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261125-rights">
   <!-- هوية «ليل المسابقة» للمسابقة السنوية فقط (كل قواعدها مقيّدة بـhtml.section-annual) — خطوطها محلية. -->
-  <link rel="stylesheet" href="theme-night.css?v=20261125-rights">
+  <link rel="stylesheet" href="theme-night.css?v=20261125-cheer2">
   <!-- تقسيمة «ب» للوحة إدارة المسابقة السنوية (شريط أيقونات + شريط سفلي على الجوال). كل قواعدها مقيّدة بـhtml.layout-b،
        والصنف يُضاف دائماً للسنوية بسكربت الرأس (قرار الإدارة 2026-11-25: لا رجوع للشكل الكلاسيكي). -->
   <link rel="stylesheet" href="layout-b.css?v=20261125-b6">
@@ -426,6 +426,22 @@
               <label class="settings-toggle"><span class="settings-toggle-text"><b>إظهار مواضع السحب للجان</b><small>عطّلها لإخفاء المواضع مؤقتاً دون حذفها، وفعّلها عند بدء المسابقة</small></span><span class="switch"><input id="settingsShowDraws" type="checkbox"><span class="switch-slider"></span></span></label>
               <label class="settings-toggle"><span class="settings-toggle-text"><b>عدّاد موعد الاختبار على شاشة الدخول</b><small>يظهر «باقي X أيام على الاختبار» للّجان قبل الدخول، ويختفي تلقائياً بعد يوم الاختبار</small></span><span class="switch"><input id="settingsExamCountdown" type="checkbox"><span class="switch-slider"></span></span></label>
               <label id="settingsExamDateRow" class="hidden">موعد الاختبار<input id="settingsExamDate" type="date"></label>
+              <label class="settings-toggle"><span class="settings-toggle-text"><b>رسائل تحفيز للجان</b><small>بطاقة بآية أو حديث أو دعاء تظهر لرئيس اللجنة والعضو بعد كل عدد من المتسابقين، وتختفي وحدها</small></span><span class="switch"><input id="settingsCheerEnabled" type="checkbox"><span class="switch-slider"></span></span></label>
+              <div id="settingsCheerOptions" class="cheer-settings">
+                <div class="cheer-settings-row">
+                  <label>تظهر بعد كل<span class="cheer-every"><input id="settingsCheerEvery" type="number" min="1" max="50" step="1" inputmode="numeric"><span>متسابقين</span></span></label>
+                  <label>مدة الظهور<select id="settingsCheerSeconds"><option value="15">15 ثانية</option><option value="30">30 ثانية</option><option value="60">دقيقة</option><option value="90">دقيقة ونصف</option></select></label>
+                </div>
+                <div class="cheer-kinds" role="group" aria-label="نوع الرسائل"><span>نوع الرسائل</span>
+                  <label><input type="checkbox" data-cheer-kind="verse"> آيات</label>
+                  <label><input type="checkbox" data-cheer-kind="hadith"> أحاديث</label>
+                  <label><input type="checkbox" data-cheer-kind="dua"> أدعية</label>
+                  <label><input type="checkbox" data-cheer-kind="cheer"> تشجيع</label>
+                  <label><input type="checkbox" data-cheer-kind="custom"> رسائل من الإدارة</label>
+                </div>
+                <label>رسائل من الإدارة <small class="field-help">(اختياري — كل سطر رسالة، حتى 20 رسالة)</small><textarea id="settingsCheerCustom" rows="3" maxlength="3000" placeholder="مثال: بارك الله في أوقاتكم"></textarea></label>
+                <button type="button" id="previewCheerBtn" class="secondary-btn"><i data-lucide="eye"></i> معاينة الرسالة</button>
+              </div>
               <div id="settingsSaveBar" class="settings-save-bar hidden" role="status"><span><i data-lucide="info"></i> لديك تغييرات غير محفوظة</span><div><button id="settingsSaveUndo" type="button" class="secondary-btn">تراجع</button><button type="submit" class="primary-btn">حفظ</button></div></div>
             </form>
             <section class="panel" data-settings-pane="general">
@@ -521,12 +537,13 @@
   <button id="colorModeToggle" class="color-mode-toggle" type="button" title="تبديل الوضع الداكن/الفاتح"><i data-lucide="moon"></i></button>
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true"><div id="modalContent" class="modal-card"></div></div>
   <div id="toast" class="toast hidden"></div>
+  <div id="committeeCheer" class="committee-cheer" role="status" aria-live="polite" hidden></div>
   <div id="committeeBroadcastOverlay" class="committee-broadcast-overlay hidden" role="alert"><div class="committee-broadcast-box"><button class="icon-btn" id="closeCommitteeBroadcast" type="button"><i data-lucide="x"></i></button><i data-lucide="megaphone" class="committee-broadcast-icon"></i><p id="committeeBroadcastText"></p></div></div>
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
   <script src="cloud.js?v=20261125-myname"></script>
-  <script src="app.js?v=20261125-rights"></script>
+  <script src="app.js?v=20261125-cheer"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>

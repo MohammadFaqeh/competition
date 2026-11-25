@@ -635,6 +635,9 @@ function bindEvents(){
   $("#runAuditBtn").addEventListener("click",runAudit);
   $("#settingsForm").addEventListener("submit",saveSettings);
   $("#settingsExamCountdown")?.addEventListener("change",syncExamCountdownField);
+  $("#settingsCheerEnabled")?.addEventListener("change",syncCheerSettingsField);
+  $("#previewCheerBtn")?.addEventListener("click",previewCommitteeCheer);
+  document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!$("#committeeCheer")?.hidden&&$("#modal")?.classList.contains("hidden"))hideCommitteeCheer()});
   $("#centerForm")?.addEventListener("submit",event=>{event.preventDefault();addManagedCenter($("#newCenterName").value);$("#newCenterName").value=""});
   // تفضيل محلي مستقل عن نموذج الإعدادات، يُطبَّق فوراً بلا حاجة لـ«حفظ التغييرات».
   $("#settingsLiveAutoRefresh")?.addEventListener("change",event=>{const enabled=event.target.checked;safeSetItem(LIVE_AUTOREFRESH_KEY,enabled?"on":"off");if(enabled)startAdminAutoRefresh();else stopAdminAutoRefresh();toast(enabled?"تم تفعيل التحديث التلقائي المباشر كل 9 ثوانٍ بهذا الجهاز":"تم إيقاف التحديث التلقائي — استخدم زر «تحديث نتائج اللجان» يدوياً عند الحاجة")});
@@ -1343,6 +1346,7 @@ function renderCommitteeStudents(){enforceWithdrawnZeroScore(state.participants)
   const committee=window.CloudCompetition.context?.committee;
   if(!committee)return;
   renderCommitteePassRate(committee);
+  checkCommitteeCheer();
   const chairman=committee.examiner_role!=="member";
   if($("#committeeRoleLabel"))$("#committeeRoleLabel").textContent=chairman?"رئيس لجنة الاختبار":"عضو لجنة الاختبار";
   const query=$("#committeeSearch").value.trim().toLowerCase();
@@ -4935,7 +4939,7 @@ function renderCommitteeBreakdownCenterOptions(centers){
 }
 function runAudit(){const button=$("#runAuditBtn");button.disabled=true;button.textContent="جارٍ تنفيذ 100,000 سحب...";setTimeout(()=>{const counts=Array(30).fill(0);for(let i=0;i<100000;i++)counts[randomIndex(30)]++;const expected=100000/30;const maxDeviation=Math.max(...counts.map(n=>Math.abs(n-expected)/expected*100));const score=Math.max(0,100-maxDeviation).toFixed(1);$("#auditScore").textContent=`${score}%`;$("#auditDetail").textContent=`أقصى انحراف عن المتوسط ${maxDeviation.toFixed(2)}%`;button.disabled=false;button.innerHTML=`<i data-lucide="activity"></i> إعادة الفحص`;lucide.createIcons();toast("اكتمل اختبار العشوائية")},50)}
 
-function hydrateSettings(){$("#settingsCompetitionName").value=state.config.competitionName;$("#settingsShowFullQuran").checked=Boolean(state.config.showFullQuranStats);$("#settingsShowDraws").checked=state.config.showDrawsToCommittees!==false;const examCountdown=state.config.examCountdown||{};$("#settingsExamCountdown").checked=Boolean(examCountdown.enabled);$("#settingsExamDate").value=examCountdown.date||"";syncExamCountdownField();if($("#settingsLiveAutoRefresh"))$("#settingsLiveAutoRefresh").checked=liveAutoRefreshEnabled();renderManagedCenters();hideSettingsSaveBar();updateSettingsRequestsBadge()}
+function hydrateSettings(){$("#settingsCompetitionName").value=state.config.competitionName;$("#settingsShowFullQuran").checked=Boolean(state.config.showFullQuranStats);$("#settingsShowDraws").checked=state.config.showDrawsToCommittees!==false;const examCountdown=state.config.examCountdown||{};$("#settingsExamCountdown").checked=Boolean(examCountdown.enabled);$("#settingsExamDate").value=examCountdown.date||"";syncExamCountdownField();hydrateCheerSettings();if($("#settingsLiveAutoRefresh"))$("#settingsLiveAutoRefresh").checked=liveAutoRefreshEnabled();renderManagedCenters();hideSettingsSaveBar();updateSettingsRequestsBadge()}
 // ===== تخطيط صفحة الإعدادات =====
 // تبويبات: كل قسم يحمل data-settings-pane، والتبويب يختفي تلقائياً إن كانت كل أقسامه مخفية لهذا الحساب
 // (الصلاحيات تُخفي الأقسام بكلاس hidden كما كانت — لا تغيير بمنطقها). نماذج الإضافة/التعديل بلوحة جانبية
@@ -5007,13 +5011,84 @@ function removeManagedCenter(name){
   state.config.managedCenters=(state.config.managedCenters||[]).filter(c=>c!==name);
   saveState();renderManagedCenters();toast("تم حذف المركز من القائمة المُدارة");
 }
-async function saveSettings(event){event.preventDefault();const countdownEnabled=$("#settingsExamCountdown").checked,countdownDate=$("#settingsExamDate").value;if(countdownEnabled&&!EXAM_DATE_RE.test(countdownDate)){$("#settingsExamDate").focus();return toast("حدّد موعد الاختبار لتفعيل العدّاد")}state.config.competitionName=$("#settingsCompetitionName").value.trim();state.config.showFullQuranStats=$("#settingsShowFullQuran").checked;state.config.showDrawsToCommittees=$("#settingsShowDraws").checked;state.config.examCountdown={enabled:countdownEnabled,date:countdownDate||null};saveState();if(operationMode==="cloud")publicExamCountdownPromise=Promise.resolve(countdownEnabled?{date:countdownDate}:null);$("#topCompetitionName").textContent=APP_SECTION==="diwan"?"ديوان الحفاظ — فرع الكورة":state.config.competitionName;renderDashboard();toast("تم حفظ الإعدادات")}
+async function saveSettings(event){event.preventDefault();const countdownEnabled=$("#settingsExamCountdown").checked,countdownDate=$("#settingsExamDate").value;if(countdownEnabled&&!EXAM_DATE_RE.test(countdownDate)){$("#settingsExamDate").focus();return toast("حدّد موعد الاختبار لتفعيل العدّاد")}state.config.competitionName=$("#settingsCompetitionName").value.trim();state.config.showFullQuranStats=$("#settingsShowFullQuran").checked;state.config.showDrawsToCommittees=$("#settingsShowDraws").checked;state.config.examCountdown={enabled:countdownEnabled,date:countdownDate||null};const cheer=readCheerSettingsForm();if(cheer.enabled&&cheer.kinds.length===1&&cheer.kinds[0]==="custom"&&!cheer.custom.length){$("#settingsCheerCustom").focus();return toast("أضف رسالة واحدة على الأقل في «رسائل من الإدارة» أو اختر نوعاً آخر")}state.config.committeeCheer=cheer;saveState();if(operationMode==="cloud")publicExamCountdownPromise=Promise.resolve(countdownEnabled?{date:countdownDate}:null);$("#topCompetitionName").textContent=APP_SECTION==="diwan"?"ديوان الحفاظ — فرع الكورة":state.config.competitionName;renderDashboard();toast("تم حفظ الإعدادات")}
 // عدّاد «باقي X أيام على الاختبار» (خيار للإدارة بالإعدادات ← بيانات الدورة، 2026-11-25) — المسابقة السنوية فقط.
 // المصدر: config.examCountdown = {enabled, date:"YYYY-MM-DD"}. السحابي (فرع الكورة): البوابة وشاشة دخول اللجان،
 // عبر public_exam_countdown (التاريخ فقط، قبل الدخول). المحلي: شاشة الدخول المحلية من بيانات هذا الجهاز.
 // يُحسب بالأيام التقويمية بتوقيت الجهاز؛ يوم الاختبار نفسه «اليوم يوم الاختبار»، وبعده يختفي.
 const EXAM_DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
 let publicExamCountdownPromise=null;
+
+// ===== رسائل تحفيز للجان (المسابقة السنوية) =====
+// بعد كل «every» متسابقين تُعتمد نتيجتهم في هذه اللجنة تظهر لرئيسها وعضوها بطاقة (آية/حديث/دعاء/تشجيع) لمدة محددة ثم تختفي، مع زر إغلاق.
+// الإعداد بـstate.config.committeeCheer (يحفظه المدير، ويصل اللجان مع config عبر committee_load_state كما هو — بلا تعديل بالخادم).
+// العدّ من جلسات اللجنة المعتمدة (committeeSessions) لا من state.participants، ولا تظهر البطاقة أثناء امتحان مفتوح: تؤجَّل حتى يُغلق.
+// النصوص الثابتة اعتمدتها الإدارة حرفياً (2026-11-25) — لا تُضاف/تُعدَّل دون موافقتها. لجان الإناث (responsible_gender=أنثى) بصيغة المؤنث (textF وعبارة العدّ).
+const COMMITTEE_CHEER_MESSAGES=[
+  {kind:"verse",text:"﴿إِنَّ الَّذِينَ يَتْلُونَ كِتَابَ اللَّهِ وَأَقَامُوا الصَّلَاةَ وَأَنفَقُوا مِمَّا رَزَقْنَاهُمْ سِرًّا وَعَلَانِيَةً يَرْجُونَ تِجَارَةً لَّن تَبُورَ﴾",source:"[فاطر: 29]"},
+  {kind:"hadith",text:"«اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعاً لأصحابه»",source:"رواه مسلم"},
+  {kind:"dua",text:"«اللهم اجعل القرآنَ ربيعَ قلوبنا، ونورَ صدورنا، وجلاءَ أحزاننا»",source:""},
+  {kind:"dua",text:"﴿رَبَّنَا تَقَبَّلْ مِنَّا إِنَّكَ أَنتَ السَّمِيعُ الْعَلِيمُ﴾",source:"[البقرة: 127]"},
+  {kind:"dua",text:"«اللهم بارك في جهدكم، واجعله في ميزان حسناتكم»",textF:"«اللهم بارك في جهدكنّ، واجعله في ميزان حسناتكنّ»",source:""},
+  {kind:"cheer",text:"«جهدكم اليوم يصنع حفّاظ الغد — جزاكم الله خيراً»",textF:"«جهدكنّ اليوم يصنع حافظات الغد — جزاكنّ الله خيراً»",source:""}
+];
+const COMMITTEE_CHEER_KINDS={verse:"آية كريمة",hadith:"حديث شريف",dua:"دعاء",cheer:"تحية",custom:"رسالة من الإدارة"};
+const COMMITTEE_CHEER_SECONDS=[15,30,60,90];
+function committeeCheerConfig(raw=state?.config?.committeeCheer){
+  const c=raw&&typeof raw==="object"?raw:{};
+  const every=Math.min(50,Math.max(1,Math.round(Number(c.every)||3)));
+  const seconds=COMMITTEE_CHEER_SECONDS.includes(Number(c.seconds))?Number(c.seconds):60;
+  const kinds=Array.isArray(c.kinds)?c.kinds.filter(kind=>Object.hasOwn(COMMITTEE_CHEER_KINDS,kind)):Object.keys(COMMITTEE_CHEER_KINDS);
+  const custom=(Array.isArray(c.custom)?c.custom:[]).map(text=>String(text??"").trim().slice(0,300)).filter(Boolean).slice(0,20);
+  return {enabled:c.enabled!==false,every,seconds,kinds:kinds.length?kinds:Object.keys(COMMITTEE_CHEER_KINDS),custom};
+}
+function committeeCheerPool(cfg){const pool=COMMITTEE_CHEER_MESSAGES.filter(message=>cfg.kinds.includes(message.kind));if(cfg.kinds.includes("custom"))cfg.custom.forEach(text=>pool.push({kind:"custom",text,source:""}));return pool.length?pool:COMMITTEE_CHEER_MESSAGES}
+// هل عبرت اللجنة مضاعفاً جديداً لـevery بين العدّ السابق والحالي؟ (3→4 لا، 5→6 نعم، 2→7 نعم مرة واحدة)
+function committeeCheerCrossed(previous,current,every){return current>previous&&current>0&&Math.floor(current/every)>Math.floor(previous/every)}
+function committeeCheerCountLabel(n,female=false){if(female)return n===1?"أتممتنّ أول متسابقة":n===2?"أتممتنّ متسابقتَين":`أتممتنّ ${formatNumber(n)} ${n<=10?"متسابقات":"متسابقةً"}`;return n===1?"أتممتم أول متسابق":n===2?"أتممتم متسابقَين":`أتممتم ${formatNumber(n)} ${n<=10?"متسابقين":"متسابقاً"}`}
+function committeeCheerFemale(){return window.CloudCompetition?.context?.committee?.responsible_gender==="أنثى"}
+let committeeCheerTimer=null,committeeCheerPending=null;
+function committeeCheerKey(){const committee=window.CloudCompetition?.context?.committee;return `competition-committee-cheer-${committee?.id||"x"}-${committee?.examiner_role==="member"?"member":"chairman"}`}
+function readCommitteeCheerMemo(){try{const value=JSON.parse(localStorage.getItem(committeeCheerKey())||"null");return value&&Number.isFinite(value.count)?value:null}catch{return null}}
+function checkCommitteeCheer(){
+  if(APP_SECTION!=="annual"||!window.CloudCompetition?.context?.committee)return;
+  const participantById=new Map((state.participants||[]).map(p=>[p.id,p]));
+  const done=new Set((committeeSessions||[]).filter(s=>s.status==="final"&&isRealExam(s)&&!participantById.get(s.participant_id)?.withdrawn).map(s=>s.participant_id)).size;
+  const memo=readCommitteeCheerMemo(),cfg=committeeCheerConfig();
+  // أول تحميل على هذا الجهاز: نحفظ العدد الحالي فقط (لا رسالة عند الدخول بمنتصف اليوم).
+  if(!memo){safeSetItem(committeeCheerKey(),JSON.stringify({count:done,next:0}));return}
+  if(cfg.enabled&&committeeCheerCrossed(memo.count,done,cfg.every))committeeCheerPending={count:done};
+  if(done!==memo.count)safeSetItem(committeeCheerKey(),JSON.stringify({...memo,count:done}));
+  showPendingCommitteeCheer();
+}
+function showPendingCommitteeCheer(){
+  if(!committeeCheerPending)return;
+  if($("#committeeApp")?.classList.contains("hidden")||!$("#modal")?.classList.contains("hidden"))return;
+  const {count}=committeeCheerPending;committeeCheerPending=null;
+  const cfg=committeeCheerConfig(),pool=committeeCheerPool(cfg),memo=readCommitteeCheerMemo()||{count,next:0};
+  const index=((Number(memo.next)||0)%pool.length+pool.length)%pool.length;
+  safeSetItem(committeeCheerKey(),JSON.stringify({...memo,next:index+1}));
+  showCommitteeCheer(pool[index],count,cfg.seconds,committeeCheerFemale());
+}
+function hideCommitteeCheer(){clearTimeout(committeeCheerTimer);committeeCheerTimer=null;const box=$("#committeeCheer");if(!box||box.hidden)return;box.classList.remove("is-in");setTimeout(()=>{if(!box.classList.contains("is-in"))box.hidden=true},350)}
+function showCommitteeCheer(message,count,seconds,female=false){
+  const box=$("#committeeCheer");if(!box||!message)return;
+  clearTimeout(committeeCheerTimer);
+  box.innerHTML=`<div class="committee-cheer-card"><button type="button" class="committee-cheer-close" aria-label="إغلاق الرسالة"><i data-lucide="x"></i></button>
+    <span class="committee-cheer-head"><i data-lucide="sparkles"></i>${female?"بارك الله فيكنّ":"بارك الله فيكم"}${count?` — ${escapeHtml(committeeCheerCountLabel(count,female))}`:""}</span>
+    <span class="committee-cheer-kind">${escapeHtml(COMMITTEE_CHEER_KINDS[message.kind]||"")}</span>
+    <p class="committee-cheer-text">${escapeHtml(female&&message.textF?message.textF:message.text)}</p>${message.source?`<small class="committee-cheer-source">${escapeHtml(message.source)}</small>`:""}
+    <span class="committee-cheer-timer" aria-hidden="true"><span style="animation-duration:${Number(seconds)||60}s"></span></span></div>`;
+  box.hidden=false;lucide.createIcons();
+  box.querySelector(".committee-cheer-close").onclick=hideCommitteeCheer;
+  requestAnimationFrame(()=>box.classList.add("is-in"));
+  committeeCheerTimer=setTimeout(hideCommitteeCheer,(Number(seconds)||60)*1000);
+}
+function readCheerSettingsForm(){return committeeCheerConfig({enabled:$("#settingsCheerEnabled")?.checked,every:$("#settingsCheerEvery")?.value,seconds:$("#settingsCheerSeconds")?.value,kinds:$$("[data-cheer-kind]").filter(input=>input.checked).map(input=>input.dataset.cheerKind),custom:($("#settingsCheerCustom")?.value||"").split("\n")})}
+function syncCheerSettingsField(){$("#settingsCheerOptions")?.classList.toggle("hidden",!$("#settingsCheerEnabled")?.checked)}
+function hydrateCheerSettings(){const cfg=committeeCheerConfig();if(!$("#settingsCheerEnabled"))return;$("#settingsCheerEnabled").checked=cfg.enabled;$("#settingsCheerEvery").value=cfg.every;$("#settingsCheerSeconds").value=String(cfg.seconds);$$("[data-cheer-kind]").forEach(input=>{input.checked=cfg.kinds.includes(input.dataset.cheerKind)});$("#settingsCheerCustom").value=cfg.custom.join("\n");syncCheerSettingsField()}
+function previewCommitteeCheer(){const cfg=readCheerSettingsForm(),pool=committeeCheerPool(cfg);if(cfg.kinds.length===1&&cfg.kinds[0]==="custom"&&!cfg.custom.length)return toast("أضف رسالة واحدة على الأقل في «رسائل من الإدارة»");const message=pool[Math.floor(Math.random()*pool.length)];cheerPreviewFemale=!cheerPreviewFemale;showCommitteeCheer(message,cfg.every,Math.min(cfg.seconds,15),cheerPreviewFemale);toast(cheerPreviewFemale?"معاينة بصيغة لجان الإناث":"معاينة بصيغة لجان الذكور")}
+let cheerPreviewFemale=true;
 function syncExamCountdownField(){const on=Boolean($("#settingsExamCountdown")?.checked);$("#settingsExamDateRow")?.classList.toggle("hidden",!on);if($("#settingsExamDate"))$("#settingsExamDate").required=on}
 function examCountdownDaysLeft(dateText,now=new Date()){if(!EXAM_DATE_RE.test(dateText||""))return null;const [year,month,day]=dateText.split("-").map(Number);const exam=new Date(year,month-1,day),today=new Date(now.getFullYear(),now.getMonth(),now.getDate());return Math.round((exam-today)/86400000)}
 function examCountdownUnit(days){return days===1?"يوم":days===2?"يومان":days<=10?"أيام":"يوماً"}
@@ -5107,7 +5182,7 @@ async function restoreBackupToCloud(data,diwan=null){
 function confirmNewCycle(){openModal(`<div class="modal-head"><h2>بدء دورة مسابقة جديدة</h2><button class="icon-btn" data-close><i data-lucide="x"></i></button></div><div class="modal-body"><p>سيتم مسح المتسابقين وسجل السحوبات من الجهاز، وستبقى إعدادات الدخول. نزّل نسخة احتياطية أولاً للاحتفاظ بسجل الدورة الحالية.</p><label>اكتب كلمة <b>دورة جديدة</b> للتأكيد<input id="cycleConfirm" autocomplete="off"></label></div><div class="modal-actions"><button class="secondary-btn" data-close>إلغاء</button><button id="confirmCycleBtn" class="danger-btn">بدء الدورة الجديدة</button></div>`);$("#confirmCycleBtn").onclick=()=>{if($("#cycleConfirm").value.trim()!=="دورة جديدة")return toast("اكتب عبارة التأكيد كما تظهر");state.participants=[];state.draws=[];state.resets.push({at:new Date().toISOString(),by:state.config.adminName});saveState();closeModal();renderAll();navigate("dashboard");toast("بدأت دورة جديدة")}}
 
 function openModal(html,extra=""){document.body.classList.remove("exam-fullscreen");$$("details.row-actions-more[open]").forEach(d=>d.removeAttribute("open"));const wasHidden=$("#modal").classList.contains("hidden");$("#modalContent").className=`modal-card ${extra}`;$("#modalContent").innerHTML=html;$("#modal").classList.remove("hidden");if(wasHidden&&!applyingBrowserHistory&&history.state?.marker===HISTORY_MARKER){const entry={...history.state,modal:true,ui:currentListUi()};history.pushState(entry,"",location.href)}$$(`[data-close]`,$("#modalContent")).forEach(b=>b.onclick=closeModal);lucide.createIcons()}
-function closeModal(){stopMemberPositionSync();document.body.classList.remove("exam-fullscreen");$("#modal").classList.add("hidden");$("#modalContent").innerHTML="";if(!applyingBrowserHistory&&history.state?.marker===HISTORY_MARKER&&history.state.modal){const entry={...history.state};delete entry.modal;history.replaceState(entry,"",location.href)}}
+function closeModal(){stopMemberPositionSync();document.body.classList.remove("exam-fullscreen");$("#modal").classList.add("hidden");$("#modalContent").innerHTML="";if(!applyingBrowserHistory&&history.state?.marker===HISTORY_MARKER&&history.state.modal){const entry={...history.state};delete entry.modal;history.replaceState(entry,"",location.href)}if(committeeCheerPending)setTimeout(showPendingCommitteeCheer,450)}
 function toast(message,duration=2600){const el=$("#toast");el.textContent=message;el.classList.remove("hidden");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add("hidden"),duration)}
 function downloadFile(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 function dateStamp(){return new Date().toISOString().slice(0,10)}

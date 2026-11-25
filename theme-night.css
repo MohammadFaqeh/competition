@@ -398,3 +398,38 @@ html.section-annual.theme-dark .welcome-band{border-color:var(--line)}
 
 /* شارة «الإصدار الثاني» فوق الليل (شاشات الدخول، والوضع الداكن) */
 html.section-annual .auth-screen .site-version,html.section-annual.theme-dark .site-version{background:rgba(232,176,106,.10);border-color:rgba(232,176,106,.35);color:var(--copper)}
+
+/* ---------- رسائل تحفيز للجان (بطاقة تنزل من الأعلى، ليلية بنقشة النجمة، تختفي وحدها) ---------- */
+.committee-cheer{position:fixed;z-index:70;top:calc(14px + env(safe-area-inset-top,0px));left:50%;width:min(520px,calc(100% - 24px));transform:translate(-50%,-24px);opacity:0;pointer-events:none;transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .35s ease}
+.committee-cheer.is-in{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.committee-cheer[hidden]{display:none!important}
+.committee-cheer-card{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:20px 22px 18px;border-radius:20px;color:#eef1fa;
+  background:radial-gradient(70% 90% at 50% 0%,rgba(232,176,106,.16),transparent 70%),var(--star-pattern,none),var(--night,#0a1128);background-size:auto,96px 96px,auto;
+  border:1px solid rgba(232,176,106,.35);box-shadow:0 24px 60px rgba(5,9,25,.45)}
+html.theme-rose .committee-cheer-card{border-color:rgba(237,167,193,.4);background:radial-gradient(70% 90% at 50% 0%,rgba(237,167,193,.16),transparent 70%),var(--star-pattern,none),var(--night,#140f2c);background-size:auto,96px 96px,auto}
+.committee-cheer-close{position:absolute;top:10px;left:10px;width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#c5cde6;display:grid;place-items:center;cursor:pointer;transition:background .2s ease,color .2s ease}
+.committee-cheer-close:hover,.committee-cheer-close:focus-visible{background:rgba(255,255,255,.14);color:#fff}
+.committee-cheer-close svg{width:16px;height:16px}
+.committee-cheer-head{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--copper,#e8b06a);padding-inline:34px}
+.committee-cheer-head svg{width:15px;height:15px}
+.committee-cheer-kind{font-size:10.5px;font-weight:700;letter-spacing:.3px;padding:2px 10px;border-radius:999px;background:rgba(232,176,106,.12);color:var(--copper,#e8b06a)}
+.committee-cheer-text{margin:2px 0 0;font-family:var(--font-display,inherit);font-size:21px;font-weight:600;line-height:1.85;color:#fff;text-wrap:balance}
+.committee-cheer-source{font-size:12px;color:#aab4d4}
+.committee-cheer-timer{position:absolute;inset:auto 0 0 0;height:3px;background:rgba(255,255,255,.06)}
+.committee-cheer-timer span{display:block;height:100%;width:100%;background:var(--copper,#e8b06a);transform-origin:right;animation:cheerTimer linear forwards}
+@keyframes cheerTimer{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@media(prefers-reduced-motion:reduce){.committee-cheer{transition:opacity .2s ease;transform:translate(-50%,0)}}
+@media(max-width:600px){.committee-cheer-text{font-size:18px}.committee-cheer-card{padding:18px 16px 16px}}
+
+.cheer-settings{display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--canvas)}
+.cheer-settings.hidden{display:none}
+.cheer-settings-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cheer-every{display:flex;align-items:center;gap:8px}
+.cheer-every input{width:90px;text-align:center}
+.cheer-every span{font-size:13px;color:var(--muted);white-space:nowrap}
+.cheer-kinds{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.cheer-kinds>span{flex:1 1 100%;font-size:13px;font-weight:700;color:var(--ink)}
+.cheer-kinds label{display:inline-flex;flex-direction:row;align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;cursor:pointer}
+.cheer-kinds input{width:18px;height:18px;margin:0;accent-color:var(--gold)}
+#previewCheerBtn{align-self:flex-start}
+@media(max-width:600px){.cheer-settings-row{grid-template-columns:1fr}}
