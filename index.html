@@ -16,15 +16,15 @@
   <!-- هوية «ليل المسابقة» للمسابقة السنوية فقط (كل قواعدها مقيّدة بـhtml.section-annual) — خطوطها محلية. -->
   <link rel="stylesheet" href="theme-night.css?v=20261125-decor4">
   <!-- تقسيمة «ب» للوحة إدارة المسابقة السنوية (شريط أيقونات + شريط سفلي على الجوال). كل قواعدها مقيّدة بـhtml.layout-b،
-       والصنف يُضاف بسكربت الرأس إلا إذا اختار المستخدم «الشكل الكلاسيكي» من الإعدادات — فالرجوع للقديم بكبسة. -->
-  <link rel="stylesheet" href="layout-b.css?v=20261125-b4">
+       والصنف يُضاف دائماً للسنوية بسكربت الرأس (قرار الإدارة 2026-11-25: لا رجوع للشكل الكلاسيكي). -->
+  <link rel="stylesheet" href="layout-b.css?v=20261125-b6">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="المسابقة السنوية">
   <!-- قسمان على نفس الموقع: المسابقة السنوية (index.html) وديوان الحفاظ (index.html?app=diwan، ورابطه المختصر diwan.html).
        يُحدَّد القسم هنا قبل رسم الصفحة ليأخذ عنوانه وأيقونته وتطبيقه (manifest) وألوانه من أول لحظة. -->
-  <script>(function(){var diwan=new URLSearchParams(location.search).get("app")==="diwan",root=document.documentElement;window.APP_SECTION=diwan?"diwan":"annual";root.classList.add(diwan?"section-diwan":"section-annual");if(!diwan){try{if(localStorage.getItem("competition-admin-layout")!=="classic")root.classList.add("layout-b")}catch(e){root.classList.add("layout-b")}return}root.classList.add("theme-diwan");document.title="ديوان الحفاظ — فرع الكورة";var set=function(sel,attr,val){var el=document.querySelector(sel);if(el)el.setAttribute(attr,val)};set('link[rel="icon"]',"href","assets/diwan-app-icons/icon-192.png?v=1");set('link[rel="manifest"]',"href","manifest-diwan.webmanifest");set('link[rel="apple-touch-icon"]',"href","assets/diwan-app-icons/apple-touch-icon.png");set('meta[name="apple-mobile-web-app-title"]',"content","ديوان الحفاظ");set('meta[name="theme-color"]',"content","#0f3a2e")})()</script>
+  <script>(function(){var diwan=new URLSearchParams(location.search).get("app")==="diwan",root=document.documentElement;window.APP_SECTION=diwan?"diwan":"annual";root.classList.add(diwan?"section-diwan":"section-annual");if(!diwan){root.classList.add("layout-b");try{localStorage.removeItem("competition-admin-layout")}catch(e){}return}root.classList.add("theme-diwan");document.title="ديوان الحفاظ — فرع الكورة";var set=function(sel,attr,val){var el=document.querySelector(sel);if(el)el.setAttribute(attr,val)};set('link[rel="icon"]',"href","assets/diwan-app-icons/icon-192.png?v=1");set('link[rel="manifest"]',"href","manifest-diwan.webmanifest");set('link[rel="apple-touch-icon"]',"href","assets/diwan-app-icons/apple-touch-icon.png");set('meta[name="apple-mobile-web-app-title"]',"content","ديوان الحفاظ");set('meta[name="theme-color"]',"content","#0f3a2e")})()</script>
 </head>
 <body>
   <div id="busyOverlay" class="loading-screen busy-overlay hidden" role="status" aria-live="polite"><img class="auth-logo loading-logo" src="assets/association-logo.png" alt=""><span class="busy-spinner" aria-hidden="true"></span><strong id="busyOverlayText">جارٍ التحميل...</strong><p>لحظات من فضلك</p></div>
@@ -250,7 +250,7 @@
           <span id="syncStatusPill" class="sync-status-pill hidden"></span>
           <div class="date-chip"><i data-lucide="calendar-days"></i><div class="date-chip-text"><span id="todayText"></span><small id="todayTime"></small></div></div>
           <button id="quickSearchPhoneBtn" class="icon-btn quick-search-phone" type="button" title="بحث عن متسابق" aria-label="بحث عن متسابق"><i data-lucide="search"></i></button>
-          <span id="topAccountChip" class="top-account-chip"><b id="topAccountInitial" aria-hidden="true"></b><span id="topAccountName"></span></span>
+          <button type="button" id="topAccountChip" class="top-account-chip" title="الحساب"><b id="topAccountInitial" aria-hidden="true"></b><span id="topAccountName"></span></button>
         </div>
       </header>
       <div id="localModeNotice" class="local-mode-notice hidden"><i data-lucide="hard-drive"></i><div><b>وضع محلي مستقل</b><span>البيانات محفوظة على هذا الجهاز فقط ولا تُرسل إلى فرع الكورة. نزّل نسخة احتياطية دورياً.</span></div><button id="localBackupShortcut" type="button">تنزيل نسخة الآن</button></div>
@@ -452,7 +452,6 @@
           <section class="panel" data-settings-pane="general">
             <h3>هذا الجهاز</h3>
             <label class="settings-toggle"><span class="settings-toggle-text"><b>تحديث تلقائي مباشر كل 9 ثوانٍ</b><small>فعّله يوم الامتحان فقط لتوفير الداتا والبطارية — يُطبَّق فوراً على هذا الجهاز</small></span><span class="switch"><input id="settingsLiveAutoRefresh" type="checkbox"><span class="switch-slider"></span></span></label>
-            <label class="settings-toggle" data-section="annual"><span class="settings-toggle-text"><b>الشكل الجديد للوحة الإدارة</b><small>شريط أيقونات جانبي، بحث سريع بالأعلى، وشريط سفلي على الجوال — أطفئه للرجوع للشكل الكلاسيكي</small></span><span class="switch"><input id="settingsAdminLayoutB" type="checkbox"><span class="switch-slider"></span></span></label>
           </section>
           <section id="cloudCommitteesPanel" class="panel cloud-committees-panel hidden" data-settings-pane="committees">
             <div class="panel-head"><h3>لجان الاختبار</h3><div class="panel-head-actions"><button id="sendCommitteeBroadcastBtn" class="secondary-btn hidden" type="button"><i data-lucide="megaphone"></i> رسالة للجان</button><button type="button" class="primary-btn" data-settings-drawer-open="committeeDrawer"><i data-lucide="plus"></i> إضافة لجنة</button></div></div>
@@ -526,8 +525,8 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20261125-countdown"></script>
-  <script src="app.js?v=20261125-b2"></script>
+  <script src="cloud.js?v=20261125-myname"></script>
+  <script src="app.js?v=20261125-b3"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>

@@ -741,25 +741,30 @@ function applyModeBranding(){const local=operationMode==="local";$("#setupBrandL
 // ديوان الحفاظ خاص بفرع الكورة — مخفي تماماً بالوضع المحلي (القائمة عبر CSS بـ.local-branch-app، والتنقل المباشر يُحوَّل للنظرة العامة).
 const LOCAL_HIDDEN_VIEWS=new Set(["diwan","diwanStudents","diwanStats"]);
 // تقسيمة «ب» (layout-b.css): عناصرها (البحث السريع، شارة الحساب، الشريط السفلي) موجودة بالـHTML دائماً لكنها مخفية إلا مع html.layout-b.
-// التفضيل محلي بهذا الجهاز فقط (الافتراضي: الجديد)، ويُقرأ بسكربت رأس index.html قبل الرسم؛ «الكلاسيكي» يرجّع الشكل القديم كما هو.
-const ADMIN_LAYOUT_KEY="competition-admin-layout";
+// الصنف يضيفه سكربت رأس index.html دائماً للسنوية (قرار الإدارة 2026-11-25: أُلغي خيار الرجوع للشكل الكلاسيكي).
 function layoutBActive(){return document.documentElement?.classList?.contains?.("layout-b")===true}
-function syncAdminLayoutPref(){const toggle=$("#settingsAdminLayoutB");if(toggle)toggle.checked=layoutBActive()}
-function setAdminLayout(mode){if(APP_SECTION!=="annual")return;const classic=mode==="classic";safeSetItem(ADMIN_LAYOUT_KEY,classic?"classic":"b");document.documentElement.classList.toggle("layout-b",!classic);$(".sidebar")?.classList.remove("open");syncAdminLayoutPref();syncSidebarTooltips($("#app")?.classList.contains("sidebar-collapsed"));syncTopViewTitle();if(!classic&&state?.config)renderHomeSmart();toast(classic?"رجعت اللوحة للشكل الكلاسيكي":"تم تفعيل الشكل الجديد")}
 function syncTopViewTitle(view){const title=$("#topViewTitle");if(title){view=view||$(".view.active-view")?.id?.replace(/View$/,"");const label=view?$(`.sidebar .nav-item[data-view="${view}"] span`):null;title.textContent=label?label.textContent.trim():""}const greeting=($("#topAdminGreeting")?.textContent||"").trim(),name=greeting.startsWith("أهلاً،")?greeting.slice(6).trim():(operationMode==="local"?(state?.config?.adminName||"المشرف"):"الإدارة");syncParticipantFiltersBadge();const nameEl=$("#topAccountName"),initialEl=$("#topAccountInitial");if(nameEl)nameEl.textContent=name;if(initialEl)initialEl.textContent=name.replace(/^ال/,"").charAt(0)}
 const normalizeQuickSearch=text=>String(text||"").replace(/[ً-ْـ]/g,"").replace(/[أإآ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي").toLowerCase().trim();
 // البحث السريع بالشريط العلوي: اسم صفحة (مثل «السحب») يفتحها، وغير ذلك يفتح «المتسابقون» مفلترةً بالنص (اسم/رقم جلوس/مركز).
 function runQuickSearch(raw){const query=String(raw||"").trim();if(!query)return;const normalized=normalizeQuickSearch(query);const page=normalized.length>=2&&!/^\d+$/.test(normalized)?$$(".sidebar .nav-item[data-view]").find(item=>!item.classList.contains("hidden")&&!inOtherSection(item)&&!(operationMode==="local"&&LOCAL_HIDDEN_VIEWS.has(item.dataset.view))&&[item.querySelector("span")?.textContent,item.dataset.short].some(label=>normalizeQuickSearch(label).includes(normalized))):null;if(page)navigate(page.dataset.view);else{navigate("participants");const input=$("#participantSearch");if(input){input.value=query;input.dispatchEvent(new Event("input",{bubbles:true}))}}const box=$("#quickSearchInput");if(box){box.value="";box.blur()}}
+// شارة الحساب: تعرض الاسم الكامل والدور، والمدير (السحابي) يعدّل اسمه الظاهر من هنا — التحقق والصلاحية بالخادم (RLS).
+function currentAccountRoleLabel(){if(operationMode==="local")return "المشرف المحلي";const kind=window.CloudCompetition?.context?.kind;return kind==="admin"?"مدير المسابقة":kind==="supervisor"?"مشرف المسابقة":kind==="subAdmin"?"مسؤول فرعي":"حساب"}
+function openMyAccountModal(){
+  const canRename=operationMode==="cloud"&&window.CloudCompetition?.context?.kind==="admin";
+  const name=($("#topAccountName")?.textContent||"").trim();
+  openModal(`<div class="modal-head"><div><span class="eyebrow">${escapeHtml(currentAccountRoleLabel())}</span><h2>${escapeHtml(name||"الحساب")}</h2></div><button class="icon-btn" data-close><i data-lucide="x"></i></button></div>${canRename?`<form id="myNameForm"><div class="modal-body"><label>اسمك كما يظهر بالترحيب وأعلى الصفحة<input id="myNameInput" maxlength="60" required value="${escapeAttr(name==="الإدارة"?"":name)}" placeholder="مثال: الاسم الثنائي"></label><p class="field-help">الدور يبقى «مدير المسابقة» — يتغيّر الاسم فقط.</p></div><div class="modal-actions"><button type="button" class="secondary-btn" data-close>إلغاء</button><button class="primary-btn" type="submit">حفظ الاسم</button></div></form>`:`<div class="modal-body"><p class="field-help">يُعدَّل اسم هذا الحساب من حساب الإدارة (الإعدادات ← الحسابات والصلاحيات).</p></div><div class="modal-actions"><button class="primary-btn" data-close>تم</button></div>`}`);
+  lucide.createIcons();
+  $("#myNameForm")?.addEventListener("submit",async event=>{event.preventDefault();const button=event.submitter||$("#myNameForm button[type=submit]");button.disabled=true;try{const saved=await window.CloudCompetition.updateMyDisplayName($("#myNameInput").value);const greeting=$("#topAdminGreeting");if(greeting)greeting.textContent=`أهلاً، ${saved}`;syncTopViewTitle();renderHomeSmart();closeModal();toast("تم حفظ الاسم")}catch(error){toast(error.message)}finally{button.disabled=false}});
+}
 function setupLayoutB(){
   $("#quickSearchForm")?.addEventListener("submit",event=>{event.preventDefault();runQuickSearch($("#quickSearchInput").value)});
   $("#quickSearchPhoneBtn")?.addEventListener("click",()=>{navigate("participants");$("#participantSearch")?.focus()});
   $("#bottomNavMore")?.addEventListener("click",()=>$(".sidebar").classList.toggle("open"));
-  $("#settingsAdminLayoutB")?.addEventListener("change",event=>setAdminLayout(event.target.checked?"b":"classic"));
+  $("#topAccountChip")?.addEventListener("click",openMyAccountModal);
   document.addEventListener("keydown",event=>{if(event.key!=="/"||!layoutBActive()||$("#app").classList.contains("hidden")||!$("#modal").classList.contains("hidden"))return;const target=event.target;if(target&&(target.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)))return;const box=$("#quickSearchInput");if(!box||!box.offsetParent)return;event.preventDefault();box.focus()});
   const filterIds=["participantFilter","participantGenderFilter","participantCenterFilter","participantLevelFilter","participantCommitteeFilter"];
   filterIds.forEach(id=>$("#"+id)?.addEventListener("change",syncParticipantFiltersBadge));
   $("#participantFiltersBtn")?.addEventListener("click",()=>{const tools=$("#participantFiltersBtn").closest(".table-tools");const open=tools.classList.toggle("filters-open");$("#participantFiltersBtn").setAttribute("aria-expanded",String(open))});
-  syncAdminLayoutPref();
 }
 // زر «فلترة» (جوال، تقسيمة «ب»): الفلاتر مطوية خلفه، والشارة تعرض عدد الفلاتر المفعّلة حتى لا تُنسى فلترة مخفية.
 function syncParticipantFiltersBadge(){const badge=$("#participantFiltersBadge");if(!badge)return;const count=["participantFilter","participantGenderFilter","participantCenterFilter","participantLevelFilter","participantCommitteeFilter"].filter(id=>{const el=$("#"+id);return el&&el.value&&el.value!=="all"}).length;badge.textContent=count?formatNumber(count):"";badge.classList.toggle("hidden",!count)}

@@ -258,3 +258,6 @@ html.layout-b .home-quick-btn:last-child:nth-child(odd){grid-column:1/-1}
   html.layout-b #committeesList .committee-row-head{flex-wrap:wrap;gap:8px}
   html.layout-b #committeesList .committee-row-head>div:first-child{flex:1 1 200px;min-width:0}
 }
+html.layout-b .top-account-chip{background:transparent;font-family:inherit;cursor:pointer;transition:border-color var(--dur-fast) var(--ease)}
+html.layout-b .top-account-chip:hover{border-color:var(--gold)}
+html.layout-b .top-account-chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}

@@ -47,6 +47,17 @@ window.CloudCompetition=(()=>{
       can_transfer_participant:row.permissions?.can_transfer_participant??false};
     return context={kind:profile.role,user,profile,committee:null};
   }
+  // اسم حساب المدير الظاهر (ترحيب، شارة الحساب، سجلات التدقيق القادمة). التحديث عبر سياسة RLS القائمة profiles_admin_write
+  // (المدير فقط، schema.sql) — لا صلاحية جديدة؛ المشرف يُرفض من الخادم أصلاً، والواجهة لا تعرض الخيار إلا للمدير.
+  async function updateMyDisplayName(name){
+    const clean=String(name||"").replace(/\s+/g," ").trim();
+    if(clean.length<2||clean.length>60)throw new Error("الاسم يجب أن يكون بين 2 و60 حرفاً");
+    if(context?.kind!=="admin"||!context.profile?.id)throw new Error("تعديل الاسم متاح لحساب الإدارة فقط");
+    const {data,error}=await client.from("profiles").update({display_name:clean}).eq("id",context.profile.id).select("display_name").single();
+    if(error)throw rpcError(error);
+    context.profile.display_name=data.display_name;
+    return data.display_name;
+  }
   async function signInAdmin(email,password){const {data,error}=await client.auth.signInWithPassword({email,password});if(error)throw new Error("بيانات الدخول غير صحيحة");return loadAdminContext(data.user)}
   // "نسيت كلمة السر" لكل الحسابات: تدفق ذاتي عبر Edge Function واحدة (password-reset، صلاحية service_role) — ترسل رمزاً للإداري وتحدّث كلمة السر/الـPIN بعد التحقق.
   async function requestLoginRecoveryCode(identifier){const {data,error}=await client.functions.invoke("password-reset",{body:{action:"request",identifier}});if(error)throw rpcError(error);if(data?.ok===false)throw new Error(data.error||"تعذر إرسال الرمز");return data}
@@ -237,7 +248,7 @@ window.CloudCompetition=(()=>{
   async function setStaffPermissions(subjectType,subjectId,patch){const {data,error}=await client.rpc("admin_set_staff_permissions",{p_subject_type:subjectType,p_subject_id:subjectId,p_patch:patch});if(error)throw rpcError(error);return data}
   async function setCommitteePermissions(committeeId,patch){const {data,error}=await client.rpc("admin_set_committee_permissions",{p_committee_id:committeeId,p_patch:patch});if(error)throw rpcError(error);return data}
 
-  return {accountSections,setAccountSections,enabled,init,getPublicExamCountdown,signInAdmin,requestLoginRecoveryCode,confirmLoginRecovery,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,getStateVersion,saveCompetitionState,restoreCompetitionStateInBatches,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,setCommitteeShowScore,setCommitteeShowStatsSummary,deleteParticipantSession,pruneOldLogs,listSessions,listFinalSessions,listActiveSessions,listRecentFinalSessions,listLiveCommitteeSessions,getCommitteeSession,listCommitteeNotifications,reportCommitteeIssue,listIssueReports,resolveIssueReport,lookupChangeTimes,claimStudent,cancelCommitteeSession,createCommitteeDraw,listCommitteeUsedPositionIds,listCommitteeUsedPositionsDetailed,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,undoCommitteePositionChange,saveSession,queueSessionSave,cancelQueuedSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,setSubAdminPermissions,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listPermissionCatalog,listSupervisorsWithPermissions,setStaffPermissions,setCommitteePermissions,get context(){return context},get client(){return client}};
+  return {accountSections,setAccountSections,enabled,init,getPublicExamCountdown,signInAdmin,updateMyDisplayName,requestLoginRecoveryCode,confirmLoginRecovery,signInCommittee,signInSubAdmin,resumeSubAdmin,refreshCommitteeAccess,signOut,loadCompetitionState,getStateVersion,saveCompetitionState,restoreCompetitionStateInBatches,queueStateSave,markAdminKnownIds,listCommittees,saveCommittee,assignParticipantToCommittee,transferParticipant,setCommitteeActive,deleteCommittee,setCommitteeFinalEdit,setCommitteeSelfDraw,setCommitteeShowScore,setCommitteeShowStatsSummary,deleteParticipantSession,pruneOldLogs,listSessions,listFinalSessions,listActiveSessions,listRecentFinalSessions,listLiveCommitteeSessions,getCommitteeSession,listCommitteeNotifications,reportCommitteeIssue,listIssueReports,resolveIssueReport,lookupChangeTimes,claimStudent,cancelCommitteeSession,createCommitteeDraw,listCommitteeUsedPositionIds,listCommitteeUsedPositionsDetailed,createAdminDraw,createSupervisorDraw,replaceCommitteePosition,undoCommitteePositionChange,saveSession,queueSessionSave,cancelQueuedSessionSave,log,listSubAdmins,saveSubAdmin,deleteSubAdmin,setSubAdminPermissions,saveSubAdminParticipants,queueSubAdminParticipantsSave,markSubAdminKnownIds,createSubAdminDraw,listActivityLog,markSupervisorKnownIds,saveSupervisorState,queueSupervisorSave,listPermissionCatalog,listSupervisorsWithPermissions,setStaffPermissions,setCommitteePermissions,get context(){return context},get client(){return client}};
 })();
 
 // "اختبارات ديوان الحفاظ - فرع الكورة": مسار مستقل عن المسابقة السنوية من ناحية بيانات
