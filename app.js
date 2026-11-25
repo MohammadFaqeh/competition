@@ -230,6 +230,7 @@ async function init(){
     applySectionBranding();
     lucide.createIcons();
     $("#setupPositions").textContent = "عند السحب";
+    renderExamCountdowns();
     initializeBrowserNavigation();
     // الديوان سحابي فقط (فرع الكورة) — لا وضع محلي فيه.
     const rememberedMode=APP_SECTION==="diwan"&&sessionStorage.getItem(ACTIVE_MODE_KEY)==="local"?null:sessionStorage.getItem(ACTIVE_MODE_KEY);
@@ -633,6 +634,7 @@ function bindEvents(){
   $("#deleteAllDrawsBtn").addEventListener("click",confirmDeleteAllDraws);
   $("#runAuditBtn").addEventListener("click",runAudit);
   $("#settingsForm").addEventListener("submit",saveSettings);
+  $("#settingsExamCountdown")?.addEventListener("change",syncExamCountdownField);
   $("#centerForm")?.addEventListener("submit",event=>{event.preventDefault();addManagedCenter($("#newCenterName").value);$("#newCenterName").value=""});
   // تفضيل محلي مستقل عن نموذج الإعدادات، يُطبَّق فوراً بلا حاجة لـ«حفظ التغييرات».
   $("#settingsLiveAutoRefresh")?.addEventListener("change",event=>{const enabled=event.target.checked;safeSetItem(LIVE_AUTOREFRESH_KEY,enabled?"on":"off");if(enabled)startAdminAutoRefresh();else stopAdminAutoRefresh();toast(enabled?"تم تفعيل التحديث التلقائي المباشر كل 9 ثوانٍ بهذا الجهاز":"تم إيقاف التحديث التلقائي — استخدم زر «تحديث نتائج اللجان» يدوياً عند الحاجة")});
@@ -746,7 +748,7 @@ function returnToGateway(){sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionSto
 async function openKouraMode(){operationMode="cloud";sessionStorage.setItem(ACTIVE_MODE_KEY,"cloud");state=loadState(CLOUD_STORAGE_KEY);applyModeBranding();$("#app").classList.remove("local-branch-app");const startup=await withBusyOverlay("جارٍ الاتصال بفرع الكورة...",initializeCloud);if(!startup?.enabled){sessionStorage.removeItem(ACTIVE_MODE_KEY);return toast("تعذر الاتصال بنظام فرع الكورة حالياً")}cloudEnabled=true;if(startup.context)return withBusyOverlay("جارٍ تحميل البيانات...",()=>enterCloudContext(startup.context),0);showScreen("cloudLoginScreen")}
 function openLocalMode(){operationMode="local";sessionStorage.setItem(ACTIVE_MODE_KEY,"local");sessionStorage.removeItem(LOCAL_ACCESS_KEY);state=loadState(LOCAL_STORAGE_KEY);applyModeBranding();$("#app").classList.add("local-branch-app");if(!state.config){$("#setupCompetitionName").value="مسابقة تحفيظ القرآن الكريم";$("#setupAdminName").value="";showScreen("setupScreen")}else{$("#loginCompetitionName").textContent=state.config.competitionName;showScreen("loginScreen")}}
 function logout(){if(operationMode==="cloud")return cloudLogout();sessionStorage.removeItem(ACTIVE_MODE_KEY);sessionStorage.removeItem(LOCAL_ACCESS_KEY);$("#app").classList.add("hidden");showScreen("gatewayScreen")}
-function showScreen(id){if(!$("#trialStandaloneScreen").classList.contains("hidden")){closeTrialAssessmentIfOpen();$("#trialStandaloneScreen").classList.add("hidden")}["gatewayScreen","setupScreen","loginScreen","cloudLoginScreen"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id));$("#committeeApp").classList.toggle("hidden",id!=="committeeApp");if(id)dockColorModeToggle(id==="committeeApp"?"committee":false);if(id&&!applyingBrowserHistory)recordBrowserRoute({surface:id==="committeeApp"?"committee":"screen",screen:id})}
+function showScreen(id){if(!$("#trialStandaloneScreen").classList.contains("hidden")){closeTrialAssessmentIfOpen();$("#trialStandaloneScreen").classList.add("hidden")}["gatewayScreen","setupScreen","loginScreen","cloudLoginScreen"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id));$("#committeeApp").classList.toggle("hidden",id!=="committeeApp");if(id)dockColorModeToggle(id==="committeeApp"?"committee":false);if(["gatewayScreen","cloudLoginScreen","loginScreen"].includes(id))renderExamCountdowns();if(id&&!applyingBrowserHistory)recordBrowserRoute({surface:id==="committeeApp"?"committee":"screen",screen:id})}
 function currentViewKey(){return operationMode==="local"?`${LAST_ADMIN_VIEW_KEY}.local`:`${LAST_ADMIN_VIEW_KEY}.cloud${APP_SECTION==="diwan"?".diwan":""}`}
 function currentListUi(){return {participantSearch:$("#participantSearch")?.value||"",participantFilter:$("#participantFilter")?.value||"all",participantGenderFilter:$("#participantGenderFilter")?.value||"all",participantCenterFilter:$("#participantCenterFilter")?.value||"all",participantLevelFilter:$("#participantLevelFilter")?.value||"all",participantCommitteeFilter:$("#participantCommitteeFilter")?.value||"all",historySearch:$("#historySearch")?.value||"",committeeSearch:$("#committeeSearch")?.value||"",committeeStatusFilter:$("#committeeStatusFilter")?.value||"all",scrollY:Math.max(0,window.scrollY||0)}}
 // فلاتر جدول المتسابقين تبقى محفوظة دائماً عبر localStorage (طبقة ثانية فوق history.state، الذي يتصفّر عند تحديث الصفحة).
@@ -4807,7 +4809,7 @@ function renderCommitteeBreakdownCenterOptions(centers){
 }
 function runAudit(){const button=$("#runAuditBtn");button.disabled=true;button.textContent="جارٍ تنفيذ 100,000 سحب...";setTimeout(()=>{const counts=Array(30).fill(0);for(let i=0;i<100000;i++)counts[randomIndex(30)]++;const expected=100000/30;const maxDeviation=Math.max(...counts.map(n=>Math.abs(n-expected)/expected*100));const score=Math.max(0,100-maxDeviation).toFixed(1);$("#auditScore").textContent=`${score}%`;$("#auditDetail").textContent=`أقصى انحراف عن المتوسط ${maxDeviation.toFixed(2)}%`;button.disabled=false;button.innerHTML=`<i data-lucide="activity"></i> إعادة الفحص`;lucide.createIcons();toast("اكتمل اختبار العشوائية")},50)}
 
-function hydrateSettings(){$("#settingsCompetitionName").value=state.config.competitionName;$("#settingsShowFullQuran").checked=Boolean(state.config.showFullQuranStats);$("#settingsShowDraws").checked=state.config.showDrawsToCommittees!==false;if($("#settingsLiveAutoRefresh"))$("#settingsLiveAutoRefresh").checked=liveAutoRefreshEnabled();renderManagedCenters();hideSettingsSaveBar();updateSettingsRequestsBadge()}
+function hydrateSettings(){$("#settingsCompetitionName").value=state.config.competitionName;$("#settingsShowFullQuran").checked=Boolean(state.config.showFullQuranStats);$("#settingsShowDraws").checked=state.config.showDrawsToCommittees!==false;const examCountdown=state.config.examCountdown||{};$("#settingsExamCountdown").checked=Boolean(examCountdown.enabled);$("#settingsExamDate").value=examCountdown.date||"";syncExamCountdownField();if($("#settingsLiveAutoRefresh"))$("#settingsLiveAutoRefresh").checked=liveAutoRefreshEnabled();renderManagedCenters();hideSettingsSaveBar();updateSettingsRequestsBadge()}
 // ===== تخطيط صفحة الإعدادات =====
 // تبويبات: كل قسم يحمل data-settings-pane، والتبويب يختفي تلقائياً إن كانت كل أقسامه مخفية لهذا الحساب
 // (الصلاحيات تُخفي الأقسام بكلاس hidden كما كانت — لا تغيير بمنطقها). نماذج الإضافة/التعديل بلوحة جانبية
@@ -4879,7 +4881,38 @@ function removeManagedCenter(name){
   state.config.managedCenters=(state.config.managedCenters||[]).filter(c=>c!==name);
   saveState();renderManagedCenters();toast("تم حذف المركز من القائمة المُدارة");
 }
-async function saveSettings(event){event.preventDefault();state.config.competitionName=$("#settingsCompetitionName").value.trim();state.config.showFullQuranStats=$("#settingsShowFullQuran").checked;state.config.showDrawsToCommittees=$("#settingsShowDraws").checked;saveState();$("#topCompetitionName").textContent=APP_SECTION==="diwan"?"ديوان الحفاظ — فرع الكورة":state.config.competitionName;renderDashboard();toast("تم حفظ الإعدادات")}
+async function saveSettings(event){event.preventDefault();const countdownEnabled=$("#settingsExamCountdown").checked,countdownDate=$("#settingsExamDate").value;if(countdownEnabled&&!EXAM_DATE_RE.test(countdownDate)){$("#settingsExamDate").focus();return toast("حدّد موعد الاختبار لتفعيل العدّاد")}state.config.competitionName=$("#settingsCompetitionName").value.trim();state.config.showFullQuranStats=$("#settingsShowFullQuran").checked;state.config.showDrawsToCommittees=$("#settingsShowDraws").checked;state.config.examCountdown={enabled:countdownEnabled,date:countdownDate||null};saveState();if(operationMode==="cloud")publicExamCountdownPromise=Promise.resolve(countdownEnabled?{date:countdownDate}:null);$("#topCompetitionName").textContent=APP_SECTION==="diwan"?"ديوان الحفاظ — فرع الكورة":state.config.competitionName;renderDashboard();toast("تم حفظ الإعدادات")}
+// عدّاد «باقي X أيام على الاختبار» (خيار للإدارة بالإعدادات ← بيانات الدورة، 2026-11-25) — المسابقة السنوية فقط.
+// المصدر: config.examCountdown = {enabled, date:"YYYY-MM-DD"}. السحابي (فرع الكورة): البوابة وشاشة دخول اللجان،
+// عبر public_exam_countdown (التاريخ فقط، قبل الدخول). المحلي: شاشة الدخول المحلية من بيانات هذا الجهاز.
+// يُحسب بالأيام التقويمية بتوقيت الجهاز؛ يوم الاختبار نفسه «اليوم يوم الاختبار»، وبعده يختفي.
+const EXAM_DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
+let publicExamCountdownPromise=null;
+function syncExamCountdownField(){const on=Boolean($("#settingsExamCountdown")?.checked);$("#settingsExamDateRow")?.classList.toggle("hidden",!on);if($("#settingsExamDate"))$("#settingsExamDate").required=on}
+function examCountdownDaysLeft(dateText,now=new Date()){if(!EXAM_DATE_RE.test(dateText||""))return null;const [year,month,day]=dateText.split("-").map(Number);const exam=new Date(year,month-1,day),today=new Date(now.getFullYear(),now.getMonth(),now.getDate());return Math.round((exam-today)/86400000)}
+function examCountdownUnit(days){return days===1?"يوم":days===2?"يومان":days<=10?"أيام":"يوماً"}
+function examCountdownLabel(days){if(days===null||days<0)return "";if(days===0)return "اليوم يوم الاختبار — بالتوفيق";if(days===1)return "باقي يوم واحد على الاختبار";if(days===2)return "باقي يومان على الاختبار";return `باقي ${days} ${examCountdownUnit(days)} على الاختبار`}
+function paintExamCountdown(source,dateText){
+  const days=examCountdownDaysLeft(dateText);
+  $$(`.exam-countdown[data-countdown-source="${source}"]`).forEach(box=>{
+    const show=days!==null&&days>=0;box.classList.toggle("hidden",!show);box.classList.toggle("is-today",show&&days===0);
+    if(!show){box.innerHTML="";box.removeAttribute("aria-label");return}
+    const [year,month,day]=dateText.split("-").map(Number);
+    const dateLabel=new Intl.DateTimeFormat("ar-JO",{weekday:"long",day:"numeric",month:"long",numberingSystem:"latn"}).format(new Date(year,month-1,day));
+    box.setAttribute("aria-label",examCountdownLabel(days));
+    box.innerHTML=days===0?`<b class="exam-countdown-num">اليوم</b><span><strong>يوم الاختبار — بالتوفيق</strong><small>${escapeHtml(dateLabel)}</small></span>`:`<b class="exam-countdown-num">${days}</b><span><strong>${examCountdownUnit(days)} على الاختبار</strong><small>${escapeHtml(dateLabel)}</small></span>`;
+  });
+}
+async function renderExamCountdowns(){
+  if(APP_SECTION!=="annual")return;
+  const local=loadState(LOCAL_STORAGE_KEY).config?.examCountdown;
+  paintExamCountdown("local",local?.enabled?local.date:null);
+  if(!publicExamCountdownPromise)publicExamCountdownPromise=window.CloudCompetition?.getPublicExamCountdown?window.CloudCompetition.getPublicExamCountdown():Promise.resolve(null);
+  // نتيجة طلب أقدم تصل متأخرة (بعد حفظ الإدارة لموعد جديد مثلاً) لا تكتب فوق الأحدث
+  const pending=publicExamCountdownPromise,cloud=await pending;
+  if(pending!==publicExamCountdownPromise)return;
+  paintExamCountdown("cloud",cloud?.date||null);
+}
 // النسخة الاحتياطية اليدوية: ملف واحد. data = المسابقة السنوية (بنفس مكانه القديم، فالملفات القديمة والجديدة تُستعاد بنفس الطريقة).
 // للمدير على السحابة يُضاف diwan (بيانات ديوان الحفاظ من الخادم مباشرة + جلسات اختباره) وexamSessions (جلسات السنوية، أرشيف).
 // نتائج لجان الديوان المعتمدة التي لم تُدمج بعد (لم تُفتح صفحة الديوان منذ اعتمادها) تُدمج داخل النسخة نفسها فقط.

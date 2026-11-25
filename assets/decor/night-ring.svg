@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 700" fill="none">
+  <!-- زخرفة يمين شاشة الدخول (ليل المسابقة): حلقة نحاسية متوهّجة كالقمر، بأقواس وتفاصيل غير متماثلة حتى يظهر دورانها البطيء، ونجوم تلمع. -->
+  <defs>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="inner" cx="50%" cy="50%" r="50%">
+      <stop offset=".55" stop-color="#e8b06a" stop-opacity="0"/>
+      <stop offset=".78" stop-color="#e8b06a" stop-opacity=".10"/>
+      <stop offset="1" stop-color="#e8b06a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="350" cy="350" r="330" fill="url(#inner)"/>
+  <!-- الحلقة الرئيسية -->
+  <circle cx="350" cy="350" r="262" stroke="#d99a4e" stroke-opacity=".85" stroke-width="44" filter="url(#glow)"/>
+  <circle cx="350" cy="350" r="262" stroke="#f6d9a8" stroke-opacity=".35" stroke-width="3"/>
+  <!-- أقواس داخلية متقطعة غير متماثلة -->
+  <circle cx="350" cy="350" r="206" stroke="#e8b06a" stroke-opacity=".35" stroke-width="2" stroke-dasharray="120 40 30 60 220 80"/>
+  <circle cx="350" cy="350" r="180" stroke="#e8b06a" stroke-opacity=".18" stroke-width="10" stroke-dasharray="70 300 140 400"/>
+  <circle cx="350" cy="350" r="318" stroke="#e8b06a" stroke-opacity=".22" stroke-width="1.5" stroke-dasharray="4 10"/>
+  <!-- علامات صغيرة على الحلقة -->
+  <g fill="#f6d9a8">
+    <circle cx="350" cy="32" r="9" filter="url(#glow)"/>
+    <circle cx="594" cy="520" r="5"/>
+    <circle cx="110" cy="470" r="4"/>
+  </g>
+  <!-- نجوم تلمع داخل الحلقة -->
+  <g fill="#f6d9a8">
+    <circle cx="300" cy="260" r="3"><animate attributeName="opacity" values=".2;1;.2" dur="3.4s" repeatCount="indefinite"/></circle>
+    <circle cx="410" cy="330" r="2.4"><animate attributeName="opacity" values="1;.3;1" dur="2.8s" repeatCount="indefinite"/></circle>
+    <circle cx="360" cy="440" r="3.2"><animate attributeName="opacity" values=".3;1;.3" dur="4.2s" repeatCount="indefinite"/></circle>
+    <circle cx="260" cy="390" r="2"><animate attributeName="opacity" values=".9;.2;.9" dur="3.7s" repeatCount="indefinite"/></circle>
+  </g>
+  <g stroke="#e8b06a" stroke-opacity=".25" stroke-width="1.2"><path d="M300 260 L410 330 L360 440 L260 390"/></g>
+</svg>

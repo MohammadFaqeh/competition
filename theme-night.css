@@ -260,6 +260,42 @@ html.section-annual .gateway-back-button{background:rgba(255,255,255,.04);border
 html.section-annual .gateway-back-button:hover{background:rgba(255,255,255,.08);border-color:var(--copper)}
 html.section-annual .diwan-jump{background:rgba(255,255,255,.05);border-color:rgba(232,176,106,.45);color:var(--ink)}
 
+/* شاشتا الدخول (الكورة والمحلي) على الشاشات العريضة: كان حول البطاقة فراغ كحلي كبير. نملأ الجانبين بزخرفتين
+   متوهّجتين بروح «ليل المسابقة» (طلب الإدارة 2026-11-25، بإلهام من صفحات الدخول المتحركة): يساراً نجمة ثمانية بداخلها
+   مصحف على رحل تطفو بهدوء، ويميناً حلقة نحاسية كالقمر تدور ببطء شديد، ونجوم تلمع داخلهما (SMIL داخل الـSVG).
+   ملفات SVG محلية (assets/decor) فلا إنترنت مطلوب؛ تحريك transform فقط مع will-change (طبقة واحدة تُرسم مرة وتُحرَّك،
+   فلا كلفة على الأجهزة الضعيفة)؛ prefers-reduced-motion يوقف الحركة (القاعدة العامة بـstyles.css). مخفية تحت 1200px (لا مساحة كافية). */
+@media(min-width:1200px){
+  html.section-annual #cloudLoginScreen,html.section-annual #loginScreen{position:relative;overflow:hidden;isolation:isolate}
+  html.section-annual #cloudLoginScreen::before,html.section-annual #loginScreen::before{
+    content:"";position:absolute;z-index:0;pointer-events:none;top:50%;
+    width:min(30vw,440px);aspect-ratio:520/560;left:calc((50% - 215px - min(30vw,440px)) / 2);
+    background:url(assets/decor/night-emblem.svg) center/contain no-repeat;
+    animation:nightFloat 7s ease-in-out infinite;will-change:transform;
+  }
+  html.section-annual #cloudLoginScreen::after,html.section-annual #loginScreen::after{
+    content:"";position:absolute;z-index:0;pointer-events:none;top:50%;
+    width:min(50vw,760px);aspect-ratio:1;right:calc(-1 * min(17vw,260px));
+    background:url(assets/decor/night-ring.svg) center/contain no-repeat;opacity:.8;
+    animation:nightSpin 120s linear infinite;will-change:transform;
+  }
+  html.section-annual #cloudLoginScreen .login-card,html.section-annual #loginScreen .login-card{position:relative;z-index:1;box-shadow:0 0 0 1px rgba(232,176,106,.10),0 0 80px rgba(232,176,106,.08),0 30px 80px rgba(0,0,0,.5)}
+}
+/* زوايا نحاسية حول بطاقة الدخول (إطار «تصويب») — خارج البطاقة بـ14px (بلا border-radius وإلا تُقص الزوايا)، على الشاشات غير الهاتفية */
+@media(min-width:761px){
+  html.section-annual .auth-screen .login-card::before{
+    content:"";position:absolute;inset:-14px;pointer-events:none;
+    --c:rgba(232,176,106,.85);
+    background:
+      linear-gradient(var(--c),var(--c)) top left/26px 2px no-repeat,linear-gradient(var(--c),var(--c)) top left/2px 26px no-repeat,
+      linear-gradient(var(--c),var(--c)) top right/26px 2px no-repeat,linear-gradient(var(--c),var(--c)) top right/2px 26px no-repeat,
+      linear-gradient(var(--c),var(--c)) bottom left/26px 2px no-repeat,linear-gradient(var(--c),var(--c)) bottom left/2px 26px no-repeat,
+      linear-gradient(var(--c),var(--c)) bottom right/26px 2px no-repeat,linear-gradient(var(--c),var(--c)) bottom right/2px 26px no-repeat;
+  }
+}
+@keyframes nightFloat{0%,100%{transform:translateY(-50%);opacity:.88}50%{transform:translateY(calc(-50% - 16px));opacity:1}}
+@keyframes nightSpin{from{transform:translateY(-50%) rotate(0deg)}to{transform:translateY(-50%) rotate(360deg)}}
+
 /* البوابة */
 html.section-annual .gateway-screen{background:radial-gradient(55% 45% at 85% 0%,rgba(232,176,106,.12),transparent 70%),radial-gradient(50% 40% at 0% 100%,rgba(120,140,220,.10),transparent 70%),var(--star-pattern),var(--night);background-size:auto,auto,96px 96px,auto}
 html.section-annual .gateway-card{background:transparent;box-shadow:none;padding:24px 8px}
@@ -315,6 +351,11 @@ html.section-annual.theme-rose .pdf-export-sheet{
   --green-50:#f6f2fb;--green-100:#ebe3f5;--green-600:#7a52a8;--green-700:#5a3a86;--green-800:#3d2763;--green-900:#1e1640;
   --gold-soft:#f9e6ee;--gold-600:#94385c;
 }
+
+/* عدّاد موعد الاختبار فوق الليل: إطار نحاسي خفيف ورقم نحاسي مضيء */
+html.section-annual .exam-countdown{background:rgba(232,176,106,.07);border-color:rgba(232,176,106,.35)}
+html.section-annual .exam-countdown-num{background:var(--copper-strong);color:var(--on-copper)}
+html.section-annual.theme-rose .exam-countdown{background:rgba(237,167,193,.07);border-color:rgba(237,167,193,.35)}
 
 /* الإشعار المنبثق: كان لونه var(--ink) فيصير فاتحاً بنص أبيض بالوضع الداكن (غير مقروء) — ليلي ثابت بالوضعين */
 html.section-annual .toast{background:var(--night);color:#fff;border:1px solid rgba(232,176,106,.35);border-radius:14px}

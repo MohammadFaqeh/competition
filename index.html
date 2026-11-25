@@ -12,9 +12,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261124-phones">
+  <link rel="stylesheet" href="styles.css?v=20261125-countdown">
   <!-- هوية «ليل المسابقة» للمسابقة السنوية فقط (كل قواعدها مقيّدة بـhtml.section-annual) — خطوطها محلية. -->
-  <link rel="stylesheet" href="theme-night.css?v=20261124-night2">
+  <link rel="stylesheet" href="theme-night.css?v=20261125-decor">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/app-icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -57,6 +57,7 @@
         <span class="eyebrow">منصة إدارة المسابقات القرآنية</span>
         <h1>اختر طريقة استخدام المنصة</h1>
         <p>بيانات فرع الكورة محمية بتسجيل الدخول، ويمكن لبقية الفروع استخدام الأدوات محلياً دون إرسال بياناتهم إلينا.</p>
+        <div class="exam-countdown hidden" data-countdown-source="cloud" role="status"></div>
       </div>
       <div class="gateway-options" data-section="annual">
         <article class="gateway-option koura-option">
@@ -111,6 +112,7 @@
       <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
       <p id="localLoginBrandLine">جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
       <h1 id="loginCompetitionName">المسابقة السنوية</h1>
+      <div class="exam-countdown hidden" data-countdown-source="local" role="status"></div>
       <form id="loginForm">
         <label>رمز الدخول<input id="loginPin" required type="password" inputmode="numeric" autofocus></label>
         <p id="loginError" class="form-error hidden">رمز الدخول غير صحيح</p>
@@ -128,6 +130,7 @@
       <img class="auth-logo login-logo-image" src="assets/association-logo.png" alt="شعار جمعية المحافظة على القرآن الكريم">
       <p id="cloudLoginBrandLine">جمعية المحافظة على القرآن الكريم | فرع الكورة</p>
       <h1 id="cloudLoginTitle">دخول لجنة الاختبار</h1>
+      <div class="exam-countdown hidden" data-countdown-source="cloud" data-section="annual" role="status"></div>
       <form id="committeeLoginForm">
         <label>رمز اللجنة<input id="committeeLoginCode" required autocomplete="username" inputmode="latin" placeholder="مثال: L01"></label>
         <label>الرقم السري PIN<input id="committeeLoginPin" required type="password" inputmode="numeric" minlength="4" autocomplete="current-password"></label>
@@ -414,6 +417,8 @@
               <label>اسم المسابقة<input id="settingsCompetitionName" required></label>
               <label class="settings-toggle"><span class="settings-toggle-text"><b>إظهار مستوى القرآن الكامل بالإحصائيات</b><small>مستوى 30 جزءاً</small></span><span class="switch"><input id="settingsShowFullQuran" type="checkbox"><span class="switch-slider"></span></span></label>
               <label class="settings-toggle"><span class="settings-toggle-text"><b>إظهار مواضع السحب للجان</b><small>عطّلها لإخفاء المواضع مؤقتاً دون حذفها، وفعّلها عند بدء المسابقة</small></span><span class="switch"><input id="settingsShowDraws" type="checkbox"><span class="switch-slider"></span></span></label>
+              <label class="settings-toggle"><span class="settings-toggle-text"><b>عدّاد موعد الاختبار على شاشة الدخول</b><small>يظهر «باقي X أيام على الاختبار» للّجان قبل الدخول، ويختفي تلقائياً بعد يوم الاختبار</small></span><span class="switch"><input id="settingsExamCountdown" type="checkbox"><span class="switch-slider"></span></span></label>
+              <label id="settingsExamDateRow" class="hidden">موعد الاختبار<input id="settingsExamDate" type="date"></label>
               <div id="settingsSaveBar" class="settings-save-bar hidden" role="status"><span><i data-lucide="info"></i> لديك تغييرات غير محفوظة</span><div><button id="settingsSaveUndo" type="button" class="secondary-btn">تراجع</button><button type="submit" class="primary-btn">حفظ</button></div></div>
             </form>
             <section class="panel" data-settings-pane="general">
@@ -506,8 +511,8 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="supabase-config.js"></script>
-  <script src="cloud.js?v=20261124-sections"></script>
-  <script src="app.js?v=20261124-phones"></script>
+  <script src="cloud.js?v=20261125-countdown"></script>
+  <script src="app.js?v=20261125-countdown"></script>
   <script src="demo.js?v=20261013-9slides"></script>
 </body>
 </html>
