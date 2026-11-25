@@ -264,25 +264,29 @@ html.section-annual .diwan-jump{background:rgba(255,255,255,.05);border-color:rg
    متوهّجتين بروح «ليل المسابقة» (طلب الإدارة 2026-11-25، بإلهام من صفحات الدخول المتحركة): يساراً نجمة ثمانية بداخلها
    مصحف على رحل تطفو بهدوء، ويميناً حلقة نحاسية كالقمر تدور ببطء شديد، ونجوم تلمع داخلهما (SMIL داخل الـSVG).
    ملفات SVG محلية (assets/decor) فلا إنترنت مطلوب؛ تحريك transform فقط مع will-change (طبقة واحدة تُرسم مرة وتُحرَّك،
-   فلا كلفة على الأجهزة الضعيفة)؛ prefers-reduced-motion يوقف الحركة (القاعدة العامة بـstyles.css). مخفية تحت 1200px (لا مساحة كافية). */
+   فلا كلفة على الأجهزة الضعيفة)؛ prefers-reduced-motion يوقف الحركة (القاعدة العامة بـstyles.css). مخفية تحت 1200px (لا مساحة كافية).
+   الموضع محسوب من منتصف الشاشة (نصف عرض البطاقة 215px + مسافة) لا من حافتيها، فتبقيان ملاصقتين للبطاقة
+   مهما اتسعت الشاشة أو صُغّر المتصفح (كانت الحلقة تبتعد لحافة الشاشة عند التصغير — 2026-11-25). */
 @media(min-width:1200px){
   html.section-annual #cloudLoginScreen,html.section-annual #loginScreen{position:relative;overflow:hidden;isolation:isolate}
   html.section-annual #cloudLoginScreen::before,html.section-annual #loginScreen::before{
     content:"";position:absolute;z-index:0;pointer-events:none;top:50%;
-    width:min(30vw,440px);aspect-ratio:520/560;left:calc((50% - 215px - min(30vw,440px)) / 2);
+    --decor-w:min(28vw,440px);--decor-gap:min(6vw,110px);
+    width:var(--decor-w);aspect-ratio:520/560;left:calc(50% - 215px - var(--decor-gap) - var(--decor-w));
     background:url(assets/decor/night-emblem.svg) center/contain no-repeat;
     animation:nightFloat 7s ease-in-out infinite;will-change:transform;
   }
   html.section-annual #cloudLoginScreen::after,html.section-annual #loginScreen::after{
     content:"";position:absolute;z-index:0;pointer-events:none;top:50%;
-    width:min(50vw,760px);aspect-ratio:1;right:calc(-1 * min(17vw,260px));
+    width:min(50vw,760px);aspect-ratio:1;left:calc(50% + 215px + min(6vw,110px));
     background:url(assets/decor/night-ring.svg) center/contain no-repeat;opacity:.8;
     animation:nightSpin 120s linear infinite;will-change:transform;
   }
   html.section-annual #cloudLoginScreen .login-card,html.section-annual #loginScreen .login-card{position:relative;z-index:1;box-shadow:0 0 0 1px rgba(232,176,106,.10),0 0 80px rgba(232,176,106,.08),0 30px 80px rgba(0,0,0,.5)}
 }
 /* الشاشة الأولى (البوابة) — نفس الزخرفتين (طلب الإدارة 2026-11-25). المحتوى أعرض (960px) فالجوانب أضيق: الزخرفتان
-   ثابتتان (fixed) عند حافتي الشاشة، نصفهما ظاهر بالجانب ونصفهما خلف البطاقات المعتمة، وتبقيان مكانهما أثناء التمرير. */
+   ثابتتان (fixed) بجانبي المحتوى (منتصف الشاشة ± 480px) — جزء منهما خلف البطاقات المعتمة، وتبقيان مكانهما أثناء التمرير
+   ومهما اتسعت الشاشة. */
 @media(min-width:1200px){
   html.section-annual #gatewayScreen{isolation:isolate}
   html.section-annual #gatewayScreen::before{
@@ -293,7 +297,7 @@ html.section-annual .diwan-jump{background:rgba(255,255,255,.05);border-color:rg
   }
   html.section-annual #gatewayScreen::after{
     content:"";position:fixed;z-index:0;pointer-events:none;top:50%;
-    width:min(50vw,760px);aspect-ratio:1;right:calc(-1 * min(22vw,330px));
+    width:min(50vw,760px);aspect-ratio:1;left:calc(50% + 480px - min(50vw,760px) * .3);
     background:url(assets/decor/night-ring.svg) center/contain no-repeat;opacity:.75;
     animation:nightSpin 120s linear infinite;will-change:transform;
   }
