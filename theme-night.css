@@ -281,6 +281,24 @@ html.section-annual .diwan-jump{background:rgba(255,255,255,.05);border-color:rg
   }
   html.section-annual #cloudLoginScreen .login-card,html.section-annual #loginScreen .login-card{position:relative;z-index:1;box-shadow:0 0 0 1px rgba(232,176,106,.10),0 0 80px rgba(232,176,106,.08),0 30px 80px rgba(0,0,0,.5)}
 }
+/* الشاشة الأولى (البوابة) — نفس الزخرفتين (طلب الإدارة 2026-11-25). المحتوى أعرض (960px) فالجوانب أضيق: الزخرفتان
+   ثابتتان (fixed) عند حافتي الشاشة، نصفهما ظاهر بالجانب ونصفهما خلف البطاقات المعتمة، وتبقيان مكانهما أثناء التمرير. */
+@media(min-width:1200px){
+  html.section-annual #gatewayScreen{isolation:isolate}
+  html.section-annual #gatewayScreen::before{
+    content:"";position:fixed;z-index:0;pointer-events:none;top:50%;
+    width:min(32vw,460px);aspect-ratio:520/560;left:calc((100% - 960px) / 2 - min(32vw,460px) * .62);
+    background:url(assets/decor/night-emblem.svg) center/contain no-repeat;
+    animation:nightFloat 7s ease-in-out infinite;will-change:transform;
+  }
+  html.section-annual #gatewayScreen::after{
+    content:"";position:fixed;z-index:0;pointer-events:none;top:50%;
+    width:min(50vw,760px);aspect-ratio:1;right:calc(-1 * min(22vw,330px));
+    background:url(assets/decor/night-ring.svg) center/contain no-repeat;opacity:.75;
+    animation:nightSpin 120s linear infinite;will-change:transform;
+  }
+  html.section-annual #gatewayScreen .gateway-card{z-index:1}
+}
 /* زوايا نحاسية حول بطاقة الدخول (إطار «تصويب») — خارج البطاقة بـ14px (بلا border-radius وإلا تُقص الزوايا)، على الشاشات غير الهاتفية */
 @media(min-width:761px){
   html.section-annual .auth-screen .login-card::before{
