@@ -696,7 +696,11 @@ tbody tr:hover{background:var(--green-50)}
 .data-source{display:flex;gap:12px;background:var(--green-50);padding:var(--sp-4);margin-top:var(--sp-5);color:var(--green-800);border-radius:var(--radius-sm)}
 .data-source span,.data-source small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
 
-footer{display:flex;justify-content:center;gap:var(--sp-5);padding:var(--sp-4);border-top:1px solid var(--line);color:var(--caption);font-size:11px;background:var(--surface)}
+footer{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:var(--sp-4);border-top:1px solid var(--line);color:var(--caption);font-size:11px;background:var(--surface)}
+/* سطر الحقوق والإصدار أسفل كل الشاشات (البوابة، شاشات الدخول، اللوحة) */
+.site-rights{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;font-size:10.5px;line-height:1.6;color:var(--caption)}
+.site-version{display:inline-flex;align-items:center;padding:2px 11px;border-radius:999px;border:1px solid var(--line);background:var(--gold-soft);color:var(--gold-600);font-size:10.5px;font-weight:700}
+.gateway-card>.site-rights,.auth-screen .developer-credit+.site-rights{margin-top:10px}
 .developer-credit{display:flex;flex-direction:column;align-items:center;text-align:center;line-height:1.55}.developer-credit b{color:var(--ink-soft);font-size:11px}.developer-credit span{display:block;font-size:10px;color:var(--caption)}.login-card>.developer-credit{margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft)}
 
 /* 14. Modal ------------------------------------------------------------------- */

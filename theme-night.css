@@ -395,3 +395,6 @@ html.section-annual .toast{background:var(--night);color:#fff;border:1px solid r
 /* 10. الوضع الداكن: القائمة الجانبية أعمق من الخلفية حتى لا تذوب فيها */
 html.section-annual.theme-dark .sidebar{border-left-color:var(--line)}
 html.section-annual.theme-dark .welcome-band{border-color:var(--line)}
+
+/* شارة «الإصدار الثاني» فوق الليل (شاشات الدخول، والوضع الداكن) */
+html.section-annual .auth-screen .site-version,html.section-annual.theme-dark .site-version{background:rgba(232,176,106,.10);border-color:rgba(232,176,106,.35);color:var(--copper)}

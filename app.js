@@ -757,6 +757,7 @@ function openMyAccountModal(){
   $("#myNameForm")?.addEventListener("submit",async event=>{event.preventDefault();const button=event.submitter||$("#myNameForm button[type=submit]");button.disabled=true;try{const saved=await window.CloudCompetition.updateMyDisplayName($("#myNameInput").value);const greeting=$("#topAdminGreeting");if(greeting)greeting.textContent=`أهلاً، ${saved}`;syncTopViewTitle();renderHomeSmart();closeModal();toast("تم حفظ الاسم")}catch(error){toast(error.message)}finally{button.disabled=false}});
 }
 function setupLayoutB(){
+  $$("[data-current-year]").forEach(el=>{el.textContent=String(new Date().getFullYear())});
   $("#quickSearchForm")?.addEventListener("submit",event=>{event.preventDefault();runQuickSearch($("#quickSearchInput").value)});
   $("#quickSearchPhoneBtn")?.addEventListener("click",()=>{navigate("participants");$("#participantSearch")?.focus()});
   $("#bottomNavMore")?.addEventListener("click",()=>$(".sidebar").classList.toggle("open"));
