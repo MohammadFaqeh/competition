@@ -260,48 +260,58 @@ html.section-annual .gateway-back-button{background:rgba(255,255,255,.04);border
 html.section-annual .gateway-back-button:hover{background:rgba(255,255,255,.08);border-color:var(--copper)}
 html.section-annual .diwan-jump{background:rgba(255,255,255,.05);border-color:rgba(232,176,106,.45);color:var(--ink)}
 
-/* شاشتا الدخول (الكورة والمحلي) على الشاشات العريضة: كان حول البطاقة فراغ كحلي كبير. نملأ الجانبين بزخرفتين
-   متوهّجتين بروح «ليل المسابقة» (طلب الإدارة 2026-11-25، بإلهام من صفحات الدخول المتحركة): يساراً نجمة ثمانية بداخلها
-   مصحف على رحل تطفو بهدوء، ويميناً حلقة نحاسية كالقمر تدور ببطء شديد، ونجوم تلمع داخلهما (SMIL داخل الـSVG).
-   ملفات SVG محلية (assets/decor) فلا إنترنت مطلوب؛ تحريك transform فقط مع will-change (طبقة واحدة تُرسم مرة وتُحرَّك،
-   فلا كلفة على الأجهزة الضعيفة)؛ prefers-reduced-motion يوقف الحركة (القاعدة العامة بـstyles.css). مخفية تحت 1200px (لا مساحة كافية).
-   الموضع محسوب من منتصف الشاشة (نصف عرض البطاقة 215px + مسافة) لا من حافتيها، فتبقيان ملاصقتين للبطاقة
-   مهما اتسعت الشاشة أو صُغّر المتصفح (كانت الحلقة تبتعد لحافة الشاشة عند التصغير — 2026-11-25). */
+/* زخرفة «ليل المسابقة» حول الدخول (طلب الإدارة 2026-11-25، بإلهام من صفحات الدخول المتحركة): نجمة ثمانية بداخلها
+   مصحف على رحل تطفو يساراً، وحلقة نحاسية كالقمر تدور ببطء يميناً، ونجوم تلمع داخلهما (SMIL داخل الـSVG).
+   التصميم متناظر ومرتب: الزخرفتان بنفس الحجم، كاملتان دائماً (لا قصّ عند حافة الشاشة)، وعلى نفس البعد من المحتوى
+   من الجهتين. الموضع والحجم محسوبان من منتصف الشاشة، فتبقيان ملاصقتين للمحتوى مهما اتسعت الشاشة أو صُغّر المتصفح؛
+   والحجم = الأصغر بين 420px والمساحة الجانبية المتاحة، فلا تخرجان من الشاشة أبداً.
+   ملفات SVG محلية (assets/decor)؛ تحريك transform فقط مع will-change؛ prefers-reduced-motion يوقف الحركة. */
+
+/* شاشتا الدخول (الكورة والمحلي): بجانبي البطاقة (عرضها 430px) — من 1200px */
 @media(min-width:1200px){
-  html.section-annual #cloudLoginScreen,html.section-annual #loginScreen{position:relative;overflow:hidden;isolation:isolate}
+  html.section-annual #cloudLoginScreen,html.section-annual #loginScreen{
+    position:relative;overflow:hidden;isolation:isolate;
+    --decor-gap:min(6vw,110px);
+    --decor-w:min(420px,calc(50vw - 215px - var(--decor-gap) - 32px));
+  }
+  html.section-annual #cloudLoginScreen::before,html.section-annual #loginScreen::before,
+  html.section-annual #cloudLoginScreen::after,html.section-annual #loginScreen::after{
+    content:"";position:absolute;z-index:0;pointer-events:none;top:50%;width:var(--decor-w);will-change:transform;
+  }
   html.section-annual #cloudLoginScreen::before,html.section-annual #loginScreen::before{
-    content:"";position:absolute;z-index:0;pointer-events:none;top:50%;
-    --decor-w:min(28vw,440px);--decor-gap:min(6vw,110px);
-    width:var(--decor-w);aspect-ratio:520/560;left:calc(50% - 215px - var(--decor-gap) - var(--decor-w));
+    aspect-ratio:520/560;left:calc(50% - 215px - var(--decor-gap) - var(--decor-w));
     background:url(assets/decor/night-emblem.svg) center/contain no-repeat;
-    animation:nightFloat 7s ease-in-out infinite;will-change:transform;
+    animation:nightFloat 7s ease-in-out infinite;
   }
   html.section-annual #cloudLoginScreen::after,html.section-annual #loginScreen::after{
-    content:"";position:absolute;z-index:0;pointer-events:none;top:50%;
-    width:min(50vw,760px);aspect-ratio:1;left:calc(50% + 215px + min(6vw,110px));
+    aspect-ratio:1;left:calc(50% + 215px + var(--decor-gap));
     background:url(assets/decor/night-ring.svg) center/contain no-repeat;opacity:.8;
-    animation:nightSpin 120s linear infinite;will-change:transform;
+    animation:nightSpin 120s linear infinite;
   }
   html.section-annual #cloudLoginScreen .login-card,html.section-annual #loginScreen .login-card{position:relative;z-index:1;box-shadow:0 0 0 1px rgba(232,176,106,.10),0 0 80px rgba(232,176,106,.08),0 30px 80px rgba(0,0,0,.5)}
 }
-/* الشاشة الأولى (البوابة) — نفس الزخرفتين (طلب الإدارة 2026-11-25). المحتوى أعرض (960px) فالجوانب أضيق: الزخرفتان
-   ثابتتان (fixed) بجانبي المحتوى (منتصف الشاشة ± 480px) — جزء منهما خلف البطاقات المعتمة، وتبقيان مكانهما أثناء التمرير
-   ومهما اتسعت الشاشة. */
-@media(min-width:1200px){
-  html.section-annual #gatewayScreen{isolation:isolate}
-  html.section-annual #gatewayScreen::before{
-    content:"";position:fixed;z-index:0;pointer-events:none;top:50%;
-    width:min(32vw,460px);aspect-ratio:520/560;left:calc((100% - 960px) / 2 - min(32vw,460px) * .62);
+
+/* الشاشة الأولى (البوابة): بجانبي العنوان فوق (عرضه 680px)، لا خلف البطاقات — فتبقى البطاقات نظيفة. من 1280px */
+@media(min-width:1280px){
+  html.section-annual #gatewayScreen .gateway-intro[data-section="annual"]{
+    position:relative;
+    --decor-gap:min(5vw,90px);
+    --decor-w:min(300px,calc(50vw - 340px - var(--decor-gap) - 32px));
+  }
+  html.section-annual #gatewayScreen .gateway-intro[data-section="annual"]::before,
+  html.section-annual #gatewayScreen .gateway-intro[data-section="annual"]::after{
+    content:"";position:absolute;z-index:0;pointer-events:none;top:50%;width:var(--decor-w);will-change:transform;
+  }
+  html.section-annual #gatewayScreen .gateway-intro[data-section="annual"]::before{
+    aspect-ratio:520/560;left:calc(0px - var(--decor-gap) - var(--decor-w));
     background:url(assets/decor/night-emblem.svg) center/contain no-repeat;
-    animation:nightFloat 7s ease-in-out infinite;will-change:transform;
+    animation:nightFloat 7s ease-in-out infinite;
   }
-  html.section-annual #gatewayScreen::after{
-    content:"";position:fixed;z-index:0;pointer-events:none;top:50%;
-    width:min(50vw,760px);aspect-ratio:1;left:calc(50% + 480px - min(50vw,760px) * .3);
-    background:url(assets/decor/night-ring.svg) center/contain no-repeat;opacity:.75;
-    animation:nightSpin 120s linear infinite;will-change:transform;
+  html.section-annual #gatewayScreen .gateway-intro[data-section="annual"]::after{
+    aspect-ratio:1;left:calc(100% + var(--decor-gap));
+    background:url(assets/decor/night-ring.svg) center/contain no-repeat;opacity:.8;
+    animation:nightSpin 120s linear infinite;
   }
-  html.section-annual #gatewayScreen .gateway-card{z-index:1}
 }
 /* زوايا نحاسية حول بطاقة الدخول (إطار «تصويب») — خارج البطاقة بـ14px (بلا border-radius وإلا تُقص الزوايا)، على الشاشات غير الهاتفية */
 @media(min-width:761px){
